@@ -36,6 +36,11 @@ jobs:
           cd apps
           bash build_all.sh
 
+      - name: Test workflow object-detection
+        run: |
+          cd apps/object-detection
+          bash test.sh
+
       - name: Push to docker
 
         # Only push to docker when merged to main
