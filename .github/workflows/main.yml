@@ -28,9 +28,8 @@ jobs:
 
       - uses: aperture-data/common_job_steps@v1
         with:
-          registry_username: ${{ secrets.DOCKER_USER }}
-          registry_password: ${{ secrets.DOCKER_PASS }}
-
+          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
 
       - name: Build apps
         run: |
