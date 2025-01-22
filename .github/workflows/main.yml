@@ -28,14 +28,8 @@ jobs:
 
       - uses: aperture-data/common_job_steps@v1
         with:
-<<<<<<< HEAD
           registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
           registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
-=======
-          registry_username: ${{ secrets.DOCKER_USER }}
-          registry_password: ${{ secrets.DOCKER_PASS }}
-
->>>>>>> 9552f0c (automatic commit message)
 
       - name: Build apps
         run: |
