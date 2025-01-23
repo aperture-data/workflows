@@ -1,0 +1,45 @@
+name: CI-build-apps
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  # Daily build
+  schedule:
+  - cron: "0 2 * * *"
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  build-apps:
+    runs-on:
+      - self-hosted
+      - deployer
+
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - uses: aperture-data/common_job_steps@v1
+        with:
+          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
+
+      - name: Build apps
+        run: |
+          cd apps
+          bash build_all.sh
+
+      - name: Push to docker
+
+        # Only push to docker when merged to main
+        if: github.event_name == 'push'
+        run: |
+          cd apps
+          bash push_all.sh
