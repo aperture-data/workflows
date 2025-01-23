@@ -1,8 +1,6 @@
 import os
 import argparse
 
-from aperturedb import Utils
-
 def main(params):
 
     print("This is the example app...")
