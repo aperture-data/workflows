@@ -265,7 +265,8 @@ def get_args():
     # Run Config
     obj.add_argument('-dataset_mode', type=str, default="sequential")
 
-    obj.add_argument('-model_name', type=str, default="frcnn-mobilenet")
+    obj.add_argument('-model_name', type=str,
+                     default=os.environ.get('MODEL_NAME', "frcnn-mobilenet"))
 
     obj.add_argument('-max_retrieved', type=int, default=0) # 0 means all
 
