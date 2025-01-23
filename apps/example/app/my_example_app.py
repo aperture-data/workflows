@@ -1,11 +1,6 @@
 import os
 import argparse
 
-<<<<<<< HEAD
-=======
-from aperturedb import Utils
-
->>>>>>> 9552f0c (automatic commit message)
 def main(params):
 
     print("This is the example app...")
