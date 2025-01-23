@@ -33,7 +33,13 @@ class BboxDetector():
 
         # load the list of categories in the COCO dataset and then generate a
         # set of bounding box colors for each class
-        self.classes = pickle.loads(open(self.labels_path, "rb").read())
+        try:
+            self.classes = pickle.loads(open(self.labels_path, "rb").read())
+        except:
+            print("FATAL ERROR: Could not load labels file.", flush=True)
+            exit(-1)
+
+        np.random.seed(42) # To keep the colors consistent
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
 
         # load the model and set it to evaluation mode

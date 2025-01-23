@@ -15,7 +15,7 @@ from aperturedb import PyTorchDataset
 
 from infer import BboxDetector as BboxDetector
 
-resize_scale = 0.75
+resize_scale = 0.5
 stop = False
 
 def log_info(db, msg, level="INFO"):
