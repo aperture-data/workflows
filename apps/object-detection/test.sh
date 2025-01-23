@@ -31,7 +31,7 @@ docker run \
            --network object-detection \
            -e DB_HOST=aperturedb \
            -e RUN_ONCE=true \
-           -e MODEL_NAME="frcnn-resnet" \
+           -e MODEL_NAME="frcnn-mobilenet" \
            aperturedata/workflows-object-detection
 
 # if CLEANUP is set to true, stop the aperturedb instance and remove the network
