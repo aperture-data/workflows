@@ -225,8 +225,9 @@ def main(params):
     print(f"Starting object detection on {len(data_loader)} images...", flush=True)
     for img, img_id in data_loader:
         start_infer = time.time()
-        detections = detector.infer(np.array(img[0].squeeze()))
-        # print(f"infer took: {(time.time() - start_infer):.2f}s", flush=True)
+
+        # https://numpy.org/devdocs/numpy_2_0_migration_guide.html#adapting-to-changes-in-the-copy-keyword
+        detections = detector.infer(np.array(img[0].squeeze(), dtype=None, copy=None))
 
         # Add detections to the queue
         queue.append((img_id[0], detections))
@@ -244,7 +245,7 @@ def main(params):
             break
 
     imgs_per_sec = imgs / (time.time() - start)
-    print(f"\r 100% complete @ {imgs_per_sec:.2f} imgs/s", flush=True)
+    print(f"\r 100% complete @ {imgs_per_sec:.2f} imgs/s \t", flush=True)
     print(f"Detection Took {time.time() - start:.2f}s", flush=True)
 
     start = time.time()
