@@ -47,7 +47,6 @@ class BboxDetector():
             num_classes=len(self.classes), pretrained_backbone=True).to(self.device)
         self.model.eval()
 
-
     def infer(self, image):
         # load the image from disk
 
@@ -65,6 +64,18 @@ class BboxDetector():
         # get the detections and predictions
         image = image.to(self.device)
         detections = self.model(image)[0]
+
+        self.last_infer_img = orig
+        self.detections     = detections
+
+        return detections
+
+    def get_last_infer_img(self):
+        return self.last_infer_img
+
+    def save_last_infer_img(self, path):
+
+        detections = self.detections
 
         # loop over the detections
         for i in range(0, len(detections["boxes"])):
@@ -84,20 +95,10 @@ class BboxDetector():
                 label = "{}: {:.2f}%".format(self.classes[idx], confidence * 100)
                 # print("[INFO] {}".format(label))
                 # draw the bounding box and label on the image
-                cv2.rectangle(orig, (startX, startY), (endX, endY),
+                cv2.rectangle(self.last_infer_img, (startX, startY), (endX, endY),
                     self.colors[idx], 2)
                 y = startY - 15 if startY - 15 > 15 else startY + 15
-                cv2.putText(orig, label, (startX, y),
+                cv2.putText(self.last_infer_imgig, label, (startX, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors[idx], 2)
 
-        self.last_infer_img = orig
-
-        self.detections = detections
-
-        return detections
-
-    def get_last_infer_img(self):
-        return self.last_infer_img
-
-    def save_last_infer_img(self, path):
         cv2.imwrite(path, self.last_infer_img)
