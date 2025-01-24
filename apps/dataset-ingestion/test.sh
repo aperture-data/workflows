@@ -20,7 +20,7 @@ docker run -d \
 sleep 20
 
 #Ingest and verify COCO
-docker run -it \
+docker run \
     --network ${WORKFLOW_NAME} \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
@@ -30,7 +30,7 @@ docker run -it \
     aperturedata/workflows-dataset-ingestion
 
 #Ingest and verify Faces
-docker run -it \
+docker run \
     --network ${WORKFLOW_NAME} \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
