@@ -36,6 +36,13 @@ jobs:
           cd apps
           bash build_all.sh
 
+      - name: Test workflow dataset-ingestion
+        env:
+          CLEANUP: "true"
+        run: |
+          cd apps/dataset-ingestion
+          bash test.sh
+
       - name: Push to docker
 
         # Only push to docker when merged to main
