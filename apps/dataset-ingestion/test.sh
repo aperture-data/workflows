@@ -22,6 +22,8 @@ sleep 20
 #Ingest and verify COCO
 docker run \
     --network ${WORKFLOW_NAME} \
+    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
@@ -32,6 +34,8 @@ docker run \
 #Ingest and verify Faces
 docker run \
     --network ${WORKFLOW_NAME} \
+    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
