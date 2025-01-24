@@ -91,7 +91,8 @@ def main():
     ingest_coco()
     update_adb_source()
     ingest_videos()
-    add_ro_user()
+    # Disable this for workflows.
+    #add_ro_user()
 
 if __name__ in "__main__":
     main()
