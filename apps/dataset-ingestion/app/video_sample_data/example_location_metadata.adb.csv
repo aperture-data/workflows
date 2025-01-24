@@ -1,0 +1,14 @@
+EntityClass,name,type,constraint_name
+Location,playground,outdoor,playground
+Location,auditorium,indoor,auditorium
+Location,sports_field,outdoor,sports_field
+Location,national_park,outdoor,national_park
+Location,forest,outdoor,forest
+Location,restaurant,indoor,restaurant
+Location,yard,outdoor,yard
+Location,bike_trail,outdoor,bike_trail
+Location,house,indoor,house
+Location,train_station,underground,train_station
+Location,pier,coastal,pier
+Location,office,indoor,office
+Location,online,virtual,online

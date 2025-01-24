@@ -1,0 +1,15 @@
+[
+    {
+        "UpdateImage": {
+            "constraints": {
+                "adb_data_source": [
+                    "!=",
+                    null
+                ]
+            },
+            "properties": {
+                "adb_data_source": "coco"
+            }
+        }
+    }
+]
