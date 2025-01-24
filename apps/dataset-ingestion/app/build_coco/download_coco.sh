@@ -7,7 +7,7 @@ DIR=/app/input/original
 aws s3 sync --quiet $DATA $DIR
 
 # Setup coco folder hierarchy
-cd input
+cd /app/input
 unzip -u $DIR/stuff_annotations_trainval2017.zip
 unzip -u $DIR/annotations_trainval2017.zip
 

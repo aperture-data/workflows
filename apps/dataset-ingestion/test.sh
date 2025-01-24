@@ -27,7 +27,7 @@ docker run \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
-    -e "SAMPLE_COUNT=1000" \
+    -e "SAMPLE_COUNT=-1" \
     -e "DATASET=coco" \
     aperturedata/workflows-dataset-ingestion
 
@@ -40,7 +40,7 @@ docker run \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
     -e "CLEAN=true" \
-    -e "SAMPLE_COUNT=1000" \
+    -e "SAMPLE_COUNT=-1" \
     -e "LOAD_CELEBAHQ=true" \
     -e "DATASET=faces" \
     aperturedata/workflows-dataset-ingestion
