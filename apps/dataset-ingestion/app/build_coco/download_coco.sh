@@ -4,7 +4,7 @@ mkdir -p data/original
 
 DATA=s3://aperturedb-demos/trial/data/original
 DIR=/app/input/original
-aws s3 sync $DATA $DIR
+aws s3 sync --quiet $DATA $DIR
 
 # Setup coco folder hierarchy
 cd input

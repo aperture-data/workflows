@@ -50,7 +50,7 @@ build_coco() {
 }
 
 build_faces() {
-    aws s3 sync s3://aperturedb-demos/faces input/
+    aws s3 sync --quiet s3://aperturedb-demos/faces input/
     cd input
 
     mkdir -p images
