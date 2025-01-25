@@ -12,21 +12,12 @@ from torch.utils.data import DataLoader
 
 from aperturedb import Utils
 from aperturedb import PyTorchDataset
+from aperturedb import CommonLibrary
 
 from infer import BboxDetector as BboxDetector
 
 resize_scale = 0.5
 stop = False
-
-def log_info(db, msg, level="INFO"):
-    """
-    Log to both console and aperturedb (for Grafana annotations)
-    """
-    print(msg, flush=True)
-    query = [dict(UserLogMessage=dict(type=level, text="eval: " + msg))]
-    status, _ = db.query(query)
-    print(query, status, flush=True)
-    assert 0 == status[0]['UserLogMessage']['status'], str((query, status))
 
 def push_to_aperturedb(db, img_id, detections, classes, source, confidence_threshold):
 
@@ -128,7 +119,7 @@ def main(params):
 
     print(f"Connecting to ApertureDB...")
 
-    db = Utils.create_connector()
+    db = CommonLibrary.create_connector()
 
     dbutils = Utils.Utils(db)
     dbutils.create_entity_index("_BoundingBox", "wf_source")
@@ -199,8 +190,6 @@ def main(params):
     detector = BboxDetector(model_name=params.model_name)
 
     # === Distributed Data Loader Sequential
-    # log_info(db, f"From DataLoaders Sequential. n={len(data_loader)}")
-    # print("Distributed Data Loader Sequential")
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,          # pick random values here to test
