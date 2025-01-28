@@ -15,7 +15,7 @@ docker run -d \
            --network ${WORKFLOW_NAME} \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
-           aperturedata/aperturedb:vci_develop
+           aperturedata/aperturedb:0.18.7
 
 sleep 20
 
