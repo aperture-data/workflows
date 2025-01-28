@@ -45,6 +45,14 @@ jobs:
           cd apps/dataset-ingestion
           bash test.sh
 
+      - name: Test workflow object-detection
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cd apps/object-detection
+          bash test.sh
+
       - name: Push to docker
 
         # Only push to docker when merged to main

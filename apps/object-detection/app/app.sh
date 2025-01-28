@@ -1,4 +1,12 @@
 #!/bin/bash
 set -e
 
-python3 coco_object_detection.py
+# Only return upon error
+while true; do
+    python3 eval.py
+
+    if [ "$RUN_ONCE" = "true" ]; then
+        break
+    fi
+    sleep 30
+done
