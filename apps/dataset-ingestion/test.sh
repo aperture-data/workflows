@@ -15,7 +15,8 @@ docker run -d \
            --network ${WORKFLOW_NAME} \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
-           aperturedata/aperturedb:0.18.7
+           -e ADB_KVGD_DB_SIZE="204800" \
+           aperturedata/aperturedb:vci_develop
 
 sleep 20
 
@@ -24,6 +25,8 @@ docker run \
     --network ${WORKFLOW_NAME} \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -v /home/ubuntu/Projects/ad/demos/trial/trial_data:/app/input \
+    -v /home/ubuntu/Projects/ad/demos/trial/output:/app/output \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
