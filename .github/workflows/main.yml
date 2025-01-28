@@ -19,7 +19,7 @@ jobs:
 
   build-apps:
     runs-on:
-      - benchmark
+      - deployer
       - self-hosted
 
     steps:
