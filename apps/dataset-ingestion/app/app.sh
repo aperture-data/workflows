@@ -45,8 +45,6 @@ build_coco() {
     echo "All Done. Bye."
 
     adb utils log --level INFO "{$APP} (coco): Successful completion"
-
-    python3 ingest_dataset.py
 }
 
 build_faces() {
