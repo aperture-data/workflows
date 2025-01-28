@@ -25,8 +25,6 @@ docker run \
     --network ${WORKFLOW_NAME} \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
-    -v /home/ubuntu/Projects/ad/demos/trial/trial_data:/app/input \
-    -v /home/ubuntu/Projects/ad/demos/trial/output:/app/output \
     -e "DB_HOST=aperturedb" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \

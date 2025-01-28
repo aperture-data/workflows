@@ -48,6 +48,8 @@ build_coco() {
 }
 
 build_faces() {
+    mkdir -p input
+    mkdir -p output
     aws s3 sync --quiet s3://aperturedb-demos/faces input/
     cd input
 
@@ -55,12 +57,12 @@ build_faces() {
     cd images
 
     # Extract all the images, first aligned, then unaligned
-    unzip -n ../img_align_celeba.zip
+    unzip -n -q ../img_align_celeba.zip
     cd ../../
 
     mkdir -p input/celeba-hq
     cd input/celeba-hq
-    unzip -n ../CelebAMask-HQ.zip
+    unzip -n -q ../CelebAMask-HQ.zip
     cd -
 
     adb utils log --level INFO "${APP} faces: Generating CelebA dataset"
