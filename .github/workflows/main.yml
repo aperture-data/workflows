@@ -41,8 +41,12 @@ jobs:
           cd apps/object-detection
           bash test.sh
 
-      - name: Push to docker
+      - name: Test workflow embeddings-extraction
+        run: |
+          cd apps/embeddings-extraction
+          bash test.sh
 
+      - name: Push to docker
         # Only push to docker when merged to main
         if: github.event_name == 'push'
         run: |
