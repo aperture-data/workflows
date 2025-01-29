@@ -13,10 +13,6 @@ fi
 python3 create_indexes.py
 python3 create_descriptorsets.py
 
-echo "Removing duplicates"
-python3 remove_duplicates.py celebA.csv
-mv pruned_celebA.csv celebA.csv
-
 echo "Ingesting"
 
 adb ingest from-csv celebA.csv --transformer image_properties --transformer common_properties  --ingest-type IMAGE --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS}  --sample-count ${SAMPLE_COUNT}

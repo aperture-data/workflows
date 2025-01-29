@@ -72,7 +72,12 @@ build_faces() {
     tar xf input/celebA.csv_facenet_pytorch_embeddings.tgz
     tar xf input/hqimages.adb.csv_facenet_pytorch_embeddings.tgz
 
-    # to inspect the CSV files after continaer exits
+
+    echo "Removing duplicates"
+    python3 remove_duplicates.py celebA.csv
+    mv pruned_celebA.csv celebA.csv
+
+    # to inspect the CSV files after container exits
     cp *.csv output/ -v
 
     if [[ $LOAD_CELEBAHQ == true ]]; then
