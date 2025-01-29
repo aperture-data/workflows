@@ -4,7 +4,7 @@ import os
 from aperturedb.ConnectionDataCSV  import ConnectionDataCSV
 from aperturedb.ImageDataCSV import ImageDataCSV
 from aperturedb.PolygonDataCSV import PolygonDataCSV
-from aperturedb import Utils
+from aperturedb.CommonLibrary import create_connector
 from aperturedb.ParallelLoader import ParallelLoader
 from aperturedb.ParallelQuery import ParallelQuery
 
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 		del data["connections.adb.csv"]
 
 	os.environ["APERTUREDB_CONFIG"] = opts.server
-	c = Utils.create_connector()
+	c = create_connector()
 	for file in data.keys():
 		if not os.path.exists( file ):
 			raise Exception(f"Missing source csv: {file}")

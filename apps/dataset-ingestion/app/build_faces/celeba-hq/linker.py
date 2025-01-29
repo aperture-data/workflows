@@ -3,9 +3,7 @@
 import os
 import pickle
 import pandas as pd
-from aperturedb import Utils
-
-from finder import ImageExistsDataCSV,PolygonExistsDataCSV,ConnectionExistsDataCSV
+from aperturedb.CommonLibrary import create_connector
 
 import argparse
 import logging
@@ -43,7 +41,7 @@ def retrieve_image_ids(db):
 
     # change query to retrieve image_id
     query[0]["FindImage"]["results"]["list"] = ["image_id"]
-    del query[0]["FindImage"]["results"]["count"] 
+    del query[0]["FindImage"]["results"]["count"]
 
 
     image_map = {}
@@ -74,7 +72,7 @@ def retrieve_image_ids(db):
             except Exception as e:
                     print("Failed split ", result)
                     return None
-	    #image_map.update( new_items ) 
+	    #image_map.update( new_items )
 
         offset = offset + chunk_size
 
@@ -97,7 +95,7 @@ def create_connections(server_id_map):
                 elif any( map( lambda e: e.startswith("full_"), celeba_links)):
                         celeba_link = next(filter( lambda e: e.startswith("full_"),celeba_links))
                 else:
-                        celeba_link = celeba_links[0]        
+                        celeba_link = celeba_links[0]
                 connections_df.loc[len(connections_df.index)] =\
                                         [ "CelebAHQToCelebA", chq_id ,celeba_link,chq_id,chq_id]
 
@@ -112,7 +110,7 @@ if __name__ == '__main__':
 		sys.exit(1)
 
 	os.environ["APERTUREDB_CONFIG"] = opts.server
-	c = Utils.create_connector()
+	c = create_connector()
 	server_id_map = retrieve_image_ids(c)
 
 	create_connections( server_id_map )

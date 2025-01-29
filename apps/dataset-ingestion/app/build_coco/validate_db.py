@@ -8,6 +8,7 @@ from aperturedb import ImageDataCSV
 from aperturedb import BBoxDataCSV
 from aperturedb import PolygonDataCSV
 from aperturedb import DescriptorDataCSV
+from aperturedb.CommonLibrary import create_connector, execute_query
 
 def parse_count_result(r):
     if len(r) >= 1:
@@ -35,7 +36,7 @@ def count_images(db, csv_folder, corpus):
             "blobs": False
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_images.adb.csv"
     d = ImageDataCSV.ImageDataCSV(in_csv_file, check_image=False)
@@ -50,7 +51,7 @@ def count_bboxes(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_bboxes.adb.csv"
     d = BBoxDataCSV.BBoxDataCSV(in_csv_file)
@@ -64,7 +65,7 @@ def count_polygons(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_polygons.adb.csv"
     d = PolygonDataCSV.PolygonDataCSV(in_csv_file)
@@ -80,7 +81,7 @@ def count_segmentations(db, csv_folder, corpus):
             "blobs": False
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_pixelmaps.adb.csv"
     d = ImageDataCSV.ImageDataCSV(in_csv_file, check_image=False)
@@ -95,7 +96,7 @@ def count_segmentation_connections(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_img_pixelmap_connections.adb.csv"
     d = ConnectionDataCSV.ConnectionDataCSV(in_csv_file)
@@ -127,7 +128,7 @@ def count_descriptors(db, csv_folder, corpus):
         }}
         ]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
     d_entities = r[1]["FindDescriptor"]["entities"]
     count = 0
     for img in r[0]["FindImage"]["entities"]:
@@ -149,7 +150,7 @@ def count_descriptor_connections(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    r, _ = db.query(q)
+    _, r, _ = execute_query(db, q, [])
 
     in_csv_file = csv_folder + corpus + "_connections.adb.csv"
     d = ConnectionDataCSV.ConnectionDataCSV(in_csv_file)
@@ -172,9 +173,9 @@ def validate_loaded_coco_objects(db, csv_folder, corpora):
     return found_everything
 
 def main(params):
-    db = Utils.create_connector()
-    dbutils = Utils.Utils(db)
-    print(dbutils)
+    client = create_connector()
+    utils = Utils.Utils(client)
+    print(utils)
 
 
     if not validate_loaded_coco_objects(db, params.input_file_path + "/", params.stages.split(',')):

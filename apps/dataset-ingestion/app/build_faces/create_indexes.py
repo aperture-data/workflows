@@ -1,4 +1,5 @@
-from aperturedb.Utils import Utils, create_connector
+from aperturedb.Utils import Utils
+from aperturedb.CommonLibrary import create_connector
 
 utils = Utils(create_connector())
 

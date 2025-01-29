@@ -1,4 +1,4 @@
-from aperturedb.Utils import Utils, create_connector
+from aperturedb.CommonLibrary import create_connector
 from aperturedb.ParallelQuery import execute_batch
 import pandas as pd
 import os

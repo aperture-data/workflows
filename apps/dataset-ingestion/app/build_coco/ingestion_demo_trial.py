@@ -1,6 +1,7 @@
 import os
 import sys
-from aperturedb.Utils import Utils, create_connector
+from aperturedb.Utils import Utils
+from aperturedb.CommonLibrary import create_connector
 
 #Hack to import videos module
 sys.path.append("..")
