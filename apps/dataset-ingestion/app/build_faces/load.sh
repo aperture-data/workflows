@@ -35,14 +35,5 @@ cd ..
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
-
-#ingest speaker videos
-adb ingest from-csv speaker_videos.csv --ingest-type VIDEO --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count -1
-adb ingest from-csv ../video_sample_data/example_store_metadata.adb.csv --ingest-type ENTITY --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count -1
-adb ingest from-csv ../video_sample_data/example_camera_metadata.adb.csv --ingest-type ENTITY --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count -1
-
-adb ingest from-csv ../video_sample_data/example_store_camera_connections.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count -1
-adb ingest from-csv ../video_sample_data/example_camera_video_connections.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count -1
-
 python3 validate_db.py
 echo "All Done. Bye."

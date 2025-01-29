@@ -3,10 +3,6 @@ import sys
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
 
-#Hack to import videos module
-sys.path.append("..")
-import videos
-
 def ingest_coco():
     """
     Entire ingestion pipeline for the COCO dataset + some videos + trial demo related data.
@@ -91,9 +87,7 @@ def main():
         clean_db()
     ingest_coco()
     update_adb_source()
-    ingest_videos()
-    # Disable this for workflows.
-    #add_ro_user()
+
 
 if __name__ in "__main__":
     main()

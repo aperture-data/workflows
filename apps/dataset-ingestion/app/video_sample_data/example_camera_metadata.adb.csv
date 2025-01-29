@@ -1,5 +1,0 @@
-EntityClass,id,brand,model,mobility,lighting,location,resolution,constraint_id
-Camera,1234,Nikon,D3500,mobile,mixed,variable,1080p,1234
-Camera,2345,Google,Nest,fixed,outdoor,house,1080p,2345
-Camera,2346,Google,Nest,fixed,indoor,house,1080p,2346
-Camera,3456,Meraki,MV32,fixed,indoor,store,12MP,3456
