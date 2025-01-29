@@ -26,7 +26,7 @@ def check_counts(json_result, csv_data, what):
     print("{} {} missing (found {} of {})".format(num_expected - num_found, what, num_found, num_expected))
     return False
 
-def count_images(db, csv_folder, corpus):
+def count_images(client, csv_folder, corpus):
     q = [ { "FindImage": {
             "constraints": {
                 "id": [">", 0],
@@ -36,13 +36,13 @@ def count_images(db, csv_folder, corpus):
             "blobs": False
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_images.adb.csv"
     d = ImageDataCSV.ImageDataCSV(in_csv_file, check_image=False)
     return check_counts(r, d, "{} Images".format(corpus))
 
-def count_bboxes(db, csv_folder, corpus):
+def count_bboxes(client, csv_folder, corpus):
     q = [ { "FindBoundingBox": {
             "constraints": {
                 "bbox_id": [">", 0],
@@ -51,13 +51,13 @@ def count_bboxes(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_bboxes.adb.csv"
     d = BBoxDataCSV.BBoxDataCSV(in_csv_file)
     return check_counts(r, d, "{} BoundingBoxes".format(corpus))
 
-def count_polygons(db, csv_folder, corpus):
+def count_polygons(client, csv_folder, corpus):
     q = [ { "FindPolygon": {
             "constraints": {
                 "corpus": ["==", corpus],
@@ -65,13 +65,13 @@ def count_polygons(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_polygons.adb.csv"
     d = PolygonDataCSV.PolygonDataCSV(in_csv_file)
     return check_counts(r, d, "{} Polygons".format(corpus))
 
-def count_segmentations(db, csv_folder, corpus):
+def count_segmentations(client, csv_folder, corpus):
     q = [ { "FindImage": {
             "constraints": {
                 "seg_id": [">", 0],
@@ -81,13 +81,13 @@ def count_segmentations(db, csv_folder, corpus):
             "blobs": False
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_pixelmaps.adb.csv"
     d = ImageDataCSV.ImageDataCSV(in_csv_file, check_image=False)
     return check_counts(r, d, "{} Segmentations".format(corpus))
 
-def count_segmentation_connections(db, csv_folder, corpus):
+def count_segmentation_connections(client, csv_folder, corpus):
     q = [ { "FindConnection": {
             "with_class": "segmentation",
             "constraints": {
@@ -96,13 +96,13 @@ def count_segmentation_connections(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_img_pixelmap_connections.adb.csv"
     d = ConnectionDataCSV.ConnectionDataCSV(in_csv_file)
     return check_counts(r, d, "{} Segmentation Connections".format(corpus))
 
-def count_descriptors(db, csv_folder, corpus):
+def count_descriptors(client, csv_folder, corpus):
     """
     Checks there is exactly one descriptor for each image in DB,
     under the specific set name.
@@ -128,7 +128,7 @@ def count_descriptors(db, csv_folder, corpus):
         }}
         ]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
     d_entities = r[1]["FindDescriptor"]["entities"]
     count = 0
     for img in r[0]["FindImage"]["entities"]:
@@ -141,7 +141,7 @@ def count_descriptors(db, csv_folder, corpus):
     print(f"{count} descriptors found for {corpus} Images, input had {len(d)} descriptors")
     return True
 
-def count_descriptor_connections(db, csv_folder, corpus):
+def count_descriptor_connections(client, csv_folder, corpus):
     q = [ { "FindConnection": {
             "with_class": "has_descriptor",
             "constraints": {
@@ -150,25 +150,25 @@ def count_descriptor_connections(db, csv_folder, corpus):
             "results": { "count": True }
         }}]
 
-    _, r, _ = execute_query(db, q, [])
+    _, r, _ = execute_query(client, q, [])
 
     in_csv_file = csv_folder + corpus + "_connections.adb.csv"
     d = ConnectionDataCSV.ConnectionDataCSV(in_csv_file)
     return check_counts(r, d, f"{corpus} Descriptor Connections")
 
-def validate_loaded_coco_objects(db, csv_folder, corpora):
+def validate_loaded_coco_objects(client, csv_folder, corpora):
 
     print("Validating DB object counts against CSV data in {}...".format(csv_folder))
 
     found_everything = True
     for corpus in corpora:
-        found_everything &= count_images(db, csv_folder, corpus)
-        found_everything &= count_bboxes(db, csv_folder, corpus)
-        found_everything &= count_polygons(db, csv_folder, corpus)
-        found_everything &= count_segmentations(db, csv_folder, corpus)
-        found_everything &= count_segmentation_connections(db, csv_folder, corpus)
-        found_everything &= count_descriptors(db, csv_folder, corpus)
-        # found_everything &= count_descriptor_connections(db, csv_folder, corpus)
+        found_everything &= count_images(client, csv_folder, corpus)
+        found_everything &= count_bboxes(client, csv_folder, corpus)
+        found_everything &= count_polygons(client, csv_folder, corpus)
+        found_everything &= count_segmentations(client, csv_folder, corpus)
+        found_everything &= count_segmentation_connections(client, csv_folder, corpus)
+        found_everything &= count_descriptors(client, csv_folder, corpus)
+        # found_everything &= count_descriptor_connections(client, csv_folder, corpus)
 
     return found_everything
 
@@ -178,7 +178,7 @@ def main(params):
     print(utils)
 
 
-    if not validate_loaded_coco_objects(db, params.input_file_path + "/", params.stages.split(',')):
+    if not validate_loaded_coco_objects(client, params.input_file_path + "/", params.stages.split(',')):
         print("Validation failed")
         exit(1)
     print("DB is complete :)")
