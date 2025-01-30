@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 BATCH_SIZE=${BATCH_SIZE:=1}
 NUM_WORKERS=${NUM_WORKERS:=8}
