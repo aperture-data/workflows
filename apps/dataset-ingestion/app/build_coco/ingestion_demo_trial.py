@@ -57,21 +57,6 @@ def update_adb_source():
     print(command)
     os.system(command)
 
-def ingest_videos():
-    video_data_path = "../video_sample_data"
-    input_file = os.path.join(video_data_path, "yfcc100m_dataset_100_videos_urls.txt")
-    output_video_path = os.path.join(video_data_path, "videos")
-    csv_file = os.path.join(video_data_path, "videos", "videos.adb.csv")
-    os.makedirs(output_video_path, exist_ok=True)
-    videos.generate_video_csv(input_file, output_video_path)
-    videos.download_videos(csv_file, "results/err_download.txt")
-
-    db = create_connector()
-    dbutils = Utils(db)
-    dbutils.create_entity_index("_Video", "guid")
-    dbutils.create_entity_index("Camera", "id")
-    videos.load_all(db, video_data_path, 1, 1, "results/err_format.txt")
-
 def add_ro_user():
     command = f"adb transact from-json-file create_ro_user_role.json"
     print(command)
