@@ -17,13 +17,9 @@ export LOAD_CELEBAHQ
 
 APP="Dataset ingest"
 
-err_handler() {
-    adb utils log --level ERROR "${APP}: Error in line $1, code $2"
-}
 
 build_coco() {
     adb utils log --level INFO "${APP} (coco): Start"
-    trap 'err_handler $LINENO ${?}' ERR
 
     date
     echo "Downloading data..."
@@ -91,6 +87,7 @@ build_faces() {
     # Ingest the CSV files
     adb utils log --level INFO "${APP} faces: Loading faces dataset"
     bash load.sh
+    adb utils log --level INFO "${APP} faces: Successful completion"
 }
 
 case ${DATASET} in
@@ -103,7 +100,7 @@ case ${DATASET} in
         build_faces
         ;;
     *)
-        adb utils log --level ERROR "${APP}: Unknown dataset ${DATASET}"
+        echo "${APP}: Unknown dataset ${DATASET}"
         exit 1
         ;;
 esac

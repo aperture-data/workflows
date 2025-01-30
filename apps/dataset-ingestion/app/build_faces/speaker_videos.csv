@@ -1,4 +1,0 @@
-s3_url,product,id,constraint_id,adb_data_source,date:date_captured,sequence
-s3://aperturedb-demos/speaker_videos/01.mp4,aperturedb,01,01,speaker_videos,2024-02-27T15:45:06.176858,20
-s3://aperturedb-demos/speaker_videos/02.mp4,aperturedb,02,02,speaker_videos,2024-02-27T15:45:06.176858,21
-s3://aperturedb-demos/speaker_videos/03.mp4,aperturedb,03,03,speaker_videos,2024-02-27T15:45:06.176858,22
