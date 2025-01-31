@@ -26,6 +26,3 @@ cd ..
 tar -xf $DIR/val_clip_embeddings.tgz
 tar -xf $DIR/train_clip_embeddings.tgz
 
-
-
-cd ../..

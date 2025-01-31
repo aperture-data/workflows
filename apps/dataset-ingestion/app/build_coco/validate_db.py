@@ -168,7 +168,7 @@ def validate_loaded_coco_objects(client, csv_folder, corpora):
         found_everything &= count_segmentations(client, csv_folder, corpus)
         found_everything &= count_segmentation_connections(client, csv_folder, corpus)
         found_everything &= count_descriptors(client, csv_folder, corpus)
-        # found_everything &= count_descriptor_connections(client, csv_folder, corpus)
+        found_everything &= count_descriptor_connections(client, csv_folder, corpus)
 
     return found_everything
 
