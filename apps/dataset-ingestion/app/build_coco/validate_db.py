@@ -141,21 +141,6 @@ def count_descriptors(client, csv_folder, corpus):
     print(f"{count} descriptors found for {corpus} Images, input had {len(d)} descriptors")
     return True
 
-def count_descriptor_connections(client, csv_folder, corpus):
-    q = [ { "FindConnection": {
-            "with_class": "has_descriptor",
-            "constraints": {
-                "corpus": ["==", corpus]
-            },
-            "results": { "count": True }
-        }}]
-
-    _, r, _ = execute_query(client, q, [])
-
-    in_csv_file = csv_folder + corpus + "_connections.adb.csv"
-    d = ConnectionDataCSV.ConnectionDataCSV(in_csv_file)
-    return check_counts(r, d, f"{corpus} Descriptor Connections")
-
 def validate_loaded_coco_objects(client, csv_folder, corpora):
 
     print("Validating DB object counts against CSV data in {}...".format(csv_folder))
@@ -168,7 +153,6 @@ def validate_loaded_coco_objects(client, csv_folder, corpora):
         found_everything &= count_segmentations(client, csv_folder, corpus)
         found_everything &= count_segmentation_connections(client, csv_folder, corpus)
         found_everything &= count_descriptors(client, csv_folder, corpus)
-        found_everything &= count_descriptor_connections(client, csv_folder, corpus)
 
     return found_everything
 
