@@ -19,8 +19,8 @@ jobs:
 
   build-apps:
     runs-on:
-      - self-hosted
       - deployer
+      - self-hosted
 
     steps:
 
@@ -36,7 +36,19 @@ jobs:
           cd apps
           bash build_all.sh
 
+      - name: Test workflow dataset-ingestion
+        env:
+          CLEANUP: "true"
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cd apps/dataset-ingestion
+          bash test.sh
+
       - name: Test workflow object-detection
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           cd apps/object-detection
           bash test.sh
