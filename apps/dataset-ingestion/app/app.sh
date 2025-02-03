@@ -33,7 +33,7 @@ build_coco() {
 
     date
     echo "loading data..."
-    python3 ingestion_demo_trial.py /app/input
+    python3 ingestion_demo_trial.py -R /app/input -C $CLEAN -B $BATCH_SIZE -W $NUM_WORKERS -S $SAMPLE_COUNT
 
     python3 validate_db.py -input_file_path=/app/input
 
@@ -63,7 +63,7 @@ build_faces() {
 
     adb utils log --level INFO "${APP} faces: Generating CelebA dataset"
     # Generate the CSV files
-    python3 CelebA.py
+    python3 CelebA.py -R "input/images/img_align_celeba" -A "input/list_attr_celeba.txt" -B "input/list_bbox_celeba.txt"
     tar xf input/celebA.csv_clip_pytorch_embeddings.tgz
     tar xf input/celebA.csv_facenet_pytorch_embeddings.tgz
     tar xf input/hqimages.adb.csv_facenet_pytorch_embeddings.tgz

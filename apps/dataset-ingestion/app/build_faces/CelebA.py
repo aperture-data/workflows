@@ -1,31 +1,18 @@
 import os
-from aperturedb.Subscriptable import Subscriptable
 import pandas as pd
 import time
+import argparse
 
+from aperturedb.Subscriptable import Subscriptable
 
 class CelebA(Subscriptable):
-    def __init__(self,
-                 attr_file:str = "input/list_attr_celeba.txt",
-                 bbox_file:str = "input/list_bbox_celeba.txt",
-                 landmarks_file:str = "input/image_data/CelebA/Anno/list_landmarks_celeba.txt",):
-        attr_file = attr_file
-        df = pd.read_csv(attr_file, delim_whitespace=True, header=1)
-
-        bbox_file = bbox_file
-        df_bbox = pd.read_csv(bbox_file, delim_whitespace=True, header=1)
-
-        # landmarks_file = landmarks_file
-        # df_landmarks = pd.read_csv(landmarks_file, delim_whitespace=True, header=1)
+    def __init__(self, cli_args):
+        df = pd.read_csv(cli_args.attr_file, delim_whitespace=True, header=1)
+        df_bbox = pd.read_csv(cli_args.bbox_file, delim_whitespace=True, header=1)
 
         df = pd.merge(left=df, right=df_bbox, left_index=True, right_on="image_id")
-        # df = pd.merge(left=merge1, right=df_landmarks, right_index=True, left_on="image_id")
-
         self.collection = df.to_dict(orient="records")
-
-        # self.images_root = "input/images/img_celeba"
-        self.images_align_root = "input/images/img_align_celeba"
-
+        self.images_align_root = cli_args.images_align_root
 
     def __len__(self):
         return len(self.collection)
@@ -69,10 +56,20 @@ class CelebA(Subscriptable):
 
         df.to_csv(filename, index=False)
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-R", "--images_align_root", type=str,
+                        default="data", help="Images root directory")
+    parser.add_argument("-A", "--attr_file", type=str,
+                        default="input/list_attr_celeba.txt", help="Attribute file")
+    parser.add_argument("-B", "--bbox_file", type=str,
+                        default="input/list_bbox_celeba.txt", help="Bounding box file")
+    return parser.parse_args()
 
 if __name__ == "__main__":
     start = time.time()
-    celebA = CelebA()
+    cli_args = parse_args()
+    celebA = CelebA(cli_args)
     celebA.write_csv("celebA.csv")
     print("Done")
     print("Time: ", time.time() - start)

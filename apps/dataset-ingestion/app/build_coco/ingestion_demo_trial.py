@@ -3,7 +3,7 @@ import sys
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
 
-def ingest_coco():
+def ingest_coco(cli_args):
     """
     Entire ingestion pipeline for the COCO dataset + some videos + trial demo related data.
     """
@@ -16,10 +16,6 @@ def ingest_coco():
     dbutils.create_entity_index("_Polygon", "ann_id")
     dbutils.create_entity_index("_Descriptor", "yfcc_id")
 
-    root_dir = sys.argv[1] if len(sys.argv) > 1 else "data"
-    sample_count = os.environ.get("SAMPLE_COUNT", 10)
-    num_workers = os.environ.get("NUM_WORKERS", 32)
-    batch_size = os.environ.get("BATCH_SIZE", 100)
     args = {
         "images": "IMAGE",
         "bboxes": "BOUNDING_BOX",
@@ -46,11 +42,11 @@ def ingest_coco():
 
     for stage in stages:
         for obj in objs:
-            common_command = f"adb ingest from-csv {root_dir}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {batch_size} --num-workers {num_workers} --no-use-dask --sample-count {sample_count} --stats"
+            common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
-            commmd = f"{common_command} {transformers}"
-            print(commmd, flush=True)
-            os.system(commmd)
+            command = f"{common_command} {transformers}"
+            print(command, flush=True)
+            os.system(command)
 
 def update_adb_source():
     command = f"adb transact from-json-file update_image_adb_source.json"
@@ -66,13 +62,29 @@ def clean_db():
     utils: Utils = Utils(create_connector())
     assert utils.remove_all_objects() == True
 
-def main():
-    if os.environ.get("CLEAN", "true") == "true":
+def main(args):
+    if args.clean == "true":
         print("Cleaning DB")
         clean_db()
-    ingest_coco()
+    ingest_coco(args)
     update_adb_source()
 
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-B", "--batch_size", type=int,
+                        default=100, help="Batch size")
+    parser.add_argument("-W", "--num_workers", type=int,
+                        default=32, help="Number of workers")
+    parser.add_argument("-S", "--sample_count", type=int,
+                        default=10, help="Sample count")
+    parser.add_argument("-C", "--clean", type=str,
+                        default="true", help="Clean DB")
+    parser.add_argument("-R", "--root_dir", type=str,
+                        default="data", help="Root directory")
+    return parser.parse_args()
 
 if __name__ in "__main__":
-    main()
+    args = parse_args()
+    main(args)
