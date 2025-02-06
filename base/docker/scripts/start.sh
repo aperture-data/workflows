@@ -12,6 +12,10 @@ LOGFILE="${OUTPUT}/log.log"
 APPLOG="${OUTPUT}/app.log"
 S3LOGFILE="upload_s3.log"
 
+AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< AWS_CREDENTIALS)
+AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< AWS_CREDENTIALS)
+
+
 if [ -z "${KEEP_PREV_OUTPUT}" ]; then
     KEEP_PREV_OUTPUT=false
 fi
