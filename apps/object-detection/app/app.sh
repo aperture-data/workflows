@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+SLEEPING_TIME=${SLEEPING_TIME:-30}
+
 # Only return upon error
 while true; do
     python3 eval.py
@@ -8,5 +10,6 @@ while true; do
     if [ "$RUN_ONCE" = "true" ]; then
         break
     fi
-    sleep 30
+    sleep $SLEEPING_TIME=${SLEEPING_TIME:-30}
+
 done

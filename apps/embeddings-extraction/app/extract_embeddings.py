@@ -1,5 +1,6 @@
 import os
 import argparse
+import math
 
 import torch
 import clip
@@ -52,7 +53,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         print(f"Total images to process: {total_images}")
 
         self.batch_size = 32
-        self.total_batches = int(total_images / self.batch_size)
+        self.total_batches = int(math.ceil(total_images / self.batch_size))
 
         self.len = self.total_batches
 
