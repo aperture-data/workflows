@@ -27,7 +27,7 @@ docker run --name add_images \
            -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
            aperturedata/coco_val_images
 
-docker run -it \
+docker run \
     --name ${WORKFLOW_NAME}-workflow \
     --network ${WORKFLOW_NAME} \
     -e RUN_ONCE=true \
