@@ -263,9 +263,6 @@ def get_args():
     obj.add_argument('-query_batchsize',  type=int,
                      default=os.environ.get('QUERY_BATCHSIZE', 1))
 
-    obj.add_argument('-model_name',  type=str,
-                     default=os.environ.get('MODEL_NAME', 'ViT-B/16'))
-
     obj.add_argument('-clean',  type=str2bool,
                      default=os.environ.get('CLEAN', "false"))
 
