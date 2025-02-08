@@ -1,4 +1,4 @@
 Face Detection App
 ==================
 
-TODO: Write readme as markdown so that it can be picked up by our docs.
+For each image on the DB, generate a bbox for each face, and a descriptor for each bbox.
