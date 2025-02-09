@@ -10,6 +10,6 @@ while true; do
     if [ "$RUN_ONCE" = "true" ]; then
         break
     fi
-    sleep $SLEEPING_TIME=${SLEEPING_TIME:-30}
+    sleep $SLEEPING_TIME
 
 done
