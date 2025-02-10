@@ -58,11 +58,19 @@ jobs:
           cd apps/embeddings-extraction
           bash test.sh
 
+      - name: Test workflow face-detection
+        env:
+          CLEANUP: "true"
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+            cd apps/face-detection
+            bash test.sh
+            
       - name: Test workflow jupyterlab
         run: |
           cd apps/jupyterlab
           bash test.sh
-
 
       - name: Push to docker
         # Only push to docker when merged to main
