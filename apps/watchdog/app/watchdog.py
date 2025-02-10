@@ -72,9 +72,10 @@ def main(params):
                     else:
                         print(f"Failed to remove old message: " +
                               message["id"])
-        except:
-            print(f"Removing old messages threw exception.")
-
+        except SlackApiError as e:
+            print(f"Removing old messages threw SlackApiError: {e.response['error']}")
+        except Exception as e:
+            print(f"Removing old messages threw an unexpected exception: {str(e)}")
     bad = False
     while True:
 
