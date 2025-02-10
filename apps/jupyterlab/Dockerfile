@@ -1,6 +1,7 @@
 # Pull base image.
-FROM aperturedata/workflows-base
+FROM aperturedata/aperturedb-notebook
 
-ENV APP_NAME=workflows-jupyterlab
-
-COPY app /app/
+COPY app/shell.jupyterlab-settings /root/.jupyter/lab/user-settings/\@jupyterlab/application-extension
+COPY app/manager.jupyterlab-settings /root/.jupyter/lab/user-settings/\@jupyterlab/completer-extension
+RUN mkdir -p /notebooks
+COPY app/hello.ipynb /notebooks/
