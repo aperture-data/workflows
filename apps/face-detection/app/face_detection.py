@@ -80,8 +80,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         desc_blobs = []
         boxes = {}
-        yes_faces = []
-        no_faces = []
         for i, b in enumerate(r_blobs):
             pil_image = Image.open(io.BytesIO(b))
             faces = mtcnn(pil_image)
@@ -102,9 +100,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     "boxes": list(zip(box.tolist(), prob.tolist()))
                 }
                 assert len(embeddings) == len(box)
-                yes_faces.append(uniqueids[i])
-            else:
-                no_faces.append(uniqueids[i])
 
         query = []
 
