@@ -109,9 +109,8 @@ def main(params):
                 try:
                     client.chat_postMessage(
                         channel="#" + params.channel, text=text)
-                except:
-                    print(f"Failed to post slack message.")
-
+                except Exception as e:
+                    logging.error(f"Failed to post slack message: {e}")
         if not params.infinite_loop:
             break
 
