@@ -56,9 +56,8 @@ def main(params):
             result = client.chat_postMessage(
                 channel="#" + params.channel,
                 text=message_watchdog_up)
-        except:
-            print(f"Failed to post slack message (up).")
-
+        except Exception as e:
+            print(f"Failed to post slack message (up). Exception: {e}")
         # Remove previously scheduled messages
         try:
             result = client.chat_scheduledMessages_list(
