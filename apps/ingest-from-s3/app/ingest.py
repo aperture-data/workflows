@@ -32,6 +32,7 @@ def process_queue(queue, params):
 
 def main(params):
 
+    print(f"Starting ingest {params.bucket}...")
     queue = []
     client = boto3.client('s3')
     paginator = client.get_paginator('list_objects_v2')
@@ -51,6 +52,8 @@ def main(params):
     if len(queue) > 0:
         process_queue(queue, params)
         queue = []
+
+    print("Done.")
 
 
 def get_args():
