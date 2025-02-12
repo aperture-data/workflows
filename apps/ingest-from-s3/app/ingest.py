@@ -41,7 +41,7 @@ def main(params):
         if "Contents" in page:
             for key in page[ "Contents" ]:
                 keyString = key[ "Key" ]
-                if keyString.endswith(".jpg"):
+                if keyString.endswith((".jpg", ".jpeg", ".png", ".tiff", ".tif")):
                     # print(keyString)
                     queue.append(keyString)
                     # print(len(queue))
