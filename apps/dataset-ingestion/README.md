@@ -14,7 +14,7 @@ In addition to images, bounding boxes, and segmentation masks, this ingestion wi
 
 ### Contents
 | Objects | Count | Notes|
-| --- | --- |
+| --- | --- | --- |
 | Images (val) | 5000 |
 | Images (train) | 128287 |
 | Descriptors (val) | 5000 |
@@ -23,6 +23,20 @@ In addition to images, bounding boxes, and segmentation masks, this ingestion wi
 | Polygons (train) | 849916 |
 | Bounding boxes (val) | 36781 |
 | Bounding boxes (train) | 860001 |
+
+- There will be a DescriptorSet called ViT-B/16 which will contain the embeddings generated using CLIP model.
+- There will also be indexes on some properties to improve query performance.
+- The details of the indexes are as follows.
+
+| Object | Property |
+| --- | --- |
+| Image | id |
+| Image | yfcc_id |
+| Image | seg_id |
+| BoundingBox | bbox_id |
+| Polygon | ann_id |
+| Descriptor | yfcc_id |
+
 
 ## CelebA dataset
 #### URL: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
@@ -35,7 +49,7 @@ The CelebA also gets associated embeddings generated from 2 models.
 
 ### Contents
 | Objects | Count | Notes|
-| --- | --- |
+| --- | --- | --- |
 | Images (cropped) | 202468 |
 | Descriptors(CLIP) | 202468 |
 | Descriptors (facenet) | 204015 |
