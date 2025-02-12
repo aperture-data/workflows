@@ -2,7 +2,7 @@
 
 mkdir -p data/original
 
-DATA=s3://aperturedb-demos/trial/data/original
+DATA=s3://workflows-data-source-develop/trial/data/original
 DIR=/app/input/original
 aws s3 sync --quiet $DATA $DIR
 

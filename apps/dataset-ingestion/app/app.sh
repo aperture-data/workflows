@@ -46,7 +46,7 @@ build_coco() {
 build_faces() {
     mkdir -p input
     mkdir -p output
-    aws s3 sync --quiet s3://aperturedb-demos/faces input/
+    aws s3 sync --quiet s3://workflows-data-source-develop/faces input/
     cd input
 
     mkdir -p images
