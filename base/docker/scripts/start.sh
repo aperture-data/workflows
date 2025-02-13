@@ -94,6 +94,8 @@ fi
 
 DB_PORT=${DB_PORT:=$DEFAULT_DB_PORT}
 
+ENVIRONMENT=${ENVIRONMENT:="develop"}
+
 params=()
 if [[ $USE_SSL == false ]]; then
     params+=(--no-use-ssl)
@@ -163,15 +165,10 @@ if [ "$PUSH_TO_S3" = true ]; then
     aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
     aws configure set default.region us-west-2
 
-    ENVIRONMENT=${ENVIRONMENT:="develop"}
+    declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io);
 
-    FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:="aperturedata.dev"}
+    FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:=${domains[$ENVIRONMENT]}}
     LOGS_BUCKET=${LOGS_BUCKET:="aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
-
-    # Hacky, I don't like depending on the environment, but not sure how to do it better.
-    if [ "${ENVIRONMENT}" == "main" ]; then
-        FILE_STASH_DOMAIN="aperturedata.io"
-    fi
 
     SUFFIX=$DATE/${APP_NAME}/${SECONDS}_${RUN_NAME}/
 
@@ -183,7 +180,7 @@ if [ "$PUSH_TO_S3" = true ]; then
     date >> $LOGFILE
     echo "All done. Bye." >> $LOGFILE
 
-    URL=https://workflows-logs.${FILE_STASH_DOMAIN}/files/$WF_LOGS_AWS_BUCKET/$SUFFIX
+    URL=https://workflows-logs.${FILE_STASH_DOMAIN}/files/$LOGS_BUCKET/$SUFFIX
 
     GRAFANA_URL="https://${DB_HOST}/grafana/d/mPHHiqbnk/aperturedb-connectivity-status?from=${GRAFANA_START_TIME}&to=${GRAFANA_END_TIME}&var-job_filter=job%7C%3D%7Caperturedb&var-pod_ip=All&var-node_filter=pod_ip%7C%3D~%7C$pod_ip&orgId=1&refresh=5s"
 
