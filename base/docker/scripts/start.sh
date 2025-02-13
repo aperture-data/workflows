@@ -14,12 +14,11 @@ S3LOGFILE="upload_s3.log"
 
 
 if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
-    AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${AWS_CREDENTIALS})
+    AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS})
 fi
 if [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
-    AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${AWS_CREDENTIALS})
+    AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS})
 fi
-
 
 if [ -z "${KEEP_PREV_OUTPUT}" ]; then
     KEEP_PREV_OUTPUT=false
@@ -39,10 +38,6 @@ fi
 
 if [ -z "${SLACK_CHANNEL_FAILED}" ]; then
     SLACK_CHANNEL_FAILED="cronjobs"
-fi
-
-if [ -z "${FILE_STASH_DOMAIN}" ]; then
-    FILE_STASH_DOMAIN="aperturedata.io"
 fi
 
 if [ -z "${SLACK_BOT_TOKEN}" ]; then
@@ -99,6 +94,8 @@ fi
 
 DB_PORT=${DB_PORT:=$DEFAULT_DB_PORT}
 
+ENVIRONMENT=${ENVIRONMENT:="develop"}
+
 params=()
 if [[ $USE_SSL == false ]]; then
     params+=(--no-use-ssl)
@@ -117,10 +114,10 @@ adb config create default \
     --no-interactive
 
 echo "Verifying connectivity to ${DB_HOST}..."
-# once https://github.com/aperture-data/aperturedb-python/pull/361 is merged
-# adb utils execute status
-adb utils execute summary >> db_summary_before.log
+adb utils execute status >> $LOGFILE
 echo "Done."
+
+adb utils execute summary >> db_summary_before.log
 
 if [ "$USERLOG_MSG" = true ]; then
     python3 userlog.py --info "Starting App ${APP_NAME} - Run: ${RUN_NAME}."
@@ -168,9 +165,14 @@ if [ "$PUSH_TO_S3" = true ]; then
     aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
     aws configure set default.region us-west-2
 
+    declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io);
+
+    FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:=${domains[$ENVIRONMENT]}}
+    LOGS_BUCKET=${LOGS_BUCKET:="aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
+
     SUFFIX=$DATE/${APP_NAME}/${SECONDS}_${RUN_NAME}/
 
-    BUCKET=s3://adb-performance-evaluation/$SUFFIX
+    BUCKET=s3://$WF_LOGS_AWS_BUCKET/$SUFFIX
 
     echo "Uploading results to S3..." >> $LOGFILE
     aws s3 sync --quiet ${OUTPUT}/ $BUCKET > $S3LOGFILE
@@ -178,7 +180,7 @@ if [ "$PUSH_TO_S3" = true ]; then
     date >> $LOGFILE
     echo "All done. Bye." >> $LOGFILE
 
-    URL=https://benchmarks.${FILE_STASH_DOMAIN}/files/adb-performance-evaluation/$SUFFIX
+    URL=https://workflows-logs.${FILE_STASH_DOMAIN}/files/$LOGS_BUCKET/$SUFFIX
 
     GRAFANA_URL="https://${DB_HOST}/grafana/d/mPHHiqbnk/aperturedb-connectivity-status?from=${GRAFANA_START_TIME}&to=${GRAFANA_END_TIME}&var-job_filter=job%7C%3D%7Caperturedb&var-pod_ip=All&var-node_filter=pod_ip%7C%3D~%7C$pod_ip&orgId=1&refresh=5s"
 
