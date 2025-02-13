@@ -34,6 +34,7 @@ docker run \
            -e DB_HOST=aperturedb \
            -e RUN_ONCE=true \
            -e MODEL_NAME="frcnn-mobilenet" \
+           -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
            aperturedata/workflows-object-detection
 
 # if CLEANUP is set to true, stop the aperturedb instance and remove the network

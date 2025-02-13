@@ -34,8 +34,8 @@ sleep 20
 #Ingest and verify COCO
 docker run \
     --network ${WORKFLOW_NAME}_coco \
-    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
-    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
+    -e "WF_DATA_SOURCE_AWS_BUCKET=${WF_DATA_SOURCE_AWS_BUCKET}" \
     -e "DB_HOST=aperturedb_coco" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
@@ -48,8 +48,8 @@ pid1=$!
 #Ingest and verify Faces
 docker run \
     --network ${WORKFLOW_NAME}_celeba \
-    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
-    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
+    -e "WF_DATA_SOURCE_AWS_BUCKET=${WF_DATA_SOURCE_AWS_BUCKET}" \
     -e "DB_HOST=aperturedb_celeba" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
