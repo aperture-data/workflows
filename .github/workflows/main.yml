@@ -39,8 +39,8 @@ jobs:
       - name: Test workflow dataset-ingestion
         env:
           CLEANUP: "true"
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          WF_DATA_SOURCE_AWS_CREDENTIALS: ${{ secrets.WF_DATA_SOURCE_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_AWS_BUCKET: ${{ secrets.WF_DATA_SOURCE_AWS_BUCKET }}
         run: |
           cd apps/dataset-ingestion

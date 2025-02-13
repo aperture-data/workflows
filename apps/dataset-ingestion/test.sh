@@ -35,6 +35,7 @@ sleep 20
 docker run \
     --network ${WORKFLOW_NAME}_coco \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
+    -e "WF_DATA_SOURCE_AWS_CREDENTIALS=${WF_DATA_SOURCE_AWS_CREDENTIALS}" \
     -e "WF_DATA_SOURCE_AWS_BUCKET=${WF_DATA_SOURCE_AWS_BUCKET}" \
     -e "DB_HOST=aperturedb_coco" \
     -e "BATCH_SIZE=100" \
@@ -49,6 +50,7 @@ pid1=$!
 docker run \
     --network ${WORKFLOW_NAME}_celeba \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
+    -e "WF_DATA_SOURCE_AWS_CREDENTIALS=${WF_DATA_SOURCE_AWS_CREDENTIALS}" \
     -e "WF_DATA_SOURCE_AWS_BUCKET=${WF_DATA_SOURCE_AWS_BUCKET}" \
     -e "DB_HOST=aperturedb_celeba" \
     -e "BATCH_SIZE=100" \
