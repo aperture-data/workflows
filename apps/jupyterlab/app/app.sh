@@ -1,5 +1,15 @@
 #!/bin/bash
 set -e
 
-# Replace this with commands to start/configure jupyter server
-python3 run_jupyter_server.py
+configure_jupyter() {
+    echo "Configuring Jupyter server..."
+    #Install adb completion
+    echo "adb --install-completion" | bash
+
+    echo "Jupyter server configured."
+    touch /opt/.jupyter_configured
+}
+
+if [ ! -f /opt/.jupyter_configured ]; then
+    configure_jupyter
+fi

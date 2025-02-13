@@ -1,8 +1,13 @@
 #!/bin/bash
 
+if [ -z "${WF_DATA_SOURCE_AWS_BUCKET}" ]; then
+    echo "Please set the WF_DATA_SOURCE_AWS_BUCKET environment variable"
+    exit 1
+fi
+
 mkdir -p data/original
 
-DATA=s3://workflows-data-source-develop/trial/data/original
+DATA=s3://${WF_DATA_SOURCE_AWS_BUCKET}/trial/data/original
 DIR=/app/input/original
 aws s3 sync --quiet $DATA $DIR
 

@@ -15,11 +15,18 @@ export DATASET
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
-APP="Dataset ingest"
+if [ -z "${WF_DATA_SOURCE_AWS_BUCKET}" ]; then
+    echo "Please set the WF_DATA_SOURCE_AWS_BUCKET environment variable"
+    exit 1
+fi
+
+
+
 
 
 build_coco() {
-    adb utils log --level INFO "${APP} (coco): Start"
+    APP="Dataset ingest (coco)"
+    adb utils log --level INFO "${APP}: Start"
 
     date
     echo "Downloading data..."
@@ -29,7 +36,7 @@ build_coco() {
     echo "Generating input files for data loaders..."
     python3 generate_coco_csv.py -input_file_path=/app/input -output_file_path=/app/input -generate_embeddings=False
 
-    adb utils log --level INFO "${APP} (coco): Loading begins"
+    adb utils log --level INFO "${APP}: Loading begins"
 
     date
     echo "loading data..."
@@ -40,13 +47,14 @@ build_coco() {
     date
     echo "All Done. Bye."
 
-    adb utils log --level INFO "{$APP} (coco): Successful completion"
+    adb utils log --level INFO "{$APP}: Successful completion"
 }
 
 build_faces() {
+    APP="Dataset ingest (faces)"
     mkdir -p input
     mkdir -p output
-    aws s3 sync --quiet s3://workflows-data-source-develop/faces input/
+    aws s3 sync --quiet s3://${WF_DATA_SOURCE_AWS_BUCKET}/faces input/
     cd input
 
     mkdir -p images
@@ -77,7 +85,7 @@ build_faces() {
     cp *.csv output/ -v
 
     if [[ $LOAD_CELEBAHQ == true ]]; then
-        adb utils log --level INFO "${APP} faces: Generating CelebA-HQ dataset"
+        adb utils log --level INFO "${APP}: Generating CelebA-HQ dataset"
         cd celeba-hq
         bash setup.sh
         cp *.csv ../output/ -v
@@ -85,9 +93,9 @@ build_faces() {
     fi
 
     # Ingest the CSV files
-    adb utils log --level INFO "${APP} faces: Loading faces dataset"
+    adb utils log --level INFO "${APP}: Loading faces dataset"
     bash load.sh
-    adb utils log --level INFO "${APP} faces: Successful completion"
+    adb utils log --level INFO "${APP}: Successful completion"
 }
 
 case ${DATASET} in
