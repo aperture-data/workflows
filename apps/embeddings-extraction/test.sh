@@ -32,6 +32,7 @@ docker run --name add_image \
 docker run \
            --network embeddings-extraction \
            -e DB_HOST=aperturedb \
+           -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
            -e RUN_ONCE=true \
            -e MODEL_NAME="ViT-B/16" \
            aperturedata/workflows-embeddings-extraction

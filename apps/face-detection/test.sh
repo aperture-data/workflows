@@ -31,6 +31,7 @@ docker run \
     --name ${WORKFLOW_NAME}-workflow \
     --network ${WORKFLOW_NAME} \
     -e RUN_ONCE=true \
+    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
     aperturedata/workflows-face-detection
 

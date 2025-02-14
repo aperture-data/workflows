@@ -1,8 +1,20 @@
 #!/bin/bash
 
+if [ -z "${WF_DATA_SOURCE_AWS_BUCKET}" ]; then
+    echo "Please set the WF_DATA_SOURCE_AWS_BUCKET environment variable"
+    exit 1
+fi
+if [ -z "${WF_DATA_SOURCE_AWS_CREDENTIALS}" ]; then
+    echo "Please set the WF_DATA_SOURCE_AWS_CREDENTIALS environment variable"
+    exit 1
+fi
+
+AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
+AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
+
 mkdir -p data/original
 
-DATA=s3://aperturedb-demos/trial/data/original
+DATA=s3://${WF_DATA_SOURCE_AWS_BUCKET}/coco/data/original
 DIR=/app/input/original
 aws s3 sync --quiet $DATA $DIR
 
