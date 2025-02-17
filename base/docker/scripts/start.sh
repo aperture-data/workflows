@@ -127,13 +127,10 @@ SECONDS=$(date '+%s')    # seconds since epoch
 
 if [ "$PUSH_TO_S3" = true ]; then
 
-    if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+    if ([ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS}" ]; then
         AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS})
-    fi
-    if [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
         AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS})
     fi
-
     aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
     aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
     aws configure set default.region us-west-2
