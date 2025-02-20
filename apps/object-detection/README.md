@@ -36,7 +36,6 @@ Usage
 
 ```
 docker run \
-           --net=host \
            -e RUN_NAME=my_testing_run \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS="password" \
