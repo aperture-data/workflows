@@ -2,6 +2,8 @@
 FROM aperturedata/workflows-base
 
 ENV APP_NAME=workflows-face-detection
-RUN pip install facenet-pytorch
+#Install CPU version of torch
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install facenet-pytorch --no-deps
 
 COPY app /app/
