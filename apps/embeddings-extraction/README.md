@@ -1,12 +1,13 @@
 Embedding Extraction App
 ========================
 
-This workflow retrieves all images from ApertureDB that has not been
+This workflow retrieves all images from ApertureDB that have not been
 analyzed before, and runs them through a
 [CLIP (Contrastive Language–Image Pre-training)](https://openai.com/index/clip/)
 model to extract an embedding for each image.
 
-Each image is updated with a flag (`wf_embeddings_clip`), and the embedding extracted
+Each image is updated with a flag (`wf_embeddings_clip`) to indicate the
+image has been analyzed, and the embedding extracted
 is then inserted to ApertureDB and connected to the image as a `Descriptor` object.
 This allows `knn` queries to find similar images, either by generating
 a query embedding from another image or from a text prompt.

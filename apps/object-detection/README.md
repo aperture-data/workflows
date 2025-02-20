@@ -1,13 +1,18 @@
 Object Detection App
 ====================
 
-This workflow retrieves all images from ApertureDB that has not been
+This workflow retrieves all images from ApertureDB that have not been
 analyzed before, and runs them through an Object Detection CNN to
 extract bounding boxes for the detected objects.
 
 Each image is updated with a flag (`wf_od_source`), indicating the model
 used for object detection, and the detected Bounding Boxes
 are inserted and connected to the image as a `BoundingBox` object on ApertureDB.
+The `BoundingBox` object is populated with a `_label` to indicate the detected
+[MS COCO classes](https://github.com/amikelive/coco-labels/blob/master/coco-labels-2014_2017.txt),
+as well as 2 properties: `wf_od_model` indicating the model used,
+and `wf_od_confidence` indicating the confidence of the detection.
+
 
 The workflow will run on a infinite loop.
 

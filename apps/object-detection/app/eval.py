@@ -194,7 +194,7 @@ def main(params):
     batch_size = 1
 
     print(f"Loading model {params.model_name}...")
-    detector = BboxDetector(model_name=params.model_name)
+    detector = BboxDetector(model_name=params.model_name, confidence=params.confidence_threshold)
 
     # === Distributed Data Loader Sequential
     data_loader = DataLoader(
