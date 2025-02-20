@@ -33,7 +33,7 @@ def push_to_aperturedb(db, img_id, detections, classes, source, confidence_thres
         "UpdateImage": {
             "ref": 1,
             "properties": {
-                "wf_source": source
+                "wf_od_model": source
             }
         }
     }]
@@ -58,8 +58,8 @@ def push_to_aperturedb(db, img_id, detections, classes, source, confidence_thres
                     "height": int((box[3] - box[1]) / resize_scale)
                 },
                 "properties": {
-                    "wf_source": source,
-                    "wf_confidence": float(score),
+                    "wf_od_model": source,
+                    "wf_od_confidence": float(score),
                 },
             }
         }
@@ -76,8 +76,15 @@ def cleanup_bboxes_from_aperturedb(db, source):
     q = [{
         "DeleteBoundingBox": {
             "constraints": {
-                "wf_source": ["==", source]
+                "wf_od_model": ["==", source]
             }
+        }
+    }, {
+        "UpdateImage": {
+            "constraints": {
+            "_uniqueid": ["!=", ""]
+            },
+            "remove_props": ["wf_od_model"]
         }
     }]
 
@@ -122,7 +129,7 @@ def main(params):
     db = CommonLibrary.create_connector()
 
     dbutils = Utils.Utils(db)
-    dbutils.create_entity_index("_BoundingBox", "wf_source")
+    dbutils.create_entity_index("_BoundingBox", "wf_od_model")
 
     if params.clean:
         cleanup_bboxes_from_aperturedb(db, params.model_name)
@@ -130,7 +137,7 @@ def main(params):
     q = [{
         "FindImage": {
             "constraints": {
-                "wf_source": ["!=", params.model_name],
+                "wf_od_model": ["!=", params.model_name],
             },
             "results": {
                 "count": True
@@ -153,7 +160,7 @@ def main(params):
     q = [{
         "FindImage": {
             "constraints": {
-                "wf_source": ["!=", params.model_name],
+                "wf_od_model": ["!=", params.model_name],
             },
             "operations": [
                 {
@@ -252,8 +259,6 @@ def get_args():
     obj = argparse.ArgumentParser()
 
     # Run Config
-    obj.add_argument('-dataset_mode', type=str, default="sequential")
-
     obj.add_argument('-model_name', type=str,
                      default=os.environ.get('MODEL_NAME', "frcnn-mobilenet"))
 

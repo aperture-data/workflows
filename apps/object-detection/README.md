@@ -1,4 +1,46 @@
 Object Detection App
-=====================
+====================
 
-TODO: Write readme as markdown so that it can be picked up by our docs.
+This workflow retrieves all images from ApertureDB that has not been
+analyzed before, and runs them through an Object Detection CNN to
+extract bounding boxes for the detected objects.
+
+The workflow will run on a infinite loop
+
+Each image is updated with a flag (`wf_od_source`), indicating the model
+used for object detection, and the detected Bounding Boxes
+are inserted and connected to the image as a `BoundingBox` object on ApertureDB.
+
+Parameters
+----------
+
+`MODEL_NAME`: Specifies the model to be used.
+Available options are: ["frcnn-mobilenet", "frcnn-resnet", "retinanet"].
+Default is `frcnn-mobilenet`.
+
+`frcnn-mobilenet` is the fastest but least accurate, while `retinanet` is
+the slowest but most accurate.
+
+`CONFIDENCE_THRESHOLD`: Lower bound of the confidence before considering the detection
+as valid for insertion into ApertureDB. The value is a float in the range [0,1].
+Default is `0.7`.
+
+`CLEAN`: Boolean flag specifying whether all objects will be cleaned before
+starting the retrieval and insertion. Default is `false`.
+
+`RUN_ONCE`: Boolean flag specifying whether the workflow will run on an infinite
+loop, or if it will exit upon completion, without watching for new images.
+Default is `false`.
+
+Usage
+-----
+
+```
+docker run \
+           --net=host \
+           -e RUN_NAME=my_testing_run \
+           -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
+           -e DB_PASS="password" \
+           -e MODEL_NAME="frcnn-mobilenet" \
+           aperturedata/workflows-object-detection
+```
