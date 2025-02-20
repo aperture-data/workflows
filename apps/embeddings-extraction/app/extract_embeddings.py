@@ -156,9 +156,17 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 def clean_embeddings(db):
 
     print("Cleaning Embeddings...")
+
     db.query([{
         "DeleteDescriptorSet": {
             "with_name": "wf_embeddings_clip"
+        }
+    }, {
+        "UpdateImage": {
+            "constraints": {
+                "_uniqueid": ["!=", ""]
+            },
+            "remove_props": ["wf_embeddings_clip"]
         }
     }])
 
@@ -194,7 +202,7 @@ def main(params):
     print("Running Detector...")
 
     querier.query(generator, batchsize=1,
-                  numthreads=params.query_numthreads,
+                  numthreads=params.numthreads,
                   stats=True)
 
     print("Done.")
@@ -214,11 +222,8 @@ def get_args():
 
     obj = argparse.ArgumentParser()
 
-    obj.add_argument('-query_numthreads', type=int,
-                     default=os.environ.get('QUERY_NUMTHREADS', 4))
-
-    obj.add_argument('-query_batchsize',  type=int,
-                     default=os.environ.get('QUERY_BATCHSIZE', 1))
+    obj.add_argument('-numthreads', type=int,
+                     default=os.environ.get('NUMTHREADS', 4))
 
     obj.add_argument('-model_name',  type=str,
                      default=os.environ.get('MODEL_NAME', 'ViT-B/16'))

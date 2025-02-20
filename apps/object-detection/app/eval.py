@@ -82,7 +82,7 @@ def cleanup_bboxes_from_aperturedb(db, source):
     }, {
         "UpdateImage": {
             "constraints": {
-            "_uniqueid": ["!=", ""]
+                "_uniqueid": ["!=", ""]
             },
             "remove_props": ["wf_od_model"]
         }
