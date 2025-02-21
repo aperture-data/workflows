@@ -18,7 +18,7 @@ docker run -d \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb:vci_develop &
+           aperturedata/aperturedb:vci_develop
 
 docker run -d \
            --name aperturedb_celeba \
@@ -26,7 +26,7 @@ docker run -d \
            -p 55556:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb:vci_develop &
+           aperturedata/aperturedb:vci_develop
 
 
 sleep 20
