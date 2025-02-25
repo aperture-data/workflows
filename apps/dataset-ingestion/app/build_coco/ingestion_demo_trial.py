@@ -25,7 +25,10 @@ def ingest_coco(cli_args):
         "images.adb.csv_clip_pytorch_embeddings_metadata": "DESCRIPTOR",
         "images.adb.csv_clip_pytorch_embeddings_connection": "CONNECTION"
     }
-    stages = ["val", "train"]
+    stages = ["val"]
+    if cli_args.train == "true":
+        stages.append("train")
+
     objs = ["images",
             "bboxes",
             "polygons",
@@ -42,7 +45,7 @@ def ingest_coco(cli_args):
 
     for stage in stages:
         for obj in objs:
-            common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
+            common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
             command = f"{common_command} {transformers}"
             print(command, flush=True)
@@ -83,8 +86,11 @@ def parse_args():
                         default="true", help="Clean DB")
     parser.add_argument("-R", "--root_dir", type=str,
                         default="data", help="Root directory")
+    parser.add_argument("-T", "--train", type=str, choices=["true", "false"],
+                        default="false", help="include train dataset")
     return parser.parse_args()
 
 if __name__ in "__main__":
     args = parse_args()
+    print(args)
     main(args)
