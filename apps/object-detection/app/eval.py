@@ -234,8 +234,8 @@ def main(params):
             imgs_per_sec = imgs / (time.time() - start)
             print(f"\r  {completion}% completed @ {imgs_per_sec:.2f} imgs/s \t", end="", flush=True)
 
-            # import gc
-            # gc.collect()
+            import gc
+            gc.collect()
 
         if params.max_retrieved > 0 and imgs > params.max_retrieved:
             break
