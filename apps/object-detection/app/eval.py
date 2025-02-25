@@ -76,13 +76,13 @@ def cleanup_bboxes_from_aperturedb(db, source):
     q = [{
         "DeleteBoundingBox": {
             "constraints": {
-                "wf_od_model": ["==", source]
+                "wf_od_model": ["!=", None]
             }
         }
     }, {
         "UpdateImage": {
             "constraints": {
-                "_uniqueid": ["!=", ""]
+                "wf_od_model": ["!=", None]
             },
             "remove_props": ["wf_od_model"]
         }
