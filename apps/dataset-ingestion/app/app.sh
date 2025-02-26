@@ -67,7 +67,7 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    aws s3 sync  s3://${WF_DATA_SOURCE_AWS_BUCKET}/processed_faces ${DIR}
+    aws s3 sync --quiet s3://${WF_DATA_SOURCE_AWS_BUCKET}/processed_faces ${DIR}
     cd ${DIR}
 
     mkdir -p images
