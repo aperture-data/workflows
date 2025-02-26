@@ -11,6 +11,8 @@ SAMPLE_COUNT=${SAMPLE_COUNT:=-1}
 export SAMPLE_COUNT
 DATASET=${DATASET:=coco}
 export DATASET
+INCLUDE_TRAIN=${INCLUDE_TRAIN:=false}
+export INCLUDE_TRAIN
 
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
@@ -37,69 +39,61 @@ build_coco() {
     adb utils log --level INFO "${APP}: Start"
 
     date
-    echo "Downloading data..."
-    bash download_coco.sh
+    echo "Downloading val data..."
+    bash download_coco.sh val
+
+    if [[ $INCLUDE_TRAIN == true ]]; then
+        echo "Downloading train data..."
+        bash download_coco.sh train
+    fi
 
     date
-    echo "Generating input files for data loaders..."
-    python3 generate_coco_csv.py -input_file_path=/app/input -output_file_path=/app/input -generate_embeddings=False
-
     adb utils log --level INFO "${APP}: Loading begins"
-
-    date
     echo "loading data..."
-    python3 ingestion_demo_trial.py -R /app/input -C $CLEAN -B $BATCH_SIZE -W $NUM_WORKERS -S $SAMPLE_COUNT
+    python3 ingestion_demo_trial.py -R /app/input -C $CLEAN -B $BATCH_SIZE -W $NUM_WORKERS -S $SAMPLE_COUNT -T $INCLUDE_TRAIN
 
-    python3 validate_db.py -input_file_path=/app/input
+    # Validation
+    python3 validate_db.py -input_file_path=/app/input/val -stages=val
+    if [[ $INCLUDE_TRAIN == true ]]; then
+        python3 validate_db.py -input_file_path=/app/input/train -stages=train
+    fi
 
     date
     echo "All Done. Bye."
-
     adb utils log --level INFO "{$APP}: Successful completion"
 }
 
+
 build_faces() {
     APP="Dataset ingest (faces)"
-    mkdir -p input
-    mkdir -p output
-    aws s3 sync --quiet s3://${WF_DATA_SOURCE_AWS_BUCKET}/faces input/
-    cd input
+    DIR="/app/input/faces"
+    aws s3 sync  s3://${WF_DATA_SOURCE_AWS_BUCKET}/processed_faces ${DIR}
+    cd ${DIR}
 
     mkdir -p images
     cd images
 
     # Extract all the images, first aligned, then unaligned
+    echo "Extracting images"
     unzip -n -q ../img_align_celeba.zip
-    cd ../../
+    cd ../
 
-    mkdir -p input/celeba-hq
-    cd input/celeba-hq
+    echo "Extracting HQ images"
+    mkdir -p celeba-hq
+    cd celeba-hq
     unzip -n -q ../CelebAMask-HQ.zip
     cd -
 
     adb utils log --level INFO "${APP} faces: Generating CelebA dataset"
-    # Generate the CSV files
-    python3 CelebA.py -R "input/images/img_align_celeba" -A "input/list_attr_celeba.txt" -B "input/list_bbox_celeba.txt"
-    tar xf input/celebA.csv_clip_pytorch_embeddings.tgz
-    tar xf input/celebA.csv_facenet_pytorch_embeddings.tgz
-    tar xf input/hqimages.adb.csv_facenet_pytorch_embeddings.tgz
+
+    #Extract the embeddings
+    echo "Extracting embeddings"
+    tar xf celebA.csv_clip_pytorch_embeddings.tgz
+    tar xf celebA.csv_facenet_pytorch_embeddings.tgz
+    tar xf hqimages.adb.csv_facenet_pytorch_embeddings.tgz
 
 
-    echo "Removing duplicates"
-    python3 remove_duplicates.py celebA.csv
-    mv pruned_celebA.csv celebA.csv
-
-    # to inspect the CSV files after container exits
-    cp *.csv output/ -v
-
-    if [[ $LOAD_CELEBAHQ == true ]]; then
-        adb utils log --level INFO "${APP}: Generating CelebA-HQ dataset"
-        cd celeba-hq
-        bash setup.sh
-        cp *.csv ../output/ -v
-        cd ..
-    fi
-
+    cd /app/build_faces
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
     bash load.sh

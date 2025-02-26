@@ -10,27 +10,26 @@ if [[ ${CLEAN} == "true" ]]; then
     echo "Cleaning the database"
     adb utils execute remove_all --force
 fi
-
+cd /app/build_faces
 python3 create_indexes.py
 python3 create_descriptorsets.py
 
 echo "Ingesting"
-
-adb ingest from-csv celebA.csv --transformer image_properties --transformer common_properties  --ingest-type IMAGE --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS}  --sample-count ${SAMPLE_COUNT}
+cd /app/input/faces
+adb ingest from-csv pruned_celebA.csv --transformer image_properties --transformer common_properties  --ingest-type IMAGE --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS}  --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv celebA.csv_clip_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv celebA.csv_clip_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
 adb ingest from-csv celebA.csv_facenet_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv celebA.csv_facenet_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
-cd celeba-hq
 adb ingest from-csv hqimages.adb.csv --ingest-type IMAGE --transformer common_properties --transformer image_properties --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv hqpolygons.adb.csv --ingest-type POLYGON --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv hqbboxes.adb.csv --ingest-type BOUNDING_BOX --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-cd ..
 
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
+cd /app/build_faces
 python3 validate_db.py
 echo "All Done. Bye."

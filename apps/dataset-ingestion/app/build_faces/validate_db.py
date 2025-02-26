@@ -74,9 +74,10 @@ count_queries = [
         }]
     ]
 
+INPUT_DIR = "/app/input/faces"
 
 in_csvs = [
-    "celebA.csv",
+    "pruned_celebA.csv",
     "celebA.csv_clip_pytorch_embeddings_metadata.adb.csv",
     "celebA.csv_clip_pytorch_embeddings_connection.adb.csv",
     ["celebA.csv_facenet_pytorch_embeddings_metadata.adb.csv", "hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv"],
@@ -89,9 +90,9 @@ db = create_connector()
 results = []
 for in_csv, cquery in zip(in_csvs, count_queries):
     if not isinstance(in_csv, list):
-        df = pd.read_csv(os.path.join("output", in_csv))
+        df = pd.read_csv(os.path.join(INPUT_DIR, in_csv))
     else:
-        df = pd.concat([pd.read_csv(os.path.join("output", csv)) for csv in in_csv])
+        df = pd.concat([pd.read_csv(os.path.join(INPUT_DIR, csv)) for csv in in_csv])
 
     r, resp, b = execute_batch(q=cquery, blobs=[], db=db)
     print(f"Executing query {cquery} for {in_csv}")
