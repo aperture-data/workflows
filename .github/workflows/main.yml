@@ -40,8 +40,7 @@ jobs:
         env:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-          WF_DATA_SOURCE_AWS_CREDENTIALS: ${{ secrets.WF_DATA_SOURCE_AWS_CREDENTIALS }}
-          WF_DATA_SOURCE_AWS_BUCKET: ${{ secrets.WF_DATA_SOURCE_AWS_BUCKET }}
+          WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
           cd apps/dataset-ingestion
           bash test.sh
