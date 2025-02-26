@@ -22,4 +22,10 @@ COPY scripts/slack-alert.py app/
 
 COPY scripts/start.sh /
 
+RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
+RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
+RUN ./google-cloud-sdk/install.sh
+ENV PATH=$PATH:/google-cloud-sdk/bin
+
+
 CMD ["/start.sh"]
