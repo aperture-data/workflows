@@ -76,13 +76,13 @@ def cleanup_bboxes_from_aperturedb(db, source):
     q = [{
         "DeleteBoundingBox": {
             "constraints": {
-                "wf_od_model": ["==", source]
+                "wf_od_model": ["!=", None]
             }
         }
     }, {
         "UpdateImage": {
             "constraints": {
-                "_uniqueid": ["!=", ""]
+                "wf_od_model": ["!=", None]
             },
             "remove_props": ["wf_od_model"]
         }
@@ -101,26 +101,21 @@ def push_to_aperturedb_queue(db_obj, queue, classes, params):
 
     model_name = params.model_name
 
-    # print("Starting thread", flush=True)
-
     global stop
 
     db = db_obj.create_new_connection()
 
-    counter = 0
     while True:
         if stop and len(queue) == 0:
-            # print("Thread push_to_aperturedb_queue stopped.")
             return
 
-        if len(queue) == 0:
+        if len(queue) > 0:
+            img_id, detections = queue.pop(0)
+            push_to_aperturedb(db, img_id, detections, classes, model_name, params.confidence_threshold)
+        else:
             time.sleep(1)
             continue
 
-        img_id, detections = queue.pop(0)
-        push_to_aperturedb(db, img_id, detections, classes, model_name, params.confidence_threshold)
-
-        counter = 0
 
 def main(params):
 
@@ -234,8 +229,8 @@ def main(params):
             imgs_per_sec = imgs / (time.time() - start)
             print(f"\r  {completion}% completed @ {imgs_per_sec:.2f} imgs/s \t", end="", flush=True)
 
-            # import gc
-            # gc.collect()
+            import gc
+            gc.collect()
 
         if params.max_retrieved > 0 and imgs > params.max_retrieved:
             break

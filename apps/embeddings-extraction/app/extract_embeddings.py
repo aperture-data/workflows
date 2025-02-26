@@ -164,7 +164,7 @@ def clean_embeddings(db):
     }, {
         "UpdateImage": {
             "constraints": {
-                "_uniqueid": ["!=", ""]
+                "wf_embeddings_clip": ["!=", None]
             },
             "remove_props": ["wf_embeddings_clip"]
         }
