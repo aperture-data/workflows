@@ -17,6 +17,11 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
+if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
+    echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
+    exit 1
+fi
+
 gcloud config set auth/disable_credentials True
 
 
@@ -53,7 +58,7 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    gcloud storage rsync --recursive gs://ad-demos-datasets/workflows/faces ${DIR}
+    gcloud storage rsync --recursive gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows/faces ${DIR}
     cd ${DIR}
 
     mkdir -p images

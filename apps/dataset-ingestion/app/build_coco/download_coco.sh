@@ -6,9 +6,9 @@ if [ -z "$CORPUS" ]; then
     exit 1
 fi
 
-DATA=s3://${WF_DATA_SOURCE_AWS_BUCKET}/coco/data/${CORPUS}
+DATA=gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows/${CORPUS}
 DIR=/app/input/${CORPUS}
-gcloud storage rsync --recursive gs://ad-demos-datasets/workflows/${CORPUS} $DIR
+gcloud storage rsync --recursive ${DATA} ${DIR}
 
 # Setup coco folder hierarchy
 cd $DIR
