@@ -6,22 +6,9 @@ if [ -z "$CORPUS" ]; then
     exit 1
 fi
 
-if [ -z "${WF_DATA_SOURCE_AWS_BUCKET}" ]; then
-    echo "Please set the WF_DATA_SOURCE_AWS_BUCKET environment variable"
-    exit 1
-fi
-if [ -z "${WF_DATA_SOURCE_AWS_CREDENTIALS}" ]; then
-    echo "Please set the WF_DATA_SOURCE_AWS_CREDENTIALS environment variable"
-    exit 1
-fi
-
-AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
-AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
-
-
 DATA=s3://${WF_DATA_SOURCE_AWS_BUCKET}/coco/data/${CORPUS}
 DIR=/app/input/${CORPUS}
-aws s3 sync --quiet $DATA $DIR
+gcloud storage rsync --recursive gs://ad-demos-datasets/workflows/${CORPUS} $DIR
 
 # Setup coco folder hierarchy
 cd $DIR

@@ -17,21 +17,7 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
-if [ -z "${WF_DATA_SOURCE_AWS_BUCKET}" ]; then
-    echo "Please set the WF_DATA_SOURCE_AWS_BUCKET environment variable"
-    exit 1
-fi
-if [ -z "${WF_DATA_SOURCE_AWS_CREDENTIALS}" ]; then
-    echo "Please set the WF_DATA_SOURCE_AWS_CREDENTIALS environment variable"
-    exit 1
-fi
-
-AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
-export AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
-export AWS_SECRET_ACCESS_KEY
-
-
+gcloud config set auth/disable_credentials True
 
 
 build_coco() {
@@ -67,7 +53,7 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    aws s3 sync --quiet s3://${WF_DATA_SOURCE_AWS_BUCKET}/processed_faces ${DIR}
+    gcloud storage rsync --recursive gs://ad-demos-datasets/workflows/faces ${DIR}
     cd ${DIR}
 
     mkdir -p images
