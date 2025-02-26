@@ -1,6 +1,18 @@
 #!/bin/bash
 set -e
 
+initialize_jupyter() {
+    echo "Initializing Jupyter server..."
+    cp /aperturedata/hello.ipynb ${NOTEBOOK_DIR}/hello.ipynb
+
+    echo "Jupyter server configured."
+    touch "${APP_DIR}/initialized"
+}
+
+if [ ! -f "${APP_DIR}/initialized" ]; then
+    initialize_jupyter
+fi
+
 configure_jupyter() {
     echo "Configuring Jupyter server..."
     #Install adb completion
@@ -12,9 +24,4 @@ configure_jupyter() {
 
 if [ ! -f /opt/.jupyter_configured ]; then
     configure_jupyter
-fi
-
-if [ ! -f "/notebooks/hello.ipynb" ]; then
-    echo "Creating a sample notebook..."
-    cp /aperturedata/hello.ipynb /notebooks/hello.ipynb
 fi
