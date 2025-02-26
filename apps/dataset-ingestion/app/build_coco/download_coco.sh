@@ -21,10 +21,10 @@ AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_DATA_SOURCE_AWS_CREDENTIALS})
 
 DATA=s3://${WF_DATA_SOURCE_AWS_BUCKET}/coco/data/${CORPUS}
 DIR=/app/input/${CORPUS}
-aws s3 sync $DATA $DIR
+aws s3 sync --quiet $DATA $DIR
 
 # Setup coco folder hierarchy
 cd $DIR
-unzip -u $DIR/stuff_${CORPUS}2017_pixelmaps.zip
-unzip -u $DIR/${CORPUS}2017.zip
+unzip -u -q $DIR/stuff_${CORPUS}2017_pixelmaps.zip
+unzip -u -q $DIR/${CORPUS}2017.zip
 tar xf $DIR/${CORPUS}_clip_embeddings.tgz
