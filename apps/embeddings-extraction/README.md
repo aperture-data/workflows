@@ -14,8 +14,7 @@ sequenceDiagram
     participant W as Extract Embeddings
     participant A as ApertureDB instance
     opt CLEAN
-        W->>A: DeleteDescriptorSet
-        W->>A: UpdateImage
+        W->>A: DeleteDescriptorSet<br/>UpdateImage
     end
     W->>A: AddDescriptorSet
     W->>A: FindImage
@@ -23,8 +22,7 @@ sequenceDiagram
     loop Until done
         W->>A: FindImage
         A-->>W: images
-        W->>A: UpdateImage  
-        W->>A: AddDescriptor
+        W->>A: UpdateImage<br/>AddDescriptor
     end
 ```
 

@@ -13,8 +13,7 @@ sequenceDiagram
     participant W as Object Detection
     participant A as ApertureDB instance
     opt CLEAN
-        W->>A: DeleteBoundingBox
-        W->>A: UpdateImage
+        W->>A: DeleteBoundingBox<br/>UpdateImage
     end
     W->>A: AddDescriptorSet
     W->>A: FindImage
@@ -22,8 +21,7 @@ sequenceDiagram
     loop Until done
         W->>A: FindImage
         A-->>W: images
-        W->>A: UpdateImage  
-        W->>A: AddBoundingBox
+        W->>A: UpdateImage<br/>AddBoundingBox
     end
 ```
 
