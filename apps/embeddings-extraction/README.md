@@ -37,6 +37,7 @@ Default is `false`.
 * **`RUN_ONCE`**: Boolean flag specifying whether the workflow will run on an infinite
 loop, or if it will exit upon completion, without watching for new images.
 Default is `false`.
+* **`SLEEPING_TIME`**: Delay between scans, in seconds. Default is `30`.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
