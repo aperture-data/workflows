@@ -18,7 +18,7 @@ docker run -d \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
 
-sleep 5
+sleep 10
 
 # Add images to the db
 docker run --name add_images \
@@ -33,6 +33,7 @@ docker run \
     -e RUN_ONCE=true \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
+    -e COLLECT_EMBEDDINGS=true \
     aperturedata/workflows-face-detection
 
 if [ "$CLEANUP" = "true" ]; then
