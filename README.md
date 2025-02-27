@@ -44,7 +44,8 @@ Certain parameters are supported by all workflow images:
 * **`DB_PORT`**: Port number for the ApertureDB instance. Defaults to `55555`.
 * **`DB_USER`**: ApertureDB user name. Defaults to `admin`.
 * **`DB_PASS`**: ApertureDB password.
-* **`USE_SSL`**: Use SSL to protect the connection. Defaults to `true`.
+* **`USE_SSL`**: Use SSL to protect the connection. Defaults to `true`. We recommend that you do not change this.
+* **`USE_REST`**: Use the REST API instead of the TCP connection. Defaults to `false`. We recommend that you do not change this.
 
 ### Building Docker images
 
