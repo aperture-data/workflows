@@ -74,7 +74,7 @@ Parameters:
 * **`SAMPLE_COUNT`**: Number of samples to ingest. Defaults to `-1`, which means all.
 * **`DATASET`**: Which dataset to restart. Defaults to `coco`. Must be `coco` or `faces`.
 * **`INCLUDE_TRAIN`**: Whether to include training data in addition to the validation data. Defaults to `false`. This makes ingestion much faster as it only loads a small fraction of the data, and also allows it to fit on smaller instances.
-* **`LOAD_CELEBAHQ`**: Whether to include the CelebA-HQ dara
+* **`LOAD_CELEBAHQ`**: Whether to include the CelebA-HQ data
 * **`WF_DATA_SOURCE_AWS_BUCKET`**: AWS bucket identifier for the source data
 * **`WF_DATA_SOURCE_AWS_CREDENTIALS`**: AWS credentials
 
