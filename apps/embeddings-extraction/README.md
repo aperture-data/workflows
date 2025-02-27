@@ -9,6 +9,25 @@ The workflow will run on a infinite loop.
 
 ## Database details
 
+```mermaid
+sequenceDiagram
+    participant W as Extract Embeddings
+    participant A as ApertureDB instance
+    opt CLEAN
+        W->>A: DeleteDescriptorSet
+        W->>A: UpdateImage
+    end
+    W->>A: AddDescriptorSet
+    W->>A: FindImage
+    A-->>W: count
+    loop Until done
+        W->>A: FindImage
+        A-->>W: images
+        W->>A: UpdateImage  
+        W->>A: AddDescriptor
+    end
+```
+
 Each image is updated with a flag (`wf_embeddings_clip`) to indicate the
 image has been analyzed, and the embedding extracted
 is then inserted to ApertureDB and connected to the image as a `Descriptor` object.
