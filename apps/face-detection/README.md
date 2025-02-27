@@ -26,9 +26,7 @@ sequenceDiagram
         A-->>W: images
         W->>A: UpdateImage  
         W->>A: AddBoundingBox
-        opt 
-            W->>A: AddDescriptor
-        end
+        W->>A: AddDescriptor
     end
 ```
 
