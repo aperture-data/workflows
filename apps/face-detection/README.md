@@ -7,6 +7,23 @@ The workflow will run on a infinite loop.
 
 ## Database details
 
+```mermaid
+sequenceDiagram
+    participant W as Face Detection
+    participant A as ApertureDB instance
+    opt CLEAN
+        W->>A: FindImage<br/>UpdateImage<br/>FindBoundingBox<br/>DeleteBoundingBox<br/>DeleteDescriptorSet
+    end
+    W->>A: AddDescriptorSet
+    W->>A: FindImage
+    A-->>W: count
+    loop Until done
+        W->>A: FindImage
+        A-->>W: images
+        W->>A: UpdateImage<br/>AddBoundingBox<br/>AddDescriptor
+    end
+```
+
 Each image is augmented with a boolean property `wf_facenet_processed` to indicate that it has been processed by this workflow. Images are connected to zero or more bounding boxes, each of which also has the property `wf_facenet_confidence`, which contains a probability value (0 to 1). Bounding boxes are optionally connected to descriptors, in the descriptor set `wf_facenet_processed`.
 
 ## Running in Docker

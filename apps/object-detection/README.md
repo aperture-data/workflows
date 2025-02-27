@@ -8,6 +8,23 @@ The workflow will run on a infinite loop.
 
 ## Database details
 
+```mermaid
+sequenceDiagram
+    participant W as Object Detection
+    participant A as ApertureDB instance
+    opt CLEAN
+        W->>A: DeleteBoundingBox<br/>UpdateImage
+    end
+    W->>A: AddDescriptorSet
+    W->>A: FindImage
+    A-->>W: count
+    loop Until done
+        W->>A: FindImage
+        A-->>W: images
+        W->>A: UpdateImage<br/>AddBoundingBox
+    end
+```
+
 Each image is updated with a flag (`wf_od_source`), indicating the model
 used for object detection, and the detected Bounding Boxes
 are inserted and connected to the image as a `BoundingBox` object on ApertureDB.
