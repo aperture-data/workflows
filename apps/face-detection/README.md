@@ -12,8 +12,7 @@ sequenceDiagram
     participant W as Face Detection
     participant A as ApertureDB instance
     opt CLEAN
-        W->>A: FindImage
-        W->>A: UpdateImage<br/>FindBoundingBox<br/>DeleteBoundingBox<br/>DeleteDescriptorSet
+        W->>A: FindImage<br/>UpdateImage<br/>FindBoundingBox<br/>DeleteBoundingBox<br/>DeleteDescriptorSet
     end
     W->>A: AddDescriptorSet
     W->>A: FindImage
