@@ -80,6 +80,3 @@ Parameters:
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
-## Cleaning up
-
-TODO
