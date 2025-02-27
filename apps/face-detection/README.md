@@ -3,11 +3,11 @@
 This workflow retrieves all images from ApertureDB that have not been analyzed before, and runs them through a face detection algorithm.
 This generates zero or more bounding boxes for each image and, optionally, a descriptor for each bounding box.
 
+The workflow will run on a infinite loop.
+
 ## Database details
 
-* **`wf_facenet_processed`**: Boolean property on images to indicate that they have been processed by this workflow.
-* **`wf_facenet_processed`**: Descriptor set added for faces found
-* **`wf_facenet_confidence`**: Numeric property added to bounding boxes indicating confidence between 0 and 1.
+Each image is augmented with a boolean property `wf_facenet_processed` to indicate that it has been processed by this workflow. Images are connected to zero or more bounding boxes, each of which also has the property `wf_facenet_confidence`, which contains a probability value (0 to 1). Bounding boxes are optionally connected to descriptors, in the descriptor set `wf_facenet_processed`.
 
 ## Running in Docker
 
