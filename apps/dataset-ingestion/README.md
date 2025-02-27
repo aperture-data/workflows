@@ -1,9 +1,8 @@
-Dataset Ingestion App
-=====================
+# Dataset Ingestion App
 
 This workflow can ingest some public datasets into an ApertureDB instance.
 
-ApertureData maintains derivatives of 2 popular public datasets.
+ApertureData maintains adapted versions of two popular public datasets.
 
 ## COCO dataset
 #### URL: https://cocodataset.org/#home
@@ -56,3 +55,31 @@ The CelebA also gets associated embeddings generated from 2 models.
 | Images (HQ) | 1547 |
 | Polygons | 17697 |
 | Bounding boxes | 17697 |
+
+## Running in Docker
+
+```
+docker run \
+           -e RUN_NAME=my_testing_run \
+           -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
+           -e DB_PASS="password" \
+           -e DATASET="coco" \
+           aperturedata/workflows-dataset_ingestion
+```
+
+Parameters: 
+* **`BATCH_SIZE`**: Number of objects to process in a single query. Defaults to `100`.
+* **`NUM_WORKERS`**: Number of workers to execute in parallel. Defaults to `8`.
+* **`CLEAN`**: Whether to delete existing data first. Defaults to `false`.
+* **`SAMPLE_COUNT`**: Number of samples to ingest. Defaults to `-1`, which means all.
+* **`DATASET`**: Which dataset to restart. Defaults to `coco`. Must be `coco` or `faces`.
+* **`INCLUDE_TRAIN`**: Whether to include training data in addition to the validation data. Defaults to `false`. This makes ingestion much faster as it only loads a small fraction of the data, and also allows it to fit on smaller instances.
+* **`LOAD_CELEBAHQ`**: Whether to include the CelebA-HQ dara
+* **`WF_DATA_SOURCE_AWS_BUCKET`**: AWS bucket identifier for the source data
+* **`WF_DATA_SOURCE_AWS_CREDENTIALS`**: AWS credentials
+
+See [Common Parameters](../../README.md#common-parameters) for common parameters.
+
+## Cleaning up
+
+TODO
