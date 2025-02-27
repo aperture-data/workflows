@@ -34,7 +34,7 @@ jobs:
       - name: Build apps
         run: |
           cd apps
-          bash build_all.sh
+          bash build_all.sh ${{ github.event_name }}
 
       - name: Test workflow dataset-ingestion
         env:
