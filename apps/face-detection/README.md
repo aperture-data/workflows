@@ -1,6 +1,6 @@
 # Face Detection App
 
-This workflow retrieves all images from Ap[ertureDB that have not been analyzed before, and runs them through a face detection algorithm.
+This workflow retrieves all images from ApertureDB that have not been analyzed before, and runs them through a face detection algorithm.
 This generates zero or more bounding boxes for each image and, optionally, a descriptor for each bounding box.
 
 ## Database details
