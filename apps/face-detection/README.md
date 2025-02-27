@@ -5,7 +5,9 @@ This generates zero or more bounding boxes for each image and, optionally, a des
 
 ## Database details
 
-TODO wf_facenet_processed, wf_facenet_confidence
+* **`wf_facenet_processed`**: Boolean property on images to indicate that they have been processed by this workflow.
+* **`wf_facenet_processed`**: Descriptor set added for faces found
+* **`wf_facenet_confidence`**: Numeric property added to bounding boxes indicating confidence between 0 and 1.
 
 ## Running in Docker
 
