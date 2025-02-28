@@ -24,6 +24,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, *args, **kwargs):
         self.batch_size = kwargs.get("batch_size", 1)
+        self.collect_embeddings = kwargs.get("collect_embeddings", False)
         self.db = db
         query = [{
             "FindImage": {
@@ -71,7 +72,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         return query, []
 
     def response_handler(self, query, blobs, response, r_blobs):
-
         try:
             uniqueids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
         except:
@@ -86,20 +86,22 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             if faces is not None:
                 embeddings = []
                 for face in faces:
-                    embedding = resnet(face.unsqueeze(0).to(device))
-                    serialized = embedding.cpu().detach().numpy().tobytes()
-                    embeddings.append(serialized)
-                    desc_blobs.append(serialized)
-                try:
-                    box, prob = mtcnn.detect(pil_image, landmarks=False)
-                except Exception as e:
-                    print(f"Error: {e} for {i=}")
-                    continue
+                    try:
+                        if self.collect_embeddings:
+                            embedding = resnet(face.unsqueeze(0).to(device))
+                            serialized = embedding.cpu().detach().numpy().tobytes()
+                            embeddings.append(serialized)
+                            desc_blobs.append(serialized)
+                        box, prob = mtcnn.detect(pil_image, landmarks=False)
+                    except Exception as e:
+                        print(f"Error: {e} for {i=}")
+                        continue
                 boxes[uniqueids[i]] = {
                     "index": i,
                     "boxes": list(zip(box.tolist(), prob.tolist()))
                 }
-                assert len(embeddings) == len(box)
+                if self.collect_embeddings:
+                    assert len(embeddings) == len(box)
 
         query = []
 
@@ -143,14 +145,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                             }
                         }
                     })
-                    query.append({
-                        "AddDescriptor": {
-                            "set": PROCESSED_LABEL_IMAGES,
-                            "connect": {
-                                "ref": ref_counter + bb_ref
+                    if self.collect_embeddings:
+                        query.append({
+                            "AddDescriptor": {
+                                "set": PROCESSED_LABEL_IMAGES,
+                                "connect": {
+                                    "ref": ref_counter + bb_ref
+                                }
                             }
-                        }
-                    })
+                        })
                     bb_ref += 1
             ref_counter += (bb_ref + 1)
 
@@ -222,9 +225,11 @@ def main(params):
     if params.clean:
         clean_artifacts(db)
 
-    add_descriptor_set(db)
+    if params.collect_embeddings:
+        add_descriptor_set(db)
 
-    generator = FindImageQueryGenerator(db, batch_size=params.query_batchsize)
+    generator = FindImageQueryGenerator(db, batch_size=params.query_batchsize,
+                                        collect_embeddings=params.collect_embeddings)
     print(f"Total Batches: {len(generator)}")
     querier = ParallelQuery.ParallelQuery(db)
 
@@ -260,6 +265,9 @@ def get_args():
 
     obj.add_argument('-clean',  type=str2bool,
                      default=os.environ.get('CLEAN', "false"))
+
+    obj.add_argument('-collect_embeddings', type=str2bool,
+                        default=os.environ.get('COLLECT_EMBEDDINGS', "false"))
 
     params = obj.parse_args()
     return params
