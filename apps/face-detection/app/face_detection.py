@@ -24,7 +24,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, *args, **kwargs):
         self.batch_size = kwargs.get("batch_size", 1)
-        self.collect_embeddings = kwargs.get("collect_embeddings", False)
+        self.generate_embeddings = kwargs.get("generate_embeddings", False)
         self.db = db
         query = [{
             "FindImage": {
@@ -87,7 +87,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 embeddings = []
                 for face in faces:
                     try:
-                        if self.collect_embeddings:
+                        if self.generate_embeddings:
                             embedding = resnet(face.unsqueeze(0).to(device))
                             serialized = embedding.cpu().detach().numpy().tobytes()
                             embeddings.append(serialized)
@@ -100,7 +100,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     "index": i,
                     "boxes": list(zip(box.tolist(), prob.tolist()))
                 }
-                if self.collect_embeddings:
+                if self.generate_embeddings:
                     assert len(embeddings) == len(box)
 
         query = []
@@ -145,7 +145,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                             }
                         }
                     })
-                    if self.collect_embeddings:
+                    if self.generate_embeddings:
                         query.append({
                             "AddDescriptor": {
                                 "set": PROCESSED_LABEL_IMAGES,
@@ -225,11 +225,11 @@ def main(params):
     if params.clean:
         clean_artifacts(db)
 
-    if params.collect_embeddings:
+    if params.generate_embeddings:
         add_descriptor_set(db)
 
     generator = FindImageQueryGenerator(db, batch_size=params.query_batchsize,
-                                        collect_embeddings=params.collect_embeddings)
+                                        generate_embeddings=params.generate_embeddings)
     print(f"Total Batches: {len(generator)}")
     querier = ParallelQuery.ParallelQuery(db)
 
@@ -266,8 +266,8 @@ def get_args():
     obj.add_argument('-clean',  type=str2bool,
                      default=os.environ.get('CLEAN', "false"))
 
-    obj.add_argument('-collect_embeddings', type=str2bool,
-                        default=os.environ.get('COLLECT_EMBEDDINGS', "false"))
+    obj.add_argument('-generate_embeddings', type=str2bool,
+                        default=os.environ.get('GENERATE_EMBEDDINGS', "false"))
 
     params = obj.parse_args()
     return params
