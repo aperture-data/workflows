@@ -1,7 +1,7 @@
 
 set -e
 
-(cd ../base/docker && ./build.sh $1)
+(cd ../base/docker && ./build.sh)
 
 # iterate over all directories in the apps directory
 
