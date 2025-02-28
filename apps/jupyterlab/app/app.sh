@@ -6,7 +6,7 @@ initialize_jupyter() {
 
     mkdir -p "${NOTEBOOK_DIR}"
     cp /aperturedata/hello.ipynb "${NOTEBOOK_DIR}/hello.ipynb"
-    sed -i "s/<URL>/${DB_HOST_PUBLIC}/g" "${NOTEBOOK_DIR}/hello.ipynb"
+    sed -i "s/<DB_HOST>/${DB_HOST_PUBLIC}/g" "${NOTEBOOK_DIR}/hello.ipynb"
 
     mkdir -p "${APP_DIR}"
     touch "${APP_DIR}/initialized"
