@@ -13,13 +13,13 @@ APPLOG="${OUTPUT}/app.log"
 S3LOGFILE="upload_s3.log"
 
 
-ENVIRONMENT=${ENVIRONMENT:="develop"}
+ENVIRONMENT=${ENVIRONMENT:-"develop"}
 
 if [ -z "${KEEP_PREV_OUTPUT}" ]; then
     KEEP_PREV_OUTPUT=false
 fi
 
-if [ "$KEEP_PREV_OUTPUT" = true ]; then
+if [ "$KEEP_PREV_OUTPUT" == true ]; then
     # Sometimes it is useful to keep results from previous app runs.
     # This is useful when you want to compare results from different runs.
     echo "Keeping old output." >> $LOGFILE
@@ -43,27 +43,29 @@ fi
 
 DEFAULT_DB_PORT=55555
 
-DB_HOST=${DB_HOST:="localhost"}
-DB_USER=${DB_USER:="admin"}
-DB_PASS=${DB_PASS:="admin"}
-USE_SSL=${USE_SSL:=true}
-USE_REST=${USE_REST:=false}
+DB_HOST=${DB_HOST:-"localhost"}
+DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST}}
+DB_HOST_PRIVATE=${DB_HOST_PRIVATE:-${DB_HOST}}
+DB_USER=${DB_USER:-"admin"}
+DB_PASS=${DB_PASS:-"admin"}
+USE_SSL=${USE_SSL:-true}
+USE_REST=${USE_REST:-false}
 
-if [[ $USE_REST == true ]]; then
+if [ "$USE_REST" == true ]; then
     DEFAULT_DB_PORT=80
-    if [[ $USE_SSL == true ]]; then
+    if [ "$USE_SSL" == true ]; then
         DEFAULT_DB_PORT=443
     fi
 fi
 
-DB_PORT=${DB_PORT:=$DEFAULT_DB_PORT}
+DB_PORT=${DB_PORT:-$DEFAULT_DB_PORT}
 
 params=()
-if [[ $USE_SSL == false ]]; then
+if [ "$USE_SSL" == false ]; then
     params+=(--no-use-ssl)
 fi
 
-if [[ $USE_REST == true ]]; then
+if [ "$USE_REST" == true ]; then
     params+=(--use-rest)
 fi
 
@@ -81,7 +83,7 @@ echo "Done."
 
 adb utils execute summary >> db_summary_before.log
 
-if [ "$USERLOG_MSG" = true ]; then
+if [ "$USERLOG_MSG" == true ]; then
     python3 userlog.py --info "Starting App ${APP_NAME} - Run: ${RUN_NAME}."
 fi
 
@@ -104,12 +106,12 @@ runtime=$((end-start))
 
 GRAFANA_END_TIME=$(($(date '+%s') * 1000))
 
-GRAFANA_URL="https://${DB_HOST}/grafana/d/mPHHiqbnk/aperturedb-connectivity-status?from=${GRAFANA_START_TIME}&to=${GRAFANA_END_TIME}&refresh=5s"
+GRAFANA_URL="https://${DB_HOST_PUBLIC}/grafana/d/mPHHiqbnk/aperturedb-connectivity-status?from=${GRAFANA_START_TIME}&to=${GRAFANA_END_TIME}&refresh=5s"
 
 adb utils execute summary >> db_summary_after.log
 diff db_summary_before.log db_summary_after.log >> db_summary_diff.log
 
-if [ "$USERLOG_MSG" = true ]; then
+if [ "$USERLOG_MSG" == true ]; then
     python3 userlog.py --info "Done App ${APP_NAME} - Run: ${RUN_NAME}."
 fi
 
@@ -125,7 +127,7 @@ SECONDS=$(date '+%s')    # seconds since epoch
 
 # UPLOAD RESULTS TO S3
 
-if [ "$PUSH_TO_S3" = true ]; then
+if [ "$PUSH_TO_S3" == true ]; then
 
     if ([ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS}" ]; then
         AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS})
@@ -137,8 +139,8 @@ if [ "$PUSH_TO_S3" = true ]; then
 
     declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io);
 
-    FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:=${domains[$ENVIRONMENT]}}
-    LOGS_BUCKET=${WF_LOGS_AWS_BUCKET:="aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
+    FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:-${domains[$ENVIRONMENT]}}
+    LOGS_BUCKET=${WF_LOGS_AWS_BUCKET:-"aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
 
     SUFFIX=$DATE/${APP_NAME}/${SECONDS}_${RUN_NAME}/
 
@@ -169,10 +171,10 @@ fi
 
 # POST TO SLACK
 
-if [ "$POST_TO_SLACK" = true ]; then
+if [ "$POST_TO_SLACK" == true ]; then
 
-    SLACK_CHANNEL=${SLACK_CHANNEL:="cronjobs"}
-    SLACK_CHANNEL_FAILED=${SLACK_CHANNEL_FAILED:="alerts-${ENVIRONMENT}"}
+    SLACK_CHANNEL=${SLACK_CHANNEL:-"cronjobs"}
+    SLACK_CHANNEL_FAILED=${SLACK_CHANNEL_FAILED:-"alerts-${ENVIRONMENT}"}
 
     RESULTS="<$URL|Results>" # URL may not be available if PUSH_TO_S3 is false
     GRAFANA="<$GRAFANA_URL|Dashboards>"
