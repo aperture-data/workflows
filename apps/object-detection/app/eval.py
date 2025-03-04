@@ -261,7 +261,8 @@ def get_args():
     # by which the list of images may even change.
     # So, by default, we don't process more than 10000 images on a single run.
     # This also helps preventing the workflow execution from running out of memory.
-    obj.add_argument('-max_retrieved', type=int, default=10000) # 0 means all
+    obj.add_argument('-max_retrieved', type=int,
+                     default=os.environ.get('MAX_RETRIEVED', 10000)) # 0 means all
 
     obj.add_argument('-confidence_threshold', type=float,
                      default=os.environ.get('CONFIDENCE_THRESHOLD', '0.7'))
