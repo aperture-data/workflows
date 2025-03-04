@@ -15,7 +15,6 @@ sequenceDiagram
     opt CLEAN
         W->>A: DeleteBoundingBox<br/>UpdateImage
     end
-    W->>A: AddDescriptorSet
     W->>A: FindImage
     A-->>W: count
     loop Until done
