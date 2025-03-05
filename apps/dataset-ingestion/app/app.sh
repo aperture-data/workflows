@@ -58,36 +58,13 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    gcloud storage rsync --recursive gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows/faces ${DIR}
+    gcloud storage rsync gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows_streaming/faces ${DIR}
     cd ${DIR}
 
-    mkdir -p images
-    cd images
 
-    # Extract all the images, first aligned, then unaligned
-    echo "Extracting images"
-    unzip -n -q ../img_align_celeba.zip
-    cd ../
-
-    echo "Extracting HQ images"
-    mkdir -p celeba-hq
-    cd celeba-hq
-    unzip -n -q ../CelebAMask-HQ.zip
-    cd -
-
-    adb utils log --level INFO "${APP} faces: Generating CelebA dataset"
-
-    #Extract the embeddings
-    echo "Extracting embeddings"
-    tar xf celebA.csv_clip_pytorch_embeddings.tgz
-    tar xf celebA.csv_facenet_pytorch_embeddings.tgz
-    tar xf hqimages.adb.csv_facenet_pytorch_embeddings.tgz
-
-
-    cd /app/build_faces
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
-    bash load.sh
+    bash /app/build_faces/load.sh
     adb utils log --level INFO "${APP}: Successful completion"
 }
 
