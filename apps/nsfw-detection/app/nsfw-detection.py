@@ -17,7 +17,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, max_images=0, batch_size=32):
+    def __init__(self, db, max_images=0, batch_size=16):
 
         self.db = db
 
@@ -26,7 +26,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         query = [{
             "FindImage": {
                 "constraints": {
-                    "nsfw_detector_neutral": ["==", None]
+                    "wf_nsfw_detector_neutral": ["==", None]
                 },
                 "results": {
                     "count": True
@@ -66,7 +66,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "nsfw_detector_neutral": ["==", None]
+                    "wf_nsfw_detector_neutral": ["==", None]
                 },
                 "batch": {
                     "batch_size": self.batch_size,
@@ -107,10 +107,10 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                         "_uniqueid": ["==", uniqueid]
                     },
                     "properties": {
-                        "nsfw_detector_neutral": prediction["neutral"],
-                        "nsfw_detector_hentai": prediction["hentai"],
-                        "nsfw_detector_porn": prediction["porn"],
-                        "nsfw_detector_sexy": prediction["sexy"],
+                        "wf_nsfw_detector_neutral": prediction["neutral"],
+                        "wf_nsfw_detector_hentai": prediction["hentai"],
+                        "wf_nsfw_detector_porn": prediction["porn"],
+                        "wf_nsfw_detector_sexy": prediction["sexy"],
                     }
                 }
             })
@@ -129,13 +129,13 @@ def clean_annotations(db):
     db.query([{
         "UpdateImage": {
             "constraints": {
-                "nsfw_detector_neutral": ["!=", None]
+                "wf_nsfw_detector_neutral": ["!=", None]
             },
             "remove_props": [
-                "nsfw_detector_neutral",
-                "nsfw_detector_hentai",
-                "nsfw_detector_porn",
-                "nsfw_detector_sexy",
+                "wf_nsfw_detector_neutral",
+                "wf_nsfw_detector_hentai",
+                "wf_nsfw_detector_porn",
+                "wf_nsfw_detector_sexy",
             ]
         }
     }])
@@ -149,7 +149,7 @@ def main(params):
     if params.clean:
         clean_annotations(db)
 
-    generator = FindImageQueryGenerator(db, params.max_images)
+    generator = FindImageQueryGenerator(db, params.max_retrieved)
     querier = ParallelQuery.ParallelQuery(db)
 
     print("Running Detector...")
@@ -182,8 +182,8 @@ def get_args():
                      default=os.environ.get('CLEAN', "false"))
 
     # For testing
-    obj.add_argument('-max_images',  type=int,
-                     default=os.environ.get('MAX_IMAGES', 4096))
+    obj.add_argument('-max_retrieved',  type=int,
+                     default=os.environ.get('MAX_RETRIEVED', 4096))
 
     params = obj.parse_args()
 
