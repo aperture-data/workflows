@@ -51,7 +51,8 @@ docker run \
 ```
 
 Parameters: 
-* **`START_URL`**: URL to start the crawl from. The crawl will be restricted to this domain.
+* **`START_URLS`**: URLs to start the crawl from (whitespace-separated). The crawl will be restricted to these domains.
+* **`ALLOWED_DOMAINS`**: Domain names that can be crawled, whitespace-delimited, in addition to any domains used in start URLs.
 * **`MAX_DOCUMENTS`**: Maximum number of documents to crawl. Because of asynchronous crawling, this is only roughly respected.
 * **`CONTENT_TYPES`**: MIME content types to include in the crawl, separated by semi-colons. Default is 'text/plain;text/html;application/pdf'. A crawl that does not include HTML document is unlikely to do much link-following.
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.

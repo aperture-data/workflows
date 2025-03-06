@@ -63,18 +63,19 @@ class ApertureDBSpider(CrawlSpider):
     _follow_links = True
 
     def __init__(self,
-                 start_url: str,
+                 start_urls: List[str],
+                 allowed_domains: Optional[List[str]] = [],
                  **kwargs):
         """ApertureDBSpider
 
         Args:
-            start_url (str): The URL to start crawling from
+            start_urls (List[str]): The URLs to start crawling from
         """
         super().__init__(**kwargs)
-        self.start_urls = [start_url]
+        self.start_urls = start_urls
         # Extract the domains from the URLs; we only want to crawl the same domain
         self.allowed_domains = list(
-            set([urlparse(url).netloc for url in self.start_urls]))
+            set([urlparse(url).netloc for url in self.start_urls])) + allowed_domains
         self.crawler.signals.connect(self.spider_closed,
                                      signal=signals.spider_closed)
 
@@ -92,7 +93,8 @@ class ApertureDBSpider(CrawlSpider):
         """
         settings = crawler.settings
         args = settings.get("APERTUREDB_PIPELINE_ARGS", {})
-        spider = class_(start_url=args.start_url,
+        spider = class_(start_urls=args.start_urls,
+                        allowed_domains=args.allowed_domains,
                         crawler=crawler,
                         **kwargs)
         return spider
@@ -214,9 +216,10 @@ def create_crawl(db, args):
             "AddEntity": {
                 "class": "Crawl",
                 "properties": {
-                    "start_url": args.start_url,
+                    "start_urls": json.dumps(args.start_urls),
                     "max_documents": args.max_documents,
                     "id": id_,
+                    "start_time": {"_date": start_time},
                 }
             }
         },
@@ -229,7 +232,7 @@ def create_crawl(db, args):
         },
     ])
 
-    return id_, start_time
+    return id_
 
 
 def update_crawl(db, crawl_id, stats):
@@ -266,7 +269,7 @@ def main(args):
 
     db = create_connector()
 
-    crawl_id, start_time = create_crawl(db, args)
+    crawl_id = create_crawl(db, args)
     logging.info(f"Starting Crawler with ID: {crawl_id}")
     process = CrawlerProcess(settings={
         "ALLOWED_CONTENT_TYPES": args.content_types.split(";"),
@@ -293,9 +296,13 @@ def main(args):
 def get_args():
     obj = argparse.ArgumentParser()
 
-    obj.add_argument('--start-url', type=str,
-                     help='The URL to start crawling from',
-                     default=os.environ.get('START_URL', 'https://docs.aperturedata.io/'))
+    obj.add_argument('--start-urls', type=str, action='append',
+                     help='The URLs to start crawling from',
+                     default=os.environ.get('START_URLS', 'https://docs.aperturedata.io/').split())
+
+    obj.add_argument('--allowed-domains', type=str, action='append',
+                     help='The allowed domains to crawl (in addition to those in start URLs)',
+                     default=os.environ.get('ALLOWED_DOMAINS', '').split())
 
     obj.add_argument('--max-documents',  type=int,
                      default=os.environ.get('MAX_DOCUMENTS', 1000))
