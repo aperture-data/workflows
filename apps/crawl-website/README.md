@@ -64,7 +64,7 @@ Parameters:
 * **`CONTENT_TYPES`**: MIME content types to include in the crawl, separated by semi-colons. Default is 'text/plain;text/html;application/pdf'. A crawl that does not include HTML document is unlikely to do much link-following.
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. Generally not useful because of the domain restriction.
-* **`CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 32. Reduce this if the website doesn't like being crawled.
+* **`CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
