@@ -269,7 +269,7 @@ def update_crawl(db, crawl_id, stats):
     """Update the Crawl entity with end time, duration, and number of documents"""
     logging.info(f"Ending Crawler {crawl_id}")
 
-    # Extract proerties from stats and convert datetimes to strings
+    # Extract properties from stats and convert datetimes to strings
     properties = {
         k: {"_date": v.isoformat()} if isinstance(v, datetime) else v
         for k, v in stats.items()
