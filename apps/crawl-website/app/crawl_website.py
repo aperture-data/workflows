@@ -25,11 +25,11 @@ class ContentTypeFilterMiddleware:
         self.allowed_types = set(allowed_types)
 
     @classmethod
-    def from_crawler(cls, crawler):
+    def from_crawler(class_, crawler):
         """Load allowed types from Scrapy settings."""
         allowed_types = crawler.settings.getlist("ALLOWED_CONTENT_TYPES",
                                                  default=["text/plain", "text/html", "application/pdf"])
-        return cls(allowed_types)
+        return class_(allowed_types)
 
     def process_response(self, request, response, spider):
         """Filter responses based on content type."""
@@ -59,7 +59,7 @@ class ApertureDBSpider(CrawlSpider):
         """ApertureDBSpider
 
         Args:
-            start_urls (str): The URL to start crawling from
+            start_url (str): The URL to start crawling from
         """
         super().__init__(**kwargs)
         self.start_urls = [start_url]
@@ -283,7 +283,7 @@ def main(args):
         "CONCURRENT_REQUESTS": args.concurrent_requests,
         "CONCURRENT_REQUESTS_PER_DOMAIN": args.concurrent_requests_per_domain,
     })
-    process.crawl(ApertureDBSpider, start_urls=[args.start_url])
+    process.crawl(ApertureDBSpider)
     process.start()
     update_crawl(db, crawl_id, start_time)
     logging.info("Crawling complete.")
