@@ -195,17 +195,26 @@ def create_crawl(db, args):
     start_time = datetime.now(timezone.utc).isoformat()
     logging.info(f"Starting Crawler at {start_time}")
     id_ = str(uuid4())
-    db.query([{
-        "AddEntity": {
-            "class": "Crawl",
-            "properties": {
-                "start_time": {"_date": start_time},
-                "start_url": args.start_url,
-                "max_documents": args.max_documents,
-                "id": id_,
+    db.query([
+        {
+            "AddEntity": {
+                "class": "Crawl",
+                "properties": {
+                    "start_time": {"_date": start_time},
+                    "start_url": args.start_url,
+                    "max_documents": args.max_documents,
+                    "id": id_,
+                }
             }
-        }
-    }])
+        },
+        {
+            "CreateIndex": {
+                "index_type": "entity",
+                "class": "Crawl",
+                "property_key": "id",
+            }
+        },
+    ])
     assert db.last_query_ok(), db.last_response
 
     return id_, start_time
