@@ -16,7 +16,7 @@ from scrapy.http import HtmlResponse
 from scrapy.exceptions import IgnoreRequest
 from scrapy.item import Item
 
-from aperturedb import CommonLibrary
+from aperturedb.CommonLibrary import create_connector, execute_query
 
 
 class ContentTypeFilterMiddleware:
@@ -155,7 +155,7 @@ class ApertureDBPipeline:
 
     @classmethod
     def from_crawler(class_, crawler):
-        db = CommonLibrary.create_connector()
+        db = create_connector()
         args = crawler.settings.get("APERTUREDB_PIPELINE_ARGS", {})
         crawl_id = crawler.settings.get("APERTUREDB_CRAWL_ID")
 
@@ -197,8 +197,7 @@ class ApertureDBPipeline:
 
         blobs = [item.blob]
 
-        self.db.query(query, blobs)
-        assert self.db.last_query_ok(), self.db.last_response
+        execute_query(self.db, query, blobs)
 
 
 def create_crawl(db, args):
@@ -208,7 +207,7 @@ def create_crawl(db, args):
     start_time = datetime.now(timezone.utc).isoformat()
     logging.info(f"Starting Crawler at {start_time}")
     id_ = str(uuid4())
-    db.query([
+    execute_query(db, [
         {
             "AddEntity": {
                 "class": "Crawl",
@@ -228,7 +227,6 @@ def create_crawl(db, args):
             }
         },
     ])
-    assert db.last_query_ok(), db.last_response
 
     return id_, start_time
 
@@ -240,7 +238,7 @@ def update_crawl(db, crawl_id, start_time):
                 datetime.fromisoformat(start_time)).total_seconds()
     logging.info(f"Ending Crawler at {end_time}, {duration} seconds")
 
-    response, _ = db.query([
+    _, response, _ = execute_query(db, [
         {
             "FindEntity": {
                 "with_class": "Crawl",
@@ -258,13 +256,12 @@ def update_crawl(db, crawl_id, start_time):
             },
         }
     ])
-    assert db.last_query_ok(), db.last_response
 
     n_documents = response[1]["FindEntity"]["count"] if len(
         response) == 2 else 0
     logging.info(f"Found {n_documents} documents")
 
-    db.query([{
+    execute_query(db, [{
         "FindEntity": {
             "with_class": "Crawl",
             "constraints": {
@@ -282,7 +279,6 @@ def update_crawl(db, crawl_id, start_time):
             }
         }
     }])
-    assert db.last_query_ok(), db.last_response
 
 
 def main(args):
@@ -290,7 +286,7 @@ def main(args):
     # Presumably scrapy is also setting up logging.
     # logging.basicConfig(level=args.log_level.upper())
 
-    db = CommonLibrary.create_connector()
+    db = create_connector()
 
     crawl_id, start_time = create_crawl(db, args)
     logging.info(f"Starting Crawler with ID: {crawl_id}")
