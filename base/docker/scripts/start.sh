@@ -29,33 +29,36 @@ else
     date > $LOGFILE
 fi
 
-if [ -z "$RUN_NAME" ]
-    then
+if [ -z "$RUN_NAME" ]; then
     RUN_NAME="unspecified_app_run"
     echo "WARNING: RUN_NAME not specified" >> $LOGFILE
 fi
 
-if [ -z "$APP_NAME" ]
-    then
+if [ -z "$APP_NAME" ]; then
     APP_NAME="unspecified_app"
     echo "WARNING: APP_NAME not specified" >> $LOGFILE
 fi
 
-DEFAULT_DB_PORT=55555
-
 DB_HOST=${DB_HOST:-"localhost"}
 DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST}}
-DB_HOST_PRIVATE=${DB_HOST_PRIVATE:-${DB_HOST}}
+DB_HOST_PRIVATE_TCP=${DB_HOST_PRIVATE_TCP:-${DB_HOST}}
+DB_HOST_PRIVATE_HTTP=${DB_HOST_PRIVATE_HTTP:-${DB_HOST}}
 DB_USER=${DB_USER:-"admin"}
 DB_PASS=${DB_PASS:-"admin"}
+
 USE_SSL=${USE_SSL:-true}
 USE_REST=${USE_REST:-false}
 
 if [ "$USE_REST" == true ]; then
-    DEFAULT_DB_PORT=80
+    DB_HOST=${DB_HOST_PRIVATE_HTTP}
     if [ "$USE_SSL" == true ]; then
         DEFAULT_DB_PORT=443
+    else
+        DEFAULT_DB_PORT=80
     fi
+else
+    DB_HOST=${DB_HOST_PRIVATE_TCP}
+    DEFAULT_DB_PORT=55555
 fi
 
 DB_PORT=${DB_PORT:-$DEFAULT_DB_PORT}
