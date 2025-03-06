@@ -65,6 +65,7 @@ Parameters:
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. Generally not useful because of the domain restriction.
 * **`CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
+* **`DOWNLOAD_DELAY`**: Number of seconds to wait between two consecutive requests to the same domain. Default 0.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 

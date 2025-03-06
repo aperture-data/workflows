@@ -7,6 +7,7 @@ from uuid import uuid4
 from urllib.parse import urlparse
 import email.utils
 from dataclasses import dataclass
+import json
 
 import scrapy
 from scrapy.spiders import CrawlSpider, Rule
@@ -15,8 +16,11 @@ from scrapy.crawler import Crawler, CrawlerProcess
 from scrapy.http import HtmlResponse
 from scrapy.exceptions import IgnoreRequest
 from scrapy.item import Item
+from scrapy import signals
 
 from aperturedb.CommonLibrary import create_connector, execute_query
+
+stats = None
 
 
 class ContentTypeFilterMiddleware:
@@ -71,6 +75,8 @@ class ApertureDBSpider(CrawlSpider):
         # Extract the domains from the URLs; we only want to crawl the same domain
         self.allowed_domains = list(
             set([urlparse(url).netloc for url in self.start_urls]))
+        self.crawler.signals.connect(self.spider_closed,
+                                     signal=signals.spider_closed)
 
     @classmethod
     def from_crawler(class_, crawler, **kwargs):
@@ -144,6 +150,13 @@ class ApertureDBSpider(CrawlSpider):
 
         return ApertureDBItem(properties=properties, blob=response.body)
 
+    def spider_closed(self, reason):
+        logging.info(f"Spider closed: {reason}")
+        global stats
+        assert stats is None
+        stats = self.crawler.stats.get_stats()
+        logging.info(f"Stats: {stats}")
+
 
 class ApertureDBPipeline:
     """Pipeline to store items in ApertureDB"""
@@ -212,7 +225,6 @@ def create_crawl(db, args):
             "AddEntity": {
                 "class": "Crawl",
                 "properties": {
-                    "start_time": {"_date": start_time},
                     "start_url": args.start_url,
                     "max_documents": args.max_documents,
                     "id": id_,
@@ -231,12 +243,9 @@ def create_crawl(db, args):
     return id_, start_time
 
 
-def update_crawl(db, crawl_id, start_time):
+def update_crawl(db, crawl_id, stats):
     """Update the Crawl entity with end time, duration, and number of documents"""
-    end_time = datetime.now(timezone.utc).isoformat()
-    duration = (datetime.fromisoformat(end_time) -
-                datetime.fromisoformat(start_time)).total_seconds()
-    logging.info(f"Ending Crawler at {end_time}, {duration} seconds")
+    logging.info(f"Ending Crawler {crawl_id}")
 
     _, response, _ = execute_query(db, [
         {
@@ -261,6 +270,13 @@ def update_crawl(db, crawl_id, start_time):
         response) == 2 else 0
     logging.info(f"Found {n_documents} documents")
 
+    # Extract proerties from stats and convert datetimes to strings
+    properties = {
+        k: {"_date": v.isoformat()} if isinstance(v, datetime) else v
+        for k, v in stats.items()
+        if v is not None
+    }
+
     execute_query(db, [{
         "FindEntity": {
             "with_class": "Crawl",
@@ -272,11 +288,7 @@ def update_crawl(db, crawl_id, start_time):
     }, {
         "UpdateEntity": {
             "ref": 1,
-            "properties": {
-                "end_time": {"_date": end_time},
-                "n_documents": n_documents,
-                "duration": duration,
-            }
+            "properties": properties,
         }
     }])
 
@@ -291,8 +303,13 @@ def main(args):
     crawl_id, start_time = create_crawl(db, args)
     logging.info(f"Starting Crawler with ID: {crawl_id}")
     process = CrawlerProcess(settings={
+        "ALLOWED_CONTENT_TYPES": args.content_types.split(";"),
         "APERTUREDB_PIPELINE_ARGS": args,
         "APERTUREDB_CRAWL_ID": crawl_id,
+        "CLOSESPIDER_ITEMCOUNT": args.max_documents,
+        "CONCURRENT_REQUESTS": args.concurrent_requests,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": args.concurrent_requests_per_domain,
+        "DOWNLOAD_DELAY": args.download_delay,
         "DOWNLOADER_MIDDLEWARES": {
             ContentTypeFilterMiddleware: 543,
         },
@@ -300,14 +317,10 @@ def main(args):
             ApertureDBPipeline: 1000,
         },
         "LOG_LEVEL": args.log_level.upper(),
-        "ALLOWED_CONTENT_TYPES": args.content_types.split(";"),
-        "CLOSESPIDER_ITEMCOUNT": args.max_documents,
-        "CONCURRENT_REQUESTS": args.concurrent_requests,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": args.concurrent_requests_per_domain,
     })
     process.crawl(ApertureDBSpider)
     process.start()
-    update_crawl(db, crawl_id, start_time)
+    update_crawl(db, crawl_id, stats)
     logging.info("Crawling complete.")
 
 
@@ -332,6 +345,9 @@ def get_args():
 
     obj.add_argument('--concurrent-requests-per-domain', type=int,
                      default=os.environ.get('CONCURRENT_REQUESTS_PER_DOMAIN', 8))
+
+    obj.add_argument('--download-delay', type=float,
+                     default=os.environ.get('DOWNLOAD_DELAY', 0))
 
     params = obj.parse_args()
 
