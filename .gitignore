@@ -171,3 +171,4 @@ cython_debug/
 .pypirc
 
 apps/dataset-ingestion/input
+log.txt
