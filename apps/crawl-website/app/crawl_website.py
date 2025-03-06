@@ -20,6 +20,8 @@ from aperturedb import CommonLibrary
 
 
 class ContentTypeFilterMiddleware:
+    """Middleware to filter out responses based on content type."""
+
     def __init__(self, allowed_types):
         """Initialize middleware with allowed content types."""
         self.allowed_types = set(allowed_types)
@@ -44,11 +46,14 @@ class ContentTypeFilterMiddleware:
 
 @dataclass
 class ApertureDBItem:
+    """Data class to hold the item to be stored in ApertureDB"""
     properties: dict
     blob: bytes
 
 
 class ApertureDBSpider(CrawlSpider):
+    """Spider to crawl a website and convert the results to ApertureDB items"""
+
     name = "aperturedb_spider"
     rules = [Rule(LinkExtractor(), callback='process_response', follow=True)]
     _follow_links = True
@@ -87,7 +92,10 @@ class ApertureDBSpider(CrawlSpider):
         return spider
 
     def process_response(self, response) -> ApertureDBItem:
-        """Process the response from the request"""
+        """Process the response from the request.
+
+        The resulting item contains a properties dictionary and a blob.
+        """
         properties = {}
 
         properties["url"] = response.url
@@ -138,6 +146,8 @@ class ApertureDBSpider(CrawlSpider):
 
 
 class ApertureDBPipeline:
+    """Pipeline to store items in ApertureDB"""
+
     def __init__(self, db, crawl_id):
         self.db = db
         self.crawl_id = crawl_id
@@ -192,6 +202,9 @@ class ApertureDBPipeline:
 
 
 def create_crawl(db, args):
+    """Create a new Crawl entity in ApertureDB
+    Also create an index on ids for faster lookups.
+    """
     start_time = datetime.now(timezone.utc).isoformat()
     logging.info(f"Starting Crawler at {start_time}")
     id_ = str(uuid4())
@@ -221,6 +234,7 @@ def create_crawl(db, args):
 
 
 def update_crawl(db, crawl_id, start_time):
+    """Update the Crawl entity with end time, duration, and number of documents"""
     end_time = datetime.now(timezone.utc).isoformat()
     duration = (datetime.fromisoformat(end_time) -
                 datetime.fromisoformat(start_time)).total_seconds()
@@ -272,9 +286,12 @@ def update_crawl(db, crawl_id, start_time):
 
 
 def main(args):
+    # The following line produces duplicate logs in the output.
+    # Presumably scrapy is also setting up logging.
     # logging.basicConfig(level=args.log_level.upper())
 
     db = CommonLibrary.create_connector()
+
     crawl_id, start_time = create_crawl(db, args)
     logging.info(f"Starting Crawler with ID: {crawl_id}")
     process = CrawlerProcess(settings={
