@@ -186,24 +186,13 @@ class ApertureDBPipeline:
                 }
             },
             {
-                "AddEntity": {
-                    "class": "CrawlDocument",
+                "AddBlob": {
                     "properties": item.properties,
                     "connect": {
                         "ref": 1,
                         "class": "crawlHasDocument",
                         "direction": "in",
                     },
-                    "_ref": 2,
-                }
-            },
-            {
-                "AddBlob": {
-                    "connect": {
-                        "ref": 2,
-                        "class": "documentContent",
-                        "direction": "in",
-                    }
                 }
             },
         ]
@@ -246,29 +235,6 @@ def create_crawl(db, args):
 def update_crawl(db, crawl_id, stats):
     """Update the Crawl entity with end time, duration, and number of documents"""
     logging.info(f"Ending Crawler {crawl_id}")
-
-    _, response, _ = execute_query(db, [
-        {
-            "FindEntity": {
-                "with_class": "Crawl",
-                "constraints": {
-                    "id": ["==", crawl_id],
-                },
-                "_ref": 1,
-            },
-        },
-        {
-            "FindEntity": {
-                "with_class": "CrawlDocument",
-                "is_connected_to": {"ref": 1},
-                "results": {"count": True},
-            },
-        }
-    ])
-
-    n_documents = response[1]["FindEntity"]["count"] if len(
-        response) == 2 else 0
-    logging.info(f"Found {n_documents} documents")
 
     # Extract proerties from stats and convert datetimes to strings
     properties = {
