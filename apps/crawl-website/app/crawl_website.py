@@ -21,6 +21,7 @@ from scrapy import signals
 from aperturedb.CommonLibrary import create_connector, execute_query
 
 stats = None
+error_urls = None
 
 
 class ContentTypeFilterMiddleware:
@@ -61,6 +62,8 @@ class ApertureDBSpider(CrawlSpider):
     name = "aperturedb_spider"
     rules = [Rule(LinkExtractor(), callback='process_response', follow=True)]
     _follow_links = True
+    # Add 4XX codes to ensure they are passed to the spider
+    handle_httpstatus_list = [404, 403, 400, 401, 402, 405]
 
     def __init__(self,
                  start_urls: List[str],
@@ -76,6 +79,7 @@ class ApertureDBSpider(CrawlSpider):
         # Extract the domains from the URLs; we only want to crawl the same domain
         self.allowed_domains = list(
             set([urlparse(url).netloc for url in self.start_urls])) + allowed_domains
+        self.error_urls = []
         self.crawler.signals.connect(self.spider_closed,
                                      signal=signals.spider_closed)
 
@@ -104,10 +108,24 @@ class ApertureDBSpider(CrawlSpider):
 
         The resulting item contains a properties dictionary and a blob.
         """
+        status_code = response.status
+        self.crawler.stats.inc_value(
+            f'spider/response_status_count/{status_code}')
+
+        if response.status in [404, 403, 400, 401, 402, 405]:
+            referrer = response.request.headers.get(
+                'Referer', b'None').decode('utf-8')
+            self.error_urls.append([response.status, response.url, referrer])
+            return None
+
         properties = {}
 
         properties["url"] = response.url
         logging.info(f"ApertureDBPipeline: Processing {response.url}")
+
+        domain = urlparse(response.url).netloc
+        properties["domain"] = domain
+        self.crawler.stats.inc_value(f'spider/domain/{domain}')
 
         content_type = response.headers.get(
             "Content-Type", b"").decode("utf-8")
@@ -115,6 +133,7 @@ class ApertureDBSpider(CrawlSpider):
             properties["content_type"] = content_type
             simple_content_type = content_type.split(";")[0]
             properties["simple_content_type"] = simple_content_type
+            self.crawler.stats.inc_value(f'content_type/{simple_content_type}')
 
         last_modified = response.headers.get(
             "Last-Modified", b"").decode("utf-8")
@@ -154,10 +173,16 @@ class ApertureDBSpider(CrawlSpider):
 
     def spider_closed(self, reason):
         logging.info(f"Spider closed: {reason}")
+
         global stats
         assert stats is None
         stats = self.crawler.stats.get_stats()
         logging.info(f"Stats: {stats}")
+
+        global error_urls
+        assert error_urls is None
+        error_urls = self.error_urls
+        logging.info(f"Error URLs: {error_urls}")
 
 
 class ApertureDBPipeline:
@@ -174,9 +199,13 @@ class ApertureDBPipeline:
         args = crawler.settings.get("APERTUREDB_PIPELINE_ARGS", {})
         crawl_id = crawler.settings.get("APERTUREDB_CRAWL_ID")
 
-        return class_(db, crawl_id)
+        pipeline = class_(db, crawl_id)
+        pipeline.crawler = crawler
+        return pipeline
 
     def process_item(self, item: ApertureDBItem, spider):
+        """Process the item and store it in ApertureDB"""
+        self.crawler.stats.inc_value('itempipeline/item_count')
         query = [
             {
                 "FindEntity": {
@@ -217,6 +246,7 @@ def create_crawl(db, args):
                 "class": "Crawl",
                 "properties": {
                     "start_urls": json.dumps(args.start_urls),
+                    "allowed_domains": json.dumps(args.allowed_domains),
                     "max_documents": args.max_documents,
                     "id": id_,
                     "start_time": {"_date": start_time},
@@ -245,6 +275,10 @@ def update_crawl(db, crawl_id, stats):
         for k, v in stats.items()
         if v is not None
     }
+
+    global error_urls
+    if error_urls:
+        properties["error_urls"] = json.dumps(error_urls)
 
     execute_query(db, [{
         "FindEntity": {
@@ -281,6 +315,8 @@ def main(args):
         "DOWNLOAD_DELAY": args.download_delay,
         "DOWNLOADER_MIDDLEWARES": {
             ContentTypeFilterMiddleware: 543,
+            'scrapy.downloadermiddlewares.retry.RetryMiddleware': 550,
+            'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': 600,
         },
         "ITEM_PIPELINES": {
             ApertureDBPipeline: 1000,

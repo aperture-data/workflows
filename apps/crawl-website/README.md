@@ -56,7 +56,7 @@ Parameters:
 * **`MAX_DOCUMENTS`**: Maximum number of documents to crawl. Because of asynchronous crawling, this is only roughly respected.
 * **`CONTENT_TYPES`**: MIME content types to include in the crawl, separated by semi-colons. Default is 'text/plain;text/html;application/pdf'. A crawl that does not include HTML document is unlikely to do much link-following.
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
-* **`CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. Generally not useful because of the domain restriction.
+* **`CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. 
 * **`CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
 * **`DOWNLOAD_DELAY`**: Number of seconds to wait between two consecutive requests to the same domain. Default 0.
 
