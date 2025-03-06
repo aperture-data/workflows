@@ -32,9 +32,11 @@ sequenceDiagram
     participant A as ApertureDB instance
     W->>A: AddEntity (Crawl)
     loop For each webpage
-        W->>A: AddEntity (CrawlDocument)<br/>AddBlob
+        W->>A: FindEntity (Crawl)<br/>AddEntity (CrawlDocument)<br/>AddBlob
     end
-    W->>A: UpdateEntity (Crawl)
+    W->>A: FindEntity (Crawl)<br/>FindEntity (CrawlDocument)
+    A->>W: count
+    W->>A: FindEntity(Crawl)<br/>UpdateEntity (Crawl)
 ```
 
 
