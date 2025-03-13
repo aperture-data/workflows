@@ -41,6 +41,8 @@ build_coco() {
     date
     adb utils log --level INFO "${APP}: Loading begins"
     echo "loading data..."
+    python3 ingest_streaming.py /app/input/val/val_images.adb.csv $BATCH_SIZE $NUM_WORKERS
+    python3 ingest_streaming.py /app/input/val/val_pixelmaps.adb.csv $BATCH_SIZE $NUM_WORKERS
     python3 ingestion_demo_trial.py -R /app/input -C $CLEAN -B $BATCH_SIZE -W $NUM_WORKERS -S $SAMPLE_COUNT -T $INCLUDE_TRAIN
 
     # Validation
@@ -64,6 +66,9 @@ build_faces() {
 
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
+    python3 /app/build_faces/create_indexes.py
+    python3 /app/build_faces/ingest_streaming.py /app/input/faces/pruned_celebA.csv $BATCH_SIZE $NUM_WORKERS
+    python3 /app/build_faces/ingest_streaming.py /app/input/faces/hqimages.adb.csv $BATCH_SIZE $NUM_WORKERS
     bash /app/build_faces/load.sh
     adb utils log --level INFO "${APP}: Successful completion"
 }
