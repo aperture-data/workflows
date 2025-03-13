@@ -40,8 +40,8 @@ def ingest_coco(cli_args):
 
     set_name = "ViT-B/16"
     dbutils.add_descriptorset(set_name, 512,
-                              metric=["L2"],
-                              engine=["FaissHNSWFlat"])
+                              metric=["CS"],
+                              engine=["HNSW"])
 
     for stage in stages:
         for obj in objs:

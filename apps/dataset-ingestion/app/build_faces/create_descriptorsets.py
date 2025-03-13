@@ -8,5 +8,5 @@ set_names = {
 }
 for set_name, dim in set_names.items():
     utils.add_descriptorset(set_name, dim,
-            metric=["L2"],
-            engine=["FaissFlat"])
+            metric=["L2", "CS", "IP"],
+            engine=["Flat", "HNSW"])
