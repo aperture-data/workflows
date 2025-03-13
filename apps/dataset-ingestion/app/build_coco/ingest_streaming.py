@@ -8,6 +8,8 @@ import requests
 from aperturedb.CommonLibrary import create_connector
 from aperturedb.QueryGenerator import QueryGenerator
 from typer import Typer
+from aperturedb.transformers import common_properties, image_properties
+
 
 
 class HTTPStorageURLS():
@@ -116,6 +118,8 @@ def ingest(input_csv: str, batch_size: int, num_workers: int):
     client = create_connector()
     from aperturedb.ParallelLoader import ParallelLoader
     loader = ParallelLoader(client=client)
+    s = common_properties.CommonProperties(s)
+    s = image_properties.ImageProperties(s)
     loader.ingest(s, batch_size, num_workers, True)
     print("Done")
 
