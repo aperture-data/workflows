@@ -66,6 +66,10 @@ build_faces() {
 
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
+    if [[ ${CLEAN} == "true" ]]; then
+        echo "Cleaning the database"
+        adb utils execute remove_all --force
+    fi
     python3 /app/build_faces/create_indexes.py
     python3 /app/build_faces/ingest_streaming.py /app/input/faces/pruned_celebA.csv $BATCH_SIZE $NUM_WORKERS
     python3 /app/build_faces/ingest_streaming.py /app/input/faces/hqimages.adb.csv $BATCH_SIZE $NUM_WORKERS

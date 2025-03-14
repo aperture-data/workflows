@@ -6,10 +6,7 @@ NUM_WORKERS=${NUM_WORKERS:=8}
 CLEAN=${CLEAN:=true}
 SAMPLE_COUNT=${SAMPLE_COUNT:=10}
 
-if [[ ${CLEAN} == "true" ]]; then
-    echo "Cleaning the database"
-    adb utils execute remove_all --force
-fi
+
 cd /app/build_faces
 
 python3 create_descriptorsets.py
