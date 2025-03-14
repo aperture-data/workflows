@@ -84,7 +84,7 @@ class Sequence(QueryGenerator):
             self.gcs = GoogleCloudStorage(self.q, self.df, self.executor)
         elif self.storage == ObjectStorage.HTTP:
             self.gcs = HTTPStorageURLS(self.q, self.df, self.executor)
-        # Hack to reuse extra 5 items on top of the queue
+        # Hack to reuse extra 7 (5 for PQ+2 for transformers) items on top of the queue
         # which are used to check if generator has implemented getitem
         # And what is commands per query, and blobs per query.
         self.inspect = 0
@@ -94,7 +94,7 @@ class Sequence(QueryGenerator):
 
     def getitem(self, subscript):
         data = self.q.get()
-        if self.inspect < 5:
+        if self.inspect < 7:
             self.q.put(data)
             self.inspect += 1
         q = [

@@ -9,6 +9,8 @@ from aperturedb.CommonLibrary import create_connector
 from aperturedb.QueryGenerator import QueryGenerator
 from typer import Typer
 from aperturedb.transformers import common_properties, image_properties
+from types import SimpleNamespace
+
 
 
 
@@ -85,19 +87,19 @@ class Sequence(QueryGenerator):
             self.gcs = GoogleCloudStorage(self.q, self.df, self.executor)
         elif self.storage == ObjectStorage.HTTP:
             self.gcs = HTTPStorageURLS(self.q, self.df, self.executor)
-        # Hack to reuse extra 5 items on top of the queue
+        # Hack to reuse extra 7 (5 for PQ+2 for transformers) items on top of the queue
         # which are used to check if generator has implemented getitem
         # And what is commands per query, and blobs per query.
-        self.inspect = 0
+        self.inspected = 0
 
     def __del__(self):
         self.executor.shutdown()
 
     def getitem(self, subscript):
         data = self.q.get()
-        if self.inspect < 5:
+        if self.inspected < 7:
             self.q.put(data)
-            self.inspect += 1
+            self.inspected += 1
         q = [
             {
                 "AddImage": {
@@ -114,12 +116,13 @@ class Sequence(QueryGenerator):
 app = Typer()
 @app.command()
 def ingest(input_csv: str, batch_size: int, num_workers: int):
-    s = Sequence(input_csv)
     client = create_connector()
     from aperturedb.ParallelLoader import ParallelLoader
-    loader = ParallelLoader(client=client)
-    s = common_properties.CommonProperties(s)
+    s = Sequence(input_csv)
+    s.sample_count = len(s)
     s = image_properties.ImageProperties(s)
+    s = common_properties.CommonProperties(s)
+    loader = ParallelLoader(client=client)
     loader.ingest(s, batch_size, num_workers, True)
     print("Done")
 
