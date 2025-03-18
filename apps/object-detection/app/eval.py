@@ -103,7 +103,7 @@ def push_to_aperturedb_queue(db_obj, queue, classes, params):
 
     global stop
 
-    db = db_obj.create_new_connection()
+    db = db_obj.clone()
 
     while True:
         if stop and len(queue) == 0:
