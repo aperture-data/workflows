@@ -64,7 +64,7 @@ docker run \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS="password" \
            -e DATASET="coco" \
-           aperturedata/workflows-dataset_ingestion
+           aperturedata/workflows-dataset-ingestion
 ```
 
 Parameters: 
