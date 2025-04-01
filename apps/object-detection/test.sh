@@ -16,7 +16,7 @@ docker run -d \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+           aperturedata/aperturedb
 
 sleep 20
 
