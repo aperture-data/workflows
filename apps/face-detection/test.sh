@@ -21,11 +21,11 @@ docker run -d \
 sleep 10
 
 # Add images to the db
-docker run --name add_images \
+docker run --name add-coco \
            --network ${WORKFLOW_NAME} \
-           -e SAMPLE_COUNT=100 \
            -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
-           aperturedata/coco_val_images
+           -e INGEST_ONCE=true \
+           aperturedata/wf-bench-coco-validation
 
 docker run \
     --name ${WORKFLOW_NAME}-workflow \
