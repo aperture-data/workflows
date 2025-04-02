@@ -16,7 +16,6 @@ docker network create ${EE_NW_NAME}
 docker run -d \
            --name ${EE_DB_NAME} \
            --network ${EE_NW_NAME} \
-           -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community

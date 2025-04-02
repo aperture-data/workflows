@@ -24,7 +24,6 @@ docker network create ${CELEBA_NW_NAME}
 docker run -d \
            --name ${COCO_DB_NAME} \
            --network ${COCO_NW_NAME} \
-           -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
@@ -32,7 +31,6 @@ docker run -d \
 docker run -d \
            --name ${CELEBA_DB_NAME} \
            --network ${CELEBA_NW_NAME} \
-           -p 55556:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
