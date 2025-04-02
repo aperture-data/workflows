@@ -3,16 +3,18 @@ set -e
 
 bash build.sh
 
-docker stop $(docker ps -q)  || true
-docker rm $(docker ps -a -q) || true
-docker network rm embeddings-extraction || true
-
 EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"
+EE_DB_NAME="${RUNNER_NAME}_aperturedb"
+
+docker stop ${EE_DB_NAME}  || true
+docker rm ${EE_DB_NAME} || true
+docker network rm ${FD_NW_NAME} || true
+
 docker network create ${EE_NW_NAME}
 
 # Start empty aperturedb instance
 docker run -d \
-           --name aperturedb \
+           --name ${EE_DB_NAME} \
            --network ${EE_NW_NAME} \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
@@ -25,21 +27,23 @@ sleep 20
 docker run --name add_image \
            --network ${EE_NW_NAME} \
            -e TOTAL_IMAGES=100 \
-           -e DB_HOST=aperturedb \
+           -e DB_HOST=${EE_DB_NAME} \
            -v ./input:/app/data \
+           --rm \
            aperturedata/wf-add-image
 
 # Run the object detection workflow
 docker run \
            --network ${EE_NW_NAME} \
-           -e DB_HOST=aperturedb \
+           -e DB_HOST=${EE_DB_NAME} \
            -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
            -e RUN_ONCE=true \
            -e MODEL_NAME="ViT-B/16" \
+           --rm \
            aperturedata/workflows-embeddings-extraction
 
 # if CLEANUP is set to true, stop the aperturedb instance and remove the network
 if [ "$CLEANUP" = "true" ]; then
-    docker stop aperturedb
+    docker stop ${EE_DB_NAME}
     docker network rm ${EE_NW_NAME}
 fi
