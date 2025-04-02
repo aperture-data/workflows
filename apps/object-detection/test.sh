@@ -5,6 +5,7 @@ bash build.sh
 RUNNER_NAME="$(whoami)"
 OD_NW_NAME="${RUNNER_NAME}_object-detection"
 OD_DB_NAME="${RUNNER_NAME}_aperturedb"
+OD_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
 
 
 docker stop ${OD_DB_NAME}  || true
@@ -24,7 +25,7 @@ docker run -d \
 sleep 20
 
 # Add images to the db
-docker run --name add_image \
+docker run --name ${OD_IMAGE_ADDER_NAME} \
            --network ${OD_NW_NAME} \
            -e TOTAL_IMAGES=100 \
            -e DB_HOST=${OD_DB_NAME} \

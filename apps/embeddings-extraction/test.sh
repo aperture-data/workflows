@@ -5,6 +5,7 @@ bash build.sh
 RUNNER_NAME="$(whoami)"
 EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"
 EE_DB_NAME="${RUNNER_NAME}_aperturedb"
+EE_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
 
 docker stop ${EE_DB_NAME}  || true
 docker rm ${EE_DB_NAME} || true
@@ -23,7 +24,7 @@ docker run -d \
 sleep 20
 
 # Add images to the db
-docker run --name add_image \
+docker run --name ${EE_IMAGE_ADDER_NAME} \
            --network ${EE_NW_NAME} \
            -e TOTAL_IMAGES=100 \
            -e DB_HOST=${EE_DB_NAME} \
