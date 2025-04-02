@@ -26,7 +26,7 @@ docker run --name add_image \
            -e TOTAL_IMAGES=100 \
            -e DB_HOST=aperturedb \
            -v ./input:/app/data \
-           aperturedata/app-bench-add_image
+           aperturedata/wf-add-image
 
 # Run the object detection workflow
 docker run \

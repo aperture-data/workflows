@@ -18,14 +18,14 @@ docker run -d \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
 
-sleep 10
+sleep 20
 
 # Add images to the db
-docker run --name add_images \
+docker run --name add-image \
            --network ${WORKFLOW_NAME} \
-           -e SAMPLE_COUNT=100 \
            -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
-           aperturedata/coco_val_images
+           -e TOTAL_IMAGES=100 \
+           aperturedata/wf-add-image
 
 docker run \
     --name ${WORKFLOW_NAME}-workflow \
