@@ -2,6 +2,7 @@
 set -e
 
 bash build.sh
+RUNNER_NAME="$(whoami)"
 OD_NW_NAME="${RUNNER_NAME}_object-detection"
 OD_DB_NAME="${RUNNER_NAME}_aperturedb"
 

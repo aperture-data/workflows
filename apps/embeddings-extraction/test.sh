@@ -2,7 +2,7 @@
 set -e
 
 bash build.sh
-
+RUNNER_NAME="$(whoami)"
 EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"
 EE_DB_NAME="${RUNNER_NAME}_aperturedb"
 
