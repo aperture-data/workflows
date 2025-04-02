@@ -7,12 +7,13 @@ docker stop $(docker ps -q)  || true
 docker rm $(docker ps -a -q) || true
 docker network rm object-detection || true
 
-docker network create object-detection
+OD_NW_NAME="${RUNNER_NAME}_object-detection"
+docker network create ${OD_NW_NAME}
 
 # Start empty aperturedb instance
 docker run -d \
            --name aperturedb \
-           --network object-detection \
+           --network ${OD_NW_NAME} \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
@@ -22,7 +23,7 @@ sleep 20
 
 # Add images to the db
 docker run --name add_image \
-           --network object-detection \
+           --network ${OD_NW_NAME} \
            -e TOTAL_IMAGES=100 \
            -e DB_HOST=aperturedb \
            -v ./input:/app/data \
@@ -30,7 +31,7 @@ docker run --name add_image \
 
 # Run the object detection workflow
 docker run \
-           --network object-detection \
+           --network ${OD_NW_NAME} \
            -e DB_HOST=aperturedb \
            -e RUN_ONCE=true \
            -e MODEL_NAME="frcnn-mobilenet" \
@@ -40,5 +41,5 @@ docker run \
 # if CLEANUP is set to true, stop the aperturedb instance and remove the network
 if [ "$CLEANUP" = "true" ]; then
     docker stop aperturedb
-    docker network rm object-detection
+    docker network rm ${OD_NW_NAME}
 fi

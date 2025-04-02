@@ -3,18 +3,22 @@ set -e
 
 bash build.sh
 export WORKFLOW_NAME="dataset-ingestion"
+
+COCO_NW_NAME="${RUNNER_NAME}_${WORKFLOW_NAME}_coco"
+CELEBA_NW_NAME="${RUNNER_NAME}_${WORKFLOW_NAME}_celeba"
+
 docker stop $(docker ps -q)  || true
 docker rm $(docker ps -a -q) || true
-docker network rm ${WORKFLOW_NAME}_coco || true
-docker network rm ${WORKFLOW_NAME}_celeba || true
+docker network rm ${COCO_NW_NAME} || true
+docker network rm ${CELEBA_NW_NAME} || true
 
-docker network create ${WORKFLOW_NAME}_coco
-docker network create ${WORKFLOW_NAME}_celeba
+docker network create ${COCO_NW_NAME}
+docker network create ${CELEBA_NW_NAME}
 
 # Start empty aperturedb instance for coco
 docker run -d \
            --name aperturedb_coco \
-           --network ${WORKFLOW_NAME}_coco \
+           --network ${COCO_NW_NAME} \
            -p 55555:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
@@ -22,7 +26,7 @@ docker run -d \
 
 docker run -d \
            --name aperturedb_celeba \
-           --network ${WORKFLOW_NAME}_celeba \
+           --network ${CELEBA_NW_NAME} \
            -p 55556:55555 \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
@@ -33,7 +37,7 @@ sleep 20
 
 #Ingest and verify COCO
 docker run \
-    --network ${WORKFLOW_NAME}_coco \
+    --network ${COCO_NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
     -e "DB_HOST=aperturedb_coco" \
@@ -47,7 +51,7 @@ pid1=$!
 
 #Ingest and verify Faces
 docker run \
-    --network ${WORKFLOW_NAME}_celeba \
+    --network ${CELEBA_NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
     -e "DB_HOST=aperturedb_celeba" \
@@ -78,6 +82,6 @@ fi
 if [ "$CLEANUP" = "true" ]; then
     docker stop aperturedb_coco
     docker stop aperturedb_celeba
-    docker network rm ${WORKFLOW_NAME}_coco
-    docker network rm ${WORKFLOW_NAME}_celeba
+    docker network rm ${COCO_NW_NAME}
+    docker network rm ${CELEBA_NW_NAME}
 fi

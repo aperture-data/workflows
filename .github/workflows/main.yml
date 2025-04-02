@@ -41,6 +41,7 @@ jobs:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+          RUNNER_NAME: ${{ runner.name }}
         run: |
           cd apps/dataset-ingestion
           bash test.sh
@@ -48,6 +49,7 @@ jobs:
       - name: Test workflow object-detection
         env:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          RUNNER_NAME: ${{ runner.name }}
         run: |
           cd apps/object-detection
           bash test.sh
@@ -55,6 +57,7 @@ jobs:
       - name: Test workflow embeddings-extraction
         env:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          RUNNER_NAME: ${{ runner.name }}
         run: |
           cd apps/embeddings-extraction
           bash test.sh
@@ -63,6 +66,7 @@ jobs:
         env:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          RUNNER_NAME: ${{ runner.name }}
         run: |
             cd apps/face-detection
             bash test.sh
