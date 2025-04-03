@@ -9,7 +9,7 @@ EE_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
 
 docker stop ${EE_DB_NAME}  || true
 docker rm ${EE_DB_NAME} || true
-docker network rm ${FD_NW_NAME} || true
+docker network rm ${EE_NW_NAME} || true
 
 docker network create ${EE_NW_NAME}
 
