@@ -3,40 +3,47 @@ set -e
 
 bash build.sh
 export WORKFLOW_NAME="dataset-ingestion"
-docker stop $(docker ps -q)  || true
-docker rm $(docker ps -a -q) || true
-docker network rm ${WORKFLOW_NAME}_coco || true
-docker network rm ${WORKFLOW_NAME}_celeba || true
+RUNNER_NAME="$(whoami)"
+PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
 
-docker network create ${WORKFLOW_NAME}_coco
-docker network create ${WORKFLOW_NAME}_celeba
+COCO_NW_NAME="${PREFIX}_coco"
+CELEBA_NW_NAME="${PREFIX}_celeba"
+COCO_DB_NAME="${PREFIX}_aperturedb_coco"
+CELEBA_DB_NAME="${PREFIX}_aperturedb_celeba"
+
+
+docker stop ${COCO_DB_NAME} ${CELEBA_DB_NAME}  || true
+docker rm ${COCO_DB_NAME} ${CELEBA_DB_NAME} || true
+docker network rm ${COCO_NW_NAME} || true
+docker network rm ${CELEBA_NW_NAME} || true
+
+docker network create ${COCO_NW_NAME}
+docker network create ${CELEBA_NW_NAME}
 
 # Start empty aperturedb instance for coco
 docker run -d \
-           --name aperturedb_coco \
-           --network ${WORKFLOW_NAME}_coco \
-           -p 55555:55555 \
+           --name ${COCO_DB_NAME} \
+           --network ${COCO_NW_NAME} \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
 
 docker run -d \
-           --name aperturedb_celeba \
-           --network ${WORKFLOW_NAME}_celeba \
-           -p 55556:55555 \
+           --name ${CELEBA_DB_NAME} \
+           --network ${CELEBA_NW_NAME} \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
-
 
 sleep 20
 
 #Ingest and verify COCO
 docker run \
-    --network ${WORKFLOW_NAME}_coco \
+    --rm \
+    --network ${COCO_NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
-    -e "DB_HOST=aperturedb_coco" \
+    -e "DB_HOST=${COCO_DB_NAME}" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
     -e "SAMPLE_COUNT=-1" \
@@ -47,10 +54,11 @@ pid1=$!
 
 #Ingest and verify Faces
 docker run \
-    --network ${WORKFLOW_NAME}_celeba \
+    --rm \
+    --network ${CELEBA_NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
-    -e "DB_HOST=aperturedb_celeba" \
+    -e "DB_HOST=${CELEBA_DB_NAME}" \
     -e "BATCH_SIZE=100" \
     -e "NUM_WORKERS=8" \
     -e "CLEAN=true" \
@@ -76,8 +84,8 @@ fi
 
 # if CLEANUP is set to true, stop the aperturedb instance and remove the network
 if [ "$CLEANUP" = "true" ]; then
-    docker stop aperturedb_coco
-    docker stop aperturedb_celeba
-    docker network rm ${WORKFLOW_NAME}_coco
-    docker network rm ${WORKFLOW_NAME}_celeba
+    docker stop ${COCO_DB_NAME}
+    docker stop ${CELEBA_DB_NAME}
+    docker network rm ${COCO_NW_NAME}
+    docker network rm ${CELEBA_NW_NAME}
 fi

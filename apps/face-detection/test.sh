@@ -3,17 +3,21 @@ set -e
 
 bash build.sh
 export WORKFLOW_NAME="face-detection"
-docker stop $(docker ps -q)  || true
-docker rm $(docker ps -a -q) || true
-docker network rm ${WORKFLOW_NAME} || true
+RUNNER_NAME="$(whoami)"
+FD_NW_NAME="${RUNNER_NAME}_${WORKFLOW_NAME}"
+FD_DB_NAME="${RUNNER_NAME}_aperturedb"
+FD_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
 
-docker network create ${WORKFLOW_NAME}
+docker stop ${FD_DB_NAME}  || true
+docker rm ${FD_DB_NAME} || true
+docker network rm ${FD_NW_NAME} || true
+
+docker network create ${FD_NW_NAME}
 
 # Start empty aperturedb instance for coco
 docker run -d \
-           --name ${WORKFLOW_NAME}-aperturedb \
-           --network ${WORKFLOW_NAME} \
-           -p 55555:55555 \
+           --name ${FD_DB_NAME} \
+           --network ${FD_NW_NAME} \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
            aperturedata/aperturedb-community
@@ -21,22 +25,23 @@ docker run -d \
 sleep 20
 
 # Add images to the db
-docker run --name add-image \
-           --network ${WORKFLOW_NAME} \
-           -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
+docker run --name ${FD_IMAGE_ADDER_NAME} \
+           --network ${FD_NW_NAME} \
+           -e DB_HOST="${FD_DB_NAME}" \
            -e TOTAL_IMAGES=100 \
+           --rm \
            aperturedata/wf-add-image
 
 docker run \
-    --name ${WORKFLOW_NAME}-workflow \
-    --network ${WORKFLOW_NAME} \
+    --network ${FD_NW_NAME} \
     -e RUN_ONCE=true \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-    -e DB_HOST="${WORKFLOW_NAME}-aperturedb" \
+    -e DB_HOST="${FD_DB_NAME}" \
     -e COLLECT_EMBEDDINGS=true \
+    --rm \
     aperturedata/workflows-face-detection
 
 if [ "$CLEANUP" = "true" ]; then
-    docker stop ${WORKFLOW_NAME}-aperturedb
-    docker network rm ${WORKFLOW_NAME}
+    docker stop ${FD_DB_NAME}
+    docker network rm ${FD_NW_NAME}
 fi
