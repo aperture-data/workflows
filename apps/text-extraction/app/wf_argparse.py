@@ -4,6 +4,15 @@ import logging
 from typing import List, Optional
 
 # TODO: Elevate this to a shared library
+# This class wraps argparse and adds support for environment variables.
+# Each argument automatically defaults to being set from a WF_ environment variable.
+# The environment variable name is derived from the argument name by removing
+# dashes and converting to uppercase, e.g. --crawl becomes WF_CRAWL.
+# In legacy mode, if the `WF_` envar is not present, it will also check for the
+# legacy envar name (without the `WF_` prefix).
+# The intention of using the `WF_` prefix is to allow the code to detect
+# # misspellings or unsupported parameters.
+# If the environment variable is not set, the default value is used.
 
 logger = logging.getLogger(__name__)
 
