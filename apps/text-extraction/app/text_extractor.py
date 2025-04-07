@@ -51,6 +51,7 @@ class TextExtractor:
         soup = BeautifulSoup(data, "html.parser")
         content_tags = ["p", "h1", "h2", "h3", "li",
                         "figcaption", "img", "div", "span"]
+        # TODO: Tag code blocks for language-sensitive splitting.
         # If a CSS selector is provided and matches, use its elements
         if self.css_selector:
             root_elements = soup.select(self.css_selector)
