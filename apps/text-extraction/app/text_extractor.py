@@ -1,0 +1,113 @@
+""" Extract text and images from various document formats. """
+
+from bs4 import BeautifulSoup
+from typing import Iterator, Optional, Union, Literal
+import io
+import pdfplumber
+from schema import Block, TextBlock, ImageBlock, FullTextBlock
+import logging
+from email.message import Message
+
+logger = logging.getLogger(__name__)
+
+
+class TextExtractor:
+    def __init__(self, css_selector: Optional[str] = None, emit_full_text: bool = False):
+        self.css_selector = css_selector
+        self.emit_full_text = emit_full_text
+
+    def _parse_content_type(self, content_type: str) -> (str, dict):
+        """Parse the content type and return the main type and options.
+
+        For example, if the content type is "text/plain; charset=UTF-8",
+        this function will return ("text/plain", {"charset": "UTF-8"}).
+        """
+        email = Message()
+        email["content-type"] = content_type
+        params = email.get_params()
+        return params[0][0], dict(params[1:])
+
+    def extract_blocks(self, data: bytes, content_type: str) -> Iterator[Block]:
+        full_text_buffer = io.StringIO() if self.emit_full_text else None
+        mimetype, options = self._parse_content_type(content_type)
+        # TODO: Handle options like charset
+        if mimetype == "text/plain":
+            gen = self. _extract_plain_text_blocks(data)
+        elif mimetype == "text/html":
+            gen = self._extract_html_blocks(data)
+        elif mimetype == "application/pdf":
+            gen = _extract_pdf_text_blocks(data)
+        else:
+            raise ValueError(f"Unsupported content type: {content_type}")
+        for block in gen:
+            if self.emit_full_text and isinstance(block, TextBlock):
+                full_text_buffer.write(block.text)
+                full_text_buffer.write("\n\n")
+            yield block
+        if self.emit_full_text:
+            yield FullTextBlock(text=full_text_buffer.getvalue())
+
+    def _extract_html_blocks(self, data: bytes) -> Iterator[Block]:
+        soup = BeautifulSoup(data, "html.parser")
+        content_tags = ["p", "h1", "h2", "h3", "li",
+                        "figcaption", "img", "div", "span"]
+        # If a CSS selector is provided and matches, use its elements
+        if self.css_selector:
+            root_elements = soup.select(self.css_selector)
+            if root_elements:
+                for root in root_elements:
+                    yield from self._yield_html_content_blocks(root.find_all(content_tags))
+                return
+            else:
+                logger.warning(
+                    f"No matches found for CSS selector: {self.css_selector}")
+
+        # Fallback: no CSS selector provided or no matches found
+        yield from self._yield_html_content_blocks(soup.find_all(content_tags))
+
+    def _extract_pdf_text_blocks(self, data: bytes) -> Iterator[Block]:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                text = page.extract_text()
+                if text:
+                    yield TextBlock(
+                        text=text.strip(),
+                        kind="body",
+                        page_number=page_number
+                    )
+
+    def _extract_plain_text_blocks(self, data: bytes) -> Iterator[Block]:
+        text = data.decode("utf-8", errors="replace")
+        yield TextBlock(text=text)
+
+    def _yield_html_content_blocks(self, elements: list) -> Iterator[Block]:
+        pending_image = None
+        current_anchor = None
+        for el in elements:
+            anchor = el.get("id") or el.get("name")
+            if anchor:
+                current_anchor = anchor
+            if el.name == "img":
+                image_url = el.get("src")
+                alt_text = el.get("alt")
+                if image_url:
+                    if pending_image is not None and pending_image.has_text:
+                        yield pending_image
+                    # Defer image block in case caption is found; slightly hacky
+                    pending_image = ImageBlock(
+                        image_url=image_url, alt_text=alt_text, anchor=current_anchor)
+            else:
+                if el.name == "figcaption":
+                    # Attach caption to last image if available
+                    if pending_image is not None and text:
+                        if pending_image.caption is None:
+                            pending_image.caption = text
+                        else:
+                            logger.warning(
+                                f"Multiple captions found for the same image: {current_anchor} - {pending_image} - {text}")
+
+                text = el.get_text(strip=True)
+                if text:
+                    yield TextBlock(text=text, kind="body", anchor=current_anchor)
+        if pending_image is not None and pending_image.has_text:  # Flush final image block
+            yield pending_image

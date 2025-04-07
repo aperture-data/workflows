@@ -217,11 +217,22 @@ class ApertureDBPipeline:
                 }
             },
             {
-                "AddBlob": {
+                "AddEntity": {
+                    "class": "CrawlDocument",
                     "properties": item.properties,
                     "connect": {
                         "ref": 1,
                         "class": "crawlHasDocument",
+                        "direction": "in",
+                    },
+                    "_ref": 2,
+                },
+            },
+            {
+                "AddBlob": {
+                    "connect": {
+                        "ref": 2,
+                        "class": "crawlDocumentHasBlob",
                         "direction": "in",
                     },
                 }
