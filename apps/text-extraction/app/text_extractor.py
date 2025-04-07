@@ -98,6 +98,7 @@ class TextExtractor:
                         image_url=image_url, alt_text=alt_text, anchor=current_anchor)
             else:
                 if el.name == "figcaption":
+                    text = el.get_text(strip=True)
                     # Attach caption to last image if available
                     if pending_image is not None and text:
                         if pending_image.caption is None:
@@ -109,5 +110,6 @@ class TextExtractor:
                 text = el.get_text(strip=True)
                 if text:
                     yield TextBlock(text=text, kind="body", anchor=current_anchor)
+            # TODO: Maybe get context text in other ways
         if pending_image is not None and pending_image.has_text:  # Flush final image block
             yield pending_image
