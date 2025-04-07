@@ -50,6 +50,7 @@ class ArgumentParser:
             return result.split(sep)
         return result
 
+    @staticmethod
     def str2bool(v):
         if isinstance(v, bool):
             return v
