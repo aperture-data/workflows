@@ -1,8 +1,7 @@
 # Pull base image.
 FROM aperturedata/workflows-base
 
-ENV APP_NAME=workflows-crawl-website
-
+ENV APP_NAME=workflows-text-extraction
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 # Pre-load the models for ChatGPT-style tokenization; avoid run-time dependency on external servers
