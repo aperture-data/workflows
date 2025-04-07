@@ -1,4 +1,4 @@
-# Crawl Website
+# Text Extraction
 
 This workflow take a set of raw documents (say the results of a web crawl),
 extracts the text from them,
