@@ -3,7 +3,7 @@
 This workflow take a set of raw documents (say the results of a web crawl),
 extracts the text from them,
 segments the text (c.f. paragraphs),
-also exttracts references to images,
+also extracts references to images,
 and stores the results in an ApertureDB database.
 
 ## Database details
