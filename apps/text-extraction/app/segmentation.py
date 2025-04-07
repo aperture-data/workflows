@@ -1,7 +1,7 @@
 from typing import Iterator
 from schema import Segment, TextBlock
 from tiktoken import encoding_for_model
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 import logging
 
 logger = logging.getLogger(__name__)
