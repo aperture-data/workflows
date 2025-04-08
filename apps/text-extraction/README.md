@@ -90,7 +90,7 @@ docker run \
 
 Parameters: 
 * **`WF_CRAWL`**: (Required) Identifier for the crawl to work on
-* **`WF_CSS_SELECTOR`**: Optional CSS selector for text extraction
+* **`WF_CSS_SELECTOR`**: Optional CSS selector for HTML text extraction. If specified and if present in the document, only these sections of the document will have text extracted.
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
