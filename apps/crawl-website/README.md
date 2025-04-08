@@ -10,7 +10,8 @@ Objects:
 
 ```mermaid
 erDiagram 
-    Blob {
+    Blob {}
+    CrawlDocument {
         string url
         string content_type
         string simple_content_type
@@ -25,7 +26,8 @@ erDiagram
         string id
         various stats
     }
-    Crawl ||--o{ Blob : crawlHasDocument
+    Crawl ||--o{ CrawlDocument : crawlHasDocument
+    CrawlDocument ||--|| Blob : crawlDocumentHasBlob
 ```
 
 ```mermaid
@@ -34,7 +36,7 @@ sequenceDiagram
     participant A as ApertureDB instance
     W->>A: AddEntity (Crawl)<br/>CreateIndex (Crawl.id)
     loop For each webpage
-        W->>A: FindEntity (Crawl)<br/>AddBlob
+        W->>A: FindEntity (Crawl)<br/>AddEntity (CrawlDocument)<br/>AddBlob
     end
     W->>A: FindEntity(Crawl)<br/>UpdateEntity (Crawl)
 ```
@@ -69,8 +71,10 @@ To remove all objects created by all runs of this workflow, run the following qu
 ```javascript
 [
   {"FindEntity": {"with_class": "Crawl", "_ref": 1}},
-  {"FindBlob": {"is_connected_to": {"ref": 1}, "_ref": 2}},
-  {"DeleteBlob": {"ref": 2}},
+  {"FindEntity": {"with_class": "CrawlDocument", "_ref": 2, "is_connected_to": {"ref": 1}}},
+  {"FindBlob": {"is_connected_to": {"ref": 2}, "_ref": 3}},
+  {"DeleteBlob": {"ref": 3}},
+  {"DeleteEntity": {"ref": 2}}
   {"DeleteEntity": {"ref": 1}}
 ]
 ```
