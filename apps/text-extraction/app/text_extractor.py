@@ -47,25 +47,6 @@ class TextExtractor:
         if self.emit_full_text:
             yield FullTextBlock(text=full_text_buffer.getvalue())
 
-    def _extract_html_blocks(self, data: bytes) -> Iterator[Block]:
-        soup = BeautifulSoup(data, "html.parser")
-        content_tags = ["p", "h1", "h2", "h3", "li",
-                        "figcaption", "img", "div", "span"]
-        # TODO: Tag code blocks for language-sensitive splitting.
-        # If a CSS selector is provided and matches, use its elements
-        if self.css_selector:
-            root_elements = soup.select(self.css_selector)
-            if root_elements:
-                for root in root_elements:
-                    yield from self._yield_html_content_blocks(root.find_all(content_tags))
-                return
-            else:
-                logger.warning(
-                    f"No matches found for CSS selector: {self.css_selector}")
-
-        # Fallback: no CSS selector provided or no matches found
-        yield from self._yield_html_content_blocks(soup.find_all(content_tags))
-
     def _extract_pdf_text_blocks(self, data: bytes) -> Iterator[Block]:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
@@ -80,6 +61,38 @@ class TextExtractor:
     def _extract_plain_text_blocks(self, data: bytes) -> Iterator[Block]:
         text = data.decode("utf-8", errors="replace")
         yield TextBlock(text=text)
+
+    def _extract_html_blocks(self, data: bytes) -> Iterator[Block]:
+        soup = BeautifulSoup(data, "html.parser")
+        content_tags = ["p", "h1", "h2", "h3", "h4", "h5", "li",
+                        "figcaption", "img", "div", "span"]
+        # TODO: Tag code blocks for language-sensitive splitting.
+        # If a CSS selector is provided and matches, use its elements
+        if self.css_selector:
+            root_elements = soup.select(self.css_selector)
+            if root_elements:
+                for root in root_elements:
+                    yield from self._yield_html_content_blocks(
+                        self._filter_nested_elements(
+                            root.find_all(content_tags)))
+                return
+            else:
+                logger.warning(
+                    f"No matches found for CSS selector: {self.css_selector}")
+
+        # Fallback: no CSS selector provided or no matches found
+        yield from self._yield_html_content_blocks(
+            self._filter_nested_elements(soup.find_all(content_tags)))
+
+    def _filter_nested_elements(self, elements):
+        seen = set()
+        filtered = 0
+        for el in elements:
+            if any(id(parent) in seen for parent in el.parents):
+                filtered += 1
+                continue
+            seen.add(id(el))
+            yield el
 
     def _yield_html_content_blocks(self, elements: list) -> Iterator[Block]:
         pending_image = None
@@ -110,7 +123,17 @@ class TextExtractor:
 
                 text = el.get_text(strip=True)
                 if text:
-                    yield TextBlock(text=text, kind="body", anchor=current_anchor)
+                    kind = self._tag_kind(el.name)
+                    yield TextBlock(text=text, kind=kind, anchor=current_anchor)
             # TODO: Maybe get context text in other ways
         if pending_image is not None and pending_image.has_text:  # Flush final image block
             yield pending_image
+
+    def _tag_kind(self, tag_name: str) -> Union[Literal["body"], Literal["title"], Literal["list"]]:
+        """Map HTML tags to block kinds."""
+        if tag_name in ["h1", "h2", "h3", "h4", "h5"]:
+            return "title"
+        elif tag_name == "li":
+            return "list"
+        else:
+            return "body"
