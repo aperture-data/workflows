@@ -292,6 +292,8 @@ def create_spec(db, args):
 
 
 def create_indexes(db):
+    logger.info(
+        "Creating indexes. This will generate a partial error if the index already exists.")
     execute_query(db, [
         {
             "CreateIndex": {
