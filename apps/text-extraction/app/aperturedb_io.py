@@ -14,6 +14,10 @@ JOB_CLASS = "SegmentationJob"
 
 
 class AperturedbIO:
+    """Class to handle interactions with ApertureDB for segmentation jobs.
+    This class is specific to the task and insulates other components from
+    the details of the database."""
+
     def __init__(self, crawl_id: str, batch_size: int = 100):
         self.crawl_id = crawl_id
         self.job_id = str(uuid4())
