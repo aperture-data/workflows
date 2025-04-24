@@ -53,45 +53,17 @@ docker run \
 ```
 
 Parameters: 
-* **`START_URLS`**: URLs to start the crawl from (whitespace-separated). The crawl will be restricted to these domains.
-* **`ALLOWED_DOMAINS`**: Domain names that can be crawled, whitespace-delimited, in addition to any domains used in start URLs.
-* **`MAX_DOCUMENTS`**: Maximum number of documents to crawl. Because of asynchronous crawling, this is only roughly respected.
-* **`CONTENT_TYPES`**: MIME content types to include in the crawl, separated by semi-colons. Default is 'text/plain;text/html;application/pdf'. A crawl that does not include HTML document is unlikely to do much link-following.
-* **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
-* **`CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. 
-* **`CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
-* **`DOWNLOAD_DELAY`**: Number of seconds to wait between two consecutive requests to the same domain. Default 0.
+* **`WF_START_URLS`**: URLs to start the crawl from (whitespace-separated). The crawl will be restricted to these domains.
+* **`WF_ALLOWED_DOMAINS`**: Domain names that can be crawled, whitespace-delimited, in addition to any domains used in start URLs.
+* **`WF_MAX_DOCUMENTS`**: Maximum number of documents to crawl. Because of asynchronous crawling, this is only roughly respected.
+* **`WF_CONTENT_TYPES`**: MIME content types to include in the crawl, separated by semi-colons. Default is 'text/plain;text/html;application/pdf'. A crawl that does not include HTML document is unlikely to do much link-following.
+* **`WF_LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
+* **`WF_CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. 
+* **`WF_CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
+* **`WF_DOWNLOAD_DELAY`**: Number of seconds to wait between two consecutive requests to the same domain. Default 0.
+* **`WF_OUTPUT`**: This specifies the `id` field on the `CrawlSpec` entity. If not specified, a unique identifier will be generated. The jkob will fail if a `CrawlSpec` already exists with that identifier, unless `WF_CLEAN` is also specified.
+* **`WF_DELETE`**: If true, then the `CrawlSpec` specified in `WF_OUTPUT` will be deleted, with its associated artefacts.
+* **`WF_DELETE_ALL`**: If true, then all `CrawlSpec` in the database will be deleted, with their associated artefacts.
+* **`WF_CLEAN`**: If `WP_OUTPUT` is specified, and a `CrawlSpec` already exists with the same identifier, then it will be deleted.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
-
-## Cleaning up
-
-To remove all objects created by all runs of this workflow, run the following query:
-
-```javascript
-[
-  {"FindEntity": {"with_class": "Crawl", "_ref": 1}},
-  {"FindEntity": {"with_class": "CrawlDocument", "_ref": 2, "is_connected_to": {"ref": 1}}},
-  {"FindBlob": {"is_connected_to": {"ref": 2}, "_ref": 3}},
-  {"DeleteBlob": {"ref": 3}},
-  {"DeleteEntity": {"ref": 2}}
-  {"DeleteEntity": {"ref": 1}}
-]
-```
-
-To remove an individual crawl, replace the first command with:
-
-```javascript
-  {
-    "FindEntity": {
-      "with_class": "Crawl",
-      "_ref": 1,
-      "constraints": {
-        "id": [
-          "==",
-          "INSERT-CRAWL-ID-HERE"
-        ]
-      }
-    }
-  },
- ```

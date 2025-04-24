@@ -256,8 +256,27 @@ def create_spec(db, args):
     Also create an index on ids for faster lookups.
     """
     start_time = datetime.now(timezone.utc).isoformat()
-    logging.info(f"Starting Crawler at {start_time}")
     spec_id = args.output
+    logging.info(f"Starting Crawler {spec_id} at {start_time}")
+
+    # If --clean is set, they will already have been deleted
+    _, results, _ = execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "constraints": {
+                    "id": ["==", spec_id],
+                },
+                "results": {"count": True}
+            }
+        }
+    ])
+    count = results[0]['FindEntity']['count']
+    if count > 0:
+        logging.error(f"Spec {spec_id} already exists, skipping creation")
+        raise ValueError(
+            f"Spec {spec_id} already exists, skipping creation")
+
     execute_query(db, [
         {
             "AddEntity": {
@@ -366,11 +385,111 @@ def create_run(db, spec_id, run_id, stats):
     }])
 
 
+def delete_crawl(db, spec_id):
+    """Delete a crawl spec and all dependent artefacts"""
+    logger.info(f"Deleting Crawl {spec_id}")
+    execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "constraints": {
+                    "id": ["==", spec_id],
+                },
+                "_ref": 1,
+            },
+        },
+        {
+            "DeleteEntity": {
+                "ref": 1,
+            }
+        },
+        {
+            "FindEntity": {
+                "with_class": "CrawlDocument",
+                "constraints": {
+                    "spec_id": ["==", spec_id],
+                },
+                "_ref": 2,
+            }
+        },
+        {
+            "DeleteEntity": {
+                "ref": 2,
+            }
+        },
+        {
+            "FindEntity": {
+                "with_class": "CrawlRun",
+                "constraints": {
+                    "spec_id": ["==", spec_id],
+                },
+                "_ref": 3,
+            }
+        },
+        {
+            "FindBlob": {
+                "is_connected_to": {
+                    "ref": 2,
+                    "connection_class": "crawlDocumentHasBlob",
+                },
+                "_ref": 4,
+            }
+        },
+        {
+            "DeleteEntity": {
+                "ref": 3,
+            }
+        },
+        {
+            "DeleteBlob": {
+                "ref": 4,
+            }
+        },
+    ])
+    logger.info(f"Deleted Crawl {spec_id}")
+
+
+def delete_all(db):
+    """Delete all crawl specs and all dependent artefacts"""
+    logging.info(f"Deleting all Crawls")
+    _, results, _ = execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "results": {
+                    "list": ["id"],
+                },
+            },
+        },
+    ])
+    if 'entities' not in results[0]['FindEntity']:
+        logger.warning("No Crawls to delete")
+        return
+
+    for result in results[0]['FindEntity']['entities']:
+        spec_id = result["id"]
+        delete_crawl(db, spec_id)
+
+    logger.info(f"Deleted all Crawls")
+
+
 def main(args):
     db = create_connector()
 
     spec_id = args.output
     run_id = str(uuid4())
+
+    if args.delete_all:
+        delete_all(db)
+        return
+
+    if args.delete:
+        delete_crawl(db, spec_id)
+        return
+
+    if args.clean:
+        delete_crawl(db, spec_id)
+        # continue
 
     create_spec(db, args)
     create_indexes(db)
@@ -435,8 +554,23 @@ def get_args():
         help="Identifier for the crawl spec document (default is generated UUID)",
         default=str(uuid4()))
 
+    obj.add_argument('--delete', type=bool,
+                     default=False,
+                     help="Delete the crawl spec and dependent artefacts; don't run the crawl")
+
+    obj.add_argument('--delete-all', type=bool,
+                     default=False,
+                     help="Delete all crawl specs and their dependent artefacts; don't run the crawl")
+
+    obj.add_argument('--clean', type=bool,
+                     default=False,
+                     help="Delete any existing crawl spec with the same id before running the crawl")
+
     params = obj.parse_args()
-    logger.error(f"Parsed arguments: {params}")
+
+    logging.basicConfig(level=params.log_level.upper(), force=True)
+
+    logger.info(f"Parsed arguments: {params}")
 
     return params
 
