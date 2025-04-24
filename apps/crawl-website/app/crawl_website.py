@@ -213,6 +213,7 @@ class ApertureDBPipeline:
         properties = item.properties.copy()
         properties['spec_id'] = self.spec_id
         properties['run_id'] = self.run_id
+        properties['id'] = str(uuid4())
         query = [
             {
                 "FindEntity": {
@@ -271,6 +272,7 @@ def create_spec(db, args):
             }
         }
     ])
+    # TODO: Support incremental crawl here
     count = results[0]['FindEntity']['count']
     if count > 0:
         logging.error(f"Spec {spec_id} already exists, skipping creation")

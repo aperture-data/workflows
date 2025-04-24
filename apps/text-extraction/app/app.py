@@ -2,6 +2,7 @@ from schema import TextBlock, ImageBlock, FullTextBlock, Segment
 from aperturedb_io import AperturedbIO
 from wf_argparse import ArgumentParser
 import logging
+from uuid import uuid4
 
 from text_extractor import TextExtractor
 from segmentation import TextSegmenter
@@ -10,13 +11,36 @@ from segmentation import TextSegmenter
 logger = logging.getLogger(__name__)
 
 
-def run_extraction_and_segmentation(crawl_id: str, css_selector: str = None):
-    logger.info(f"Starting text extraction for crawl: {crawl_id}")
+def run_extraction_and_segmentation(args):
+    crawl_spec_id = args.input
+    logger.info(f"Starting text extraction for crawl: {crawl_spec_id}")
 
+    css_selector = args.css_selector
     extractor = TextExtractor(css_selector=css_selector, emit_full_text=True)
     segmenter = TextSegmenter()
 
-    with AperturedbIO(crawl_id) as io:
+    spec_id = args.output
+    run_id = str(uuid4())
+    with AperturedbIO(crawl_spec_id, spec_id, run_id) as io:
+        if args.delete_all:
+            io.delete_all()
+            return
+
+        if args.delete:
+            io.delete_spec(spec_id)
+            return
+
+        io.ensure_input_exists()
+
+        if args.clean:
+            io.delete_spec(spec_id)
+            # continue
+
+        # TODO: Support incremental mode
+        io.ensure_output_does_not_exist()
+
+        io.create_spec()
+
         for doc in io.get_crawl_documents():
             logger.info(f"Processing {doc.url}")
             io.set_document(doc)
@@ -42,18 +66,36 @@ def run_extraction_and_segmentation(crawl_id: str, css_selector: str = None):
 def main(args):
     logging.basicConfig(level=args.log_level, force=True)
     logger.info("Starting text extraction and segmentation")
-    logger.info(f"Log level: {args.log_level}")
-    logger.info(f"Crawl ID: {args.crawl}")
-    run_extraction_and_segmentation(args.crawl, args.css_selector)
+    logger.info(f"Parameters: {args}")
+
+    run_extraction_and_segmentation(args)
     logger.info("Complete.")
 
 
 def get_args():
     obj = ArgumentParser()
 
-    obj.add_argument('--crawl',
+    obj.add_argument('--input', '--crawl',
                      required=True,
-                     help='The crawl id to use')
+                     help='The crawl spec id to use')
+
+    obj.add_argument('--output',
+                     help='The segmentation spec id to use. Defaults to a generated uuid',
+                     default=str(uuid4()))
+
+    obj.add_argument('--clean',
+                     type=bool,
+                     help='Delete existing spec before creating a new one',
+                     default=False)
+
+    obj.add_argument('--delete',
+                     type=bool,
+                     help='Delete the spec and all its segments; dont run segmentation',
+                     default=False)
+
+    obj.add_argument('--delete-all',
+                     help='Delete all specs; dont run segmentation',
+                     default=False)
 
     obj.add_argument('--css-selector',
                      help='CSS selector to use for text extraction, e.g. DIV#main-content')
