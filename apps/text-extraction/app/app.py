@@ -76,7 +76,6 @@ def get_args():
     obj = ArgumentParser()
 
     obj.add_argument('--input', '--crawl',
-                     required=True,
                      help='The crawl spec id to use')
 
     obj.add_argument('--output',
@@ -90,11 +89,11 @@ def get_args():
 
     obj.add_argument('--delete',
                      type=bool,
-                     help='Delete the spec and all its segments; dont run segmentation',
+                     help='Delete the spec and all its segments; don\'t run segmentation',
                      default=False)
 
     obj.add_argument('--delete-all',
-                     help='Delete all specs; dont run segmentation',
+                     help='Delete all specs; don\'t run segmentation',
                      default=False)
 
     obj.add_argument('--css-selector',
@@ -106,6 +105,9 @@ def get_args():
                      default='INFO')
 
     params = obj.parse_args()
+
+    assert params.input or params.delete_all or params.delete, \
+        "Must specify --input or --delete or --delete-all"
 
     return params
 

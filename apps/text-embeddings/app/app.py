@@ -2,37 +2,63 @@ from aperturedb_io import AperturedbIO
 from wf_argparse import ArgumentParser
 import logging
 
-from text_embedder import TextEmbedder
+from embeddings import BatchEmbedder, DEFAULT_MODEL
+from schema import Embedding
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 
-def run_extraction_and_segmentation(input_id: str, output_id: str):
+def run_text_embeddings(args):
     logger.info(f"Starting text embeddings")
+    segmentation_spec_id = args.input
+    embedding_id = args.output
 
-    extractor = TextExtractor(css_selector=css_selector, emit_full_text=True)
-    segmenter = TextSegmenter()
+    embedder = BatchEmbedder(model_spec=args.model)
 
-    with AperturedbIO(crawl_id) as io:
-        for doc in io.get_crawl_documents():
-            logger.info(f"Processing {doc.url}")
-            io.set_document(doc)
+    input_spec_id = args.input
+    spec_id = args.output
+    run_id = str(uuid4())
+    descriptorset_name = args.descriptorset
+    descriptorset_name = args.descriptorset
+    with AperturedbIO(
+        input_spec_id=input_spec_id,
+        spec_id=spec_id,
+        run_id=run_id,
+        descriptorset_name=descriptorset_name,
+        embedder=embedder,
+    ) as io:
+        if args.delete_all:
+            io.delete_all()
+            return
+
+        if args.delete:
+            io.delete_spec(spec_id)
+            return
+        io.ensure_input_exists()
+        if args.clean:
+            io.delete_spec(spec_id)
+            # continue
+        io.ensure_output_does_not_exist()
+        io.create_spec()
+        io.create_descriptorset()
+
+        for segment in io.get_segments():
             try:
-                text_blocks = []
-                for block in extractor.extract_blocks(doc.blob, doc.content_type):
-                    if isinstance(block, TextBlock):
-                        text_blocks.append(block)  # defer for segmentation
-                    elif isinstance(block, ImageBlock):
-                        io.create_image_block(block)
-                    elif isinstance(block, FullTextBlock):
-                        io.create_full_text_block(block)
-
-                # Segment text blocks
-                for segment in segmenter.segment(text_blocks):
-                    io.create_segment(segment)
-
+                logger.info(f"Processing segment {segment.id}")
+                # Embed the segment text
+                v = embedder.embed(segment.text)
+                embedding = Embedding(
+                    segment_id=segment.id,
+                    url=segment.url,
+                    text=segment.text,
+                    vector=v,
+                )
+                io.create_embedding(embedding)
             except Exception as e:
-                logger.exception(f"Failed to process document {doc.url}: {e}")
+                logger.error(f"Error processing segment {segment.id}: {e}")
+                continue
+
     logger.info("Done.")
 
 
@@ -42,7 +68,7 @@ def main(args):
     logger.info(f"Log level: {args.log_level}")
     logger.info(f"Input ID: {args.input}")
     logger.info(f"Output ID: {args.output}")
-    run_text_embeddings(args.input, args.output)
+    run_text_embeddings(args)
     logger.info("Complete.")
 
 
@@ -50,22 +76,44 @@ def get_args():
     obj = ArgumentParser()
 
     obj.add_argument('--input',
-                     required=True,
-                     help='The text extraction id to use')
+                     help='The segmentation spec id to use')
 
     obj.add_argument('--output',
-                     required=True,
                      help='The text embedding id to use (default generate UUID)')
+
+    obj.add_argument('--model',
+                     help='The embedding model to use, of the form "backend model pretrained',
+                     default=DEFAULT_MODEL)
+
+    obj.add_argument('--clean',
+                     type=bool,
+                     help='Delete existing spec before creating a new one',
+                     default=False)
+
+    obj.add_argument('--delete',
+                     type=bool,
+                     help='Delete the spec and all its embeddings; don\'t run embedding job',
+                     default=False)
+
+    obj.add_argument('--delete-all',
+                     help='Delete all specs; don\'t run embedding job',
+                     default=False)
 
     obj.add_argument('--log-level',
                      help='Logging level, e.g. INFO, DEBUG',
                      choices=list(logging._nameToLevel.keys()),
                      default='INFO')
 
+    obj.add_argument('--descriptorset',
+                     help='The descriptor set to use for the embeddings; defaults to output name')
+
     params = obj.parse_args()
 
     if params.output is None:
         params.output = uuid4()
+
+    if params.descriptorset is None:
+        params.descriptorset = params.output
 
     return params
 

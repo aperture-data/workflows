@@ -202,7 +202,7 @@ class AperturedbIO:
                     },
                     "connect": {
                         "ref": 1,
-                        "class": "segmentationSpecHasSegmentationRun",
+                        "class": "segmentationSpecHasRun",
                         "direction": "in",
                     },
                     "_ref": 2,
@@ -364,6 +364,7 @@ class AperturedbIO:
                 "AddEntity": {
                     "class": "Segment",
                     "properties": {
+                        "id": str(uuid4()),
                         "text": segment.text,
                         "kind": segment.kinds,
                         "url": segment.url(self.current_document.url),
@@ -564,13 +565,14 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
-                    "constraints": {},
-                    "_ref": 1,
+                    "results": {
+                        "list": ["id"],
+                    }
                 }
             },
         ])
 
-        if 'entites' not in response[0]["FindEntity"]:
+        if 'entities' not in response[0]["FindEntity"]:
             logger.info(f"No {SPEC_CLASS} documents found")
             return
 
