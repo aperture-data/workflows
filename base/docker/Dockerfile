@@ -19,7 +19,7 @@ COPY scripts/app.sh app/
 
 COPY scripts/userlog.py app/
 COPY scripts/slack-alert.py app/
-COPY scripts/sbatcher.py app/
+COPY scripts/batcher.py app/
 COPY scripts/wf_argparse.py app/
 
 COPY scripts/start.sh /
