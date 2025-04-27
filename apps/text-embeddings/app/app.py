@@ -20,12 +20,11 @@ def run_text_embeddings(args):
     spec_id = args.output
     run_id = str(uuid4())
     descriptorset_name = args.descriptorset
-    descriptorset_name = args.descriptorset
+    engine = args.engine
     with AperturedbIO(
         input_spec_id=input_spec_id,
         spec_id=spec_id,
         run_id=run_id,
-        descriptorset_name=descriptorset_name,
         embedder=embedder,
     ) as io:
         if args.delete_all:
@@ -41,7 +40,7 @@ def run_text_embeddings(args):
             # continue
         io.ensure_output_does_not_exist()
         io.create_spec()
-        io.create_descriptorset()
+        io.create_descriptorset(descriptorset_name, engine)
 
         for segment in io.get_segments():
             try:
@@ -84,6 +83,10 @@ def get_args():
     obj.add_argument('--model',
                      help='The embedding model to use, of the form "backend model pretrained',
                      default=DEFAULT_MODEL)
+
+    obj.add_argument('--engine',
+                    help='The embedding engine to use, of the form "backend model pretrained',
+                    default="HNSW")
 
     obj.add_argument('--clean',
                      type=bool,

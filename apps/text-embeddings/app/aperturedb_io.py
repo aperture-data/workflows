@@ -24,13 +24,11 @@ class AperturedbIO:
                  input_spec_id: str,
                  spec_id: str,
                  run_id: str,
-                 descriptorset_name: str,
                  embedder: "BatchEmbedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
         self.run_id = run_id
-        self.descriptorset_name = descriptorset_name
         self.embedder = embedder
         self.batch_size = batch_size
         self.db = create_connector()
@@ -120,7 +118,7 @@ class AperturedbIO:
                 }
             }])
 
-    def create_descriptorset(self) -> None:
+    def create_descriptorset(self, descriptorset_name: str, engine:str) -> None:
         """Finds or creates descriptor set in ApertureDB"""
         response, _ = self.execute_query([
             {
@@ -134,7 +132,7 @@ class AperturedbIO:
             },
             {
                 "FindDescriptorSet": {
-                    "with_name": self.descriptorset_name,
+                    "with_name": descriptorset_name,
                     "metrics": True,
                     "results": {
                         "list": ["model", "model_fingerprint"],
@@ -151,7 +149,8 @@ class AperturedbIO:
             },
             {
                 "AddDescriptorSet": {
-                    "name": self.descriptorset_name,
+                    "name": descriptorset_name,
+                    "enngine": engine,
                     "properties": {
                         "model": self.embedder.model_spec,
                         "model_fingerprint": self.embedder.fingerprint_hash(),
@@ -168,7 +167,7 @@ class AperturedbIO:
             }
         ])
 
-        if response[1]["FindDescriptorSet"]["count"] != 0:
+        if response[1]["FindDescriptorSet"].get("count",0) != 0:
             logger.info(
                 f"Descriptor set {self.descriptorset_name} already exists")
             e = response[1]["FindDescriptorSet"]["entities"][0]
@@ -368,7 +367,7 @@ class AperturedbIO:
     def delete_spec(self, spec_id) -> None:
         """Delete an EmbeddingsSpec document and all its dependent artefacts"""
         logger.info(f"Deleting {SPEC_CLASS} {spec_id}")
-        self.execute_query([
+        response, _ = self.execute_query([
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
@@ -380,14 +379,14 @@ class AperturedbIO:
             },
             {
                 "FindDescriptorSet": {
-                    is_connected_to: {
+                    "is_connected_to": {
                         "ref": 1,
                         "connection_class": "embeddingsSpecHasDescriptorSet",
                     },
                     "counts": True,
                     "uniqueids": True,
+                    "_ref": 2,
                 },
-                "_ref": 2,
             },
             {
                 "DeleteEntity": {
@@ -417,7 +416,7 @@ class AperturedbIO:
                 }
             },
             {
-                "DeleteEntity": {
+                "DeleteDescriptor": {
                     "ref": 4,
                 }
             },
@@ -425,7 +424,7 @@ class AperturedbIO:
 
         # It is possible for multiple EmbeddingsSpec documents to share the same DesceriptorSet
         # If the descriptor set is empty, delete it
-        descriptorset_count = response[1]["FindDescriptorSet"]["count"]
+        descriptorset_count = response[1]["FindDescriptorSet"].get("count", 0)
         deleted_count = response[6]["DeleteDescriptor"]["count"]
         if descriptorset_count > 0 and descriptorset_count == deleted_count:
             descriptorset_id = response[1]["FindDescriptorSet"]["entities"][0]["id"]
