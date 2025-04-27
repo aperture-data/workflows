@@ -132,7 +132,7 @@ class SymbolicBatcher:
 
     def _resolve_refs_in_command(self, command):
         # TODO: Deep copy?
-        # logger.info("Resolving refs in command: %s", command)
+        logger.debug("Resolving refs in command: %s", command)
         assert isinstance(command, dict)
         command_name = next(iter(command))
         command_body = command[command_name]

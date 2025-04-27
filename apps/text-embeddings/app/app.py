@@ -46,7 +46,7 @@ def run_text_embeddings(args):
 
         for segment in io.get_segments():
             try:
-                logger.info(f"Processing segment {segment.id}")
+                logger.debug(f"Processing segment {segment.id}")
                 # Embed the segment text
                 v = embedder.embed(segment.text)
                 embedding = Embedding(
@@ -58,7 +58,7 @@ def run_text_embeddings(args):
                 io.create_embedding(embedding)
             except Exception as e:
                 logger.error(f"Error processing segment {segment.id}: {e}")
-                continue
+                # continue
 
     logger.info("Done.")
 

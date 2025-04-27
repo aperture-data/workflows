@@ -152,27 +152,32 @@ class AperturedbIO:
                     "class": "embeddingsSpecHasDescriptorSet",
                 }
             },
-            {
-                "AddDescriptorSet": {
-                    "name": self.descriptorset_name,
-                    "engine": self.engine,
-                    "properties": {
-                        "model": self.embedder.model_spec,
-                        "model_fingerprint": self.embedder.fingerprint_hash(),
-                    },
-                    "metric": self.embedder.metric(),
-                    "dimensions": self.embedder.dimensions(),
-                    "if_not_found": 2,
-                    "connect": {
-                        "ref": 1,
-                        "class": "embeddingsSpecHasDescriptorSet",
-                        "direction": "in",
-                    },
-                }
-            }
         ])
 
-        if response[1]["FindDescriptorSet"].get("count", 0) != 0:
+        if "entities" not in response[1]["FindDescriptorSet"]:
+            logger.info(
+                f"Creating new descriptor set {self.descriptorset_name}")
+            self.execute_query([
+                {
+                    "AddDescriptorSet": {
+                        "name": self.descriptorset_name,
+                        "engine": self.engine,
+                        "properties": {
+                            "model": self.embedder.model_spec,
+                            "model_fingerprint": self.embedder.fingerprint_hash(),
+                        },
+                        "metric": self.embedder.metric(),
+                        "dimensions": self.embedder.dimensions(),
+                        "if_not_found": 2,
+                        "connect": {
+                            "ref": 1,
+                            "class": "embeddingsSpecHasDescriptorSet",
+                            "direction": "in",
+                        },
+                    }
+                }
+            ])
+        else:
             logger.info(
                 f"Descriptor set {self.descriptorset_name} already exists")
             e = response[1]["FindDescriptorSet"]["entities"][0]
@@ -345,6 +350,7 @@ class AperturedbIO:
             },
             {
                 "AddDescriptor": {
+                    "set": self.descriptorset_name,
                     "properties": {
                         "segment_id": embedding.segment_id,
                         "spec_id": self.spec_id,
@@ -367,7 +373,7 @@ class AperturedbIO:
                     "class": "embeddingsSpecHasDescriptor",
                 }
             }
-        ])
+        ], [embedding.vector.tobytes()])
 
     def delete_spec(self, spec_id) -> None:
         """Delete an EmbeddingsSpec document and all its dependent artefacts"""
