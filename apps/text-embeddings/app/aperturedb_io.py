@@ -24,11 +24,15 @@ class AperturedbIO:
                  input_spec_id: str,
                  spec_id: str,
                  run_id: str,
+                 descriptorset_name: str,
+                 engine: str,
                  embedder: "BatchEmbedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
         self.run_id = run_id
+        self.descriptorset_name = descriptorset_name
+        self.engine = engine
         self.embedder = embedder
         self.batch_size = batch_size
         self.db = create_connector()
@@ -109,6 +113,7 @@ class AperturedbIO:
                         "dimensions": self.embedder.dimensions(),
                         "metric": self.embedder.metric(),
                         "descriptorset_name": self.descriptorset_name,
+                        "engine": self.engine,
                     },
                     "connect": {
                         "ref": 1,
@@ -118,7 +123,7 @@ class AperturedbIO:
                 }
             }])
 
-    def create_descriptorset(self, descriptorset_name: str, engine:str) -> None:
+    def create_descriptorset(self) -> None:
         """Finds or creates descriptor set in ApertureDB"""
         response, _ = self.execute_query([
             {
@@ -132,7 +137,7 @@ class AperturedbIO:
             },
             {
                 "FindDescriptorSet": {
-                    "with_name": descriptorset_name,
+                    "with_name": self.descriptorset_name,
                     "metrics": True,
                     "results": {
                         "list": ["model", "model_fingerprint"],
@@ -149,8 +154,8 @@ class AperturedbIO:
             },
             {
                 "AddDescriptorSet": {
-                    "name": descriptorset_name,
-                    "enngine": engine,
+                    "name": self.descriptorset_name,
+                    "engine": self.engine,
                     "properties": {
                         "model": self.embedder.model_spec,
                         "model_fingerprint": self.embedder.fingerprint_hash(),
@@ -167,7 +172,7 @@ class AperturedbIO:
             }
         ])
 
-        if response[1]["FindDescriptorSet"].get("count",0) != 0:
+        if response[1]["FindDescriptorSet"].get("count", 0) != 0:
             logger.info(
                 f"Descriptor set {self.descriptorset_name} already exists")
             e = response[1]["FindDescriptorSet"]["entities"][0]
