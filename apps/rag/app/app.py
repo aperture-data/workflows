@@ -1,12 +1,11 @@
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Request, Response, Header, HTTPException, status, Query, Cookie
+from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 import uuid
 from typing import Optional
 from rag import QAChain
 from llm import load_llm
 from history import InMemoryHistory
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi import FastAPI, Request, Response, Header, HTTPException, status, Query
 from wf_argparse import ArgumentParser
 import logging
 from uuid import uuid4
@@ -25,16 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.api_route("/ask", methods=["GET", "POST"])
 async def ask(request: Request,
               authorization: str = Header(None),
+              token: str = Cookie(default=None),
               query: str = Query(None),
               session_id: str = Query(None)):
 
-    verify_token(authorization)
+    verify_token(authorization, token)
 
     if request.method == "POST":
         body = await request.json()
@@ -65,8 +64,11 @@ async def ask(request: Request,
 
 
 @app.get("/ask/stream")
-async def stream_ask(query: str, session_id: Optional[str] = None, authorization: str = Header(None)):
-    verify_token(authorization)
+async def stream_ask(query: str,
+                     session_id: Optional[str] = None,
+                     authorization: str = Header(None),
+                     token: str = Cookie(default=None)):
+    verify_token(authorization, token)
 
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -92,20 +94,43 @@ async def stream_ask(query: str, session_id: Optional[str] = None, authorization
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    with open("templates/index.html") as f:
-        return f.read()
+@app.post("/login")
+async def login(request: Request):
+    data = await request.json()
+    client_token = data.get("token")
+
+    if not client_token:
+        return JSONResponse({"error": "Missing token"}, status_code=400)
+
+    if client_token != API_TOKEN:
+        return JSONResponse({"error": "Invalid token"}, status_code=401)
+
+    response = JSONResponse({"message": "Login successful"})
+    response.set_cookie(
+        key="token",
+        value=client_token,
+        httponly=True,
+        secure=False,  # True if you're using HTTPS!
+        samesite="strict",
+    )
+    return response
 
 
-def verify_token(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header missing",
-        )
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or token != API_TOKEN:
+def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(None)):
+    token = None
+
+    # Prefer Authorization header if present
+    if auth_header:
+        scheme, _, auth_token = auth_header.partition(" ")
+        if scheme.lower() == "bearer":
+            token = auth_token
+
+    # Otherwise fall back to cookie
+    if not token and token_cookie:
+        token = token_cookie
+
+    # Now check if token matches
+    if not token or token != API_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API token",
@@ -128,6 +153,8 @@ def get_retriever(descriptorset_name: str, model: str):
 
 
 def main(args):
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
     logging.basicConfig(level=args.log_level, force=True)
     logger.info("Starting text embeddings")
     logger.info(f"Log level: {args.log_level}")

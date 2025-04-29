@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Demo Chatbot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="login-popup"
+        style="display: none; position: fixed; top: 30%; left: 30%; background: white; border: 1px solid #ccc; padding: 1rem;">
+        <h3>Enter Access Token</h3>
+        <input type="password" id="login-token" placeholder="Enter API token">
+        <button id="login-submit">Login</button>
+    </div>
+
+    <button id="chat-button">💬</button>
+
+    <div id="chat-popup">
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+            <input id="chat-input" type="text" placeholder="Type a message...">
+            <button id="chat-send">➤</button>
+        </div>
+    </div>
+
+    <script src="chat.js"></script>
+
+</body>
+
+</html>
