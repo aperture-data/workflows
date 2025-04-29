@@ -54,7 +54,7 @@ async def ask(request: Request,
 
     chat_history = history.get_history(session_id)
     start_time = time.time()
-    answer = await qa_chain.run(query, chat_history)
+    answer = qa_chain.run(query, chat_history)
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
@@ -114,6 +114,21 @@ async def login(request: Request):
         samesite="strict",
     )
     return response
+
+
+@app.get("/config")
+async def config(request: Request):
+    verify_token(request.headers.get("Authorization"),
+                 request.cookies.get("token"))
+
+    config = {
+        "llm_provider": args.llm_provider,
+        "llm_model": args.llm_model,
+        "embedding_model": args.model,
+        "input": args.input,
+        "embedding_model": args.model,
+    }
+    return JSONResponse(config)
 
 
 def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(None)):
@@ -218,4 +233,5 @@ def get_args(argv=[]):
 
 
 # Unconditional because invoked via uvicorn
-main(get_args())
+args = get_args()
+main(args)

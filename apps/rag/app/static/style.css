@@ -15,26 +15,30 @@
 }
 
 #chat-popup {
-    position: fixed;
-    bottom: 80px;
-    right: 1rem;
-    width: 300px;
-    max-height: 400px;
-    background: white;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-    overflow: hidden;
-    display: none;
-    flex-direction: column;
-    z-index: 1000;
+  resize: both;
+  overflow: auto;
+  min-width: 300px;
+  min-height: 200px;
+  position: fixed;
+  bottom: 80px;
+  right: 1rem;
+  width: 400px;
+  height: 600px;
+  background: white;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
 }
 
   #chat-messages {
     font-family: Arial, sans-serif;
     font-size: 14px;
     padding: 1rem;
-    height: 400px;
+    min-height: 400px;
+    flex: 1 1 auto;
     overflow-y: auto;
     background: #f5f5f5;
     border: 1px solid #ddd;

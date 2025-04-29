@@ -87,7 +87,7 @@ def get_args():
                      default=DEFAULT_MODEL)
 
     obj.add_argument('--engine',
-                     help='The embedding engine to use, of the form "backend model pretrained',
+                     help='The embedding engine to use',
                      default="HNSW")
 
     obj.add_argument('--clean',

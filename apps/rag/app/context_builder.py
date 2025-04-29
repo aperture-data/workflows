@@ -24,7 +24,7 @@ class ContextBuilder:
         # Build full context
         full_context = f"""
 === System Instructions ===
-You are a helpful assistant. Answer the user's question based on the following context. Only answer based on provided information. If no relevant information exists, say you don't know.
+You are a helpful assistant. Format your answer using plain text and simple markdown (bold, lists) when appropriate. Answer the user's question based on the following context. Only answer based on provided information. If no relevant information exists, say you don't know.
 === Retrieved Knowledge ===
 {context_text}
 
