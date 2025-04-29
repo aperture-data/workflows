@@ -99,7 +99,7 @@ docker run \
            -e WF_OUTPUT=efgh5678 \
            -e "WF_CSS_SELECTOR=DIV#main-content" \
            -e WF_LOG_LEVEL=INFO \
-           aperturedata/text-extraction
+           aperturedata/workflows-text-extraction
 ```
 
 Parameters: 

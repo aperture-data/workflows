@@ -82,35 +82,23 @@ docker run \
            -e RUN_NAME=my_testing_run \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS=password \
-           -e WF_CRAWL=abcd1234 \
-           -e "WF_CSS_SELECTOR=DIV#main-content" \
            -e WF_LOG_LEVEL=INFO \
-           aperturedata/text-extraction
+           -e WF_INPUT=abc123 \
+           -e WF_OUTPUT=abc123 \
+           aperturedata/workflows-text-embeddings
 ```
 
 Parameters: 
-* **`WF_CRAWL`**: (Required) Identifier for the crawl to work on
-* **`WF_CSS_SELECTOR`**: Optional CSS selector for HTML text extraction. If specified and if present in the document, only these sections of the document will have text extracted.
-* **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
+* **`WF_LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
+* **`WF_INPUT`**: The segmentation spec identifier to use. Required unless deleting.
+* **`WF_OUTPUT`**: The embeddings spec identifier to use. Defaults to UUID.
+* **`WF_MODEL`**: The embedding model to use, of the form "backend model pretrained'. Default is "openclip ViT-B-32 laion2b_s34b_b79k". See [embeddings.py](app/embeddings.py)
+* **`WF_ENGINE`**: The embedding engine to use, default HNSW
+* **`WF_CLEAN`**: Delete existing spec before creating a new one; otherwise fail if spec exists
+* **`WF_DELETE`**: Delete `WF_OUTPUT` spec; do not generate embeddings
+* **`WF_DELETE_ALL`**: Delete all embedding specs; do not generate embeddings
+* **`WF_DESCRIPTOR_SET`**: Descriptor set to use for embeddings; defaults to `WF_OUTPUT`
+
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
-
-## Cleaning up
-
-To remove all objects created by all runs of this workflow, run the following query:
-
-```javascript
-[
-  {"FindEntity": {"with_class": "SegmentationJob", "_ref": 1}},
-  {"FindEntity": {"with_class": "Segment", "_ref": 2}},
-  {"FindEntity": {"with_class": "ImageText", "_ref": 3}},
-  {"FindEntity": {"with_class": "FullText", "_ref": 4}},
-  {"FindBlob": {"is_connected_to": {"ref": 4}, "_ref": 5}},
-  {"DeleteBlob": {"ref": 5}},
-  {"DeleteEntity": {"ref": 4}}
-  {"DeleteEntity": {"ref": 3}}
-  {"DeleteEntity": {"ref": 2}}
-  {"DeleteEntity": {"ref": 1}}
-]
-```
 
