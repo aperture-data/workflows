@@ -353,6 +353,7 @@ class AperturedbIO:
                     "set": self.descriptorset_name,
                     "properties": {
                         "segment_id": embedding.segment_id,
+                        "uniqueid": str(uuid4()),
                         "spec_id": self.spec_id,
                         "run_id": self.run_id,
                         "text": embedding.text,
