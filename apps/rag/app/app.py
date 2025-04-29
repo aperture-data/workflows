@@ -82,8 +82,12 @@ async def stream_ask(query: str, session_id: Optional[str] = None, authorization
             yield f"data: {token}\n\n"
             results.append(token)
         qa_duration = time.time() - start_time
+        answer = "".join(results)
         logger.info(
-            f"Answer: {''.join(results)}, duration: {qa_duration: .2f}s")
+            f"Answer: {answer}, duration: {qa_duration: .2f}s")
+        history.append_turn(session_id, query, answer)
+        yield f"event: end\ndata: {json.dumps({'session_id': session_id, 'duration': qa_duration, 'parts': len(results)})}\n\n"
+        # TODO: With arbitrary messages, we can send, e.g., images
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
