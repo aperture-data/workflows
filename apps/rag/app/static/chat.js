@@ -1,4 +1,5 @@
 let session_id = null;
+const md = window.markdownit({ breaks: true });
 
 document.getElementById('chat-button').addEventListener('click', () => {
   if (!loggedIn) {
@@ -44,7 +45,9 @@ document.getElementById('chat-send').addEventListener('click', async () => {
   });
 
   evtSource.onmessage = (event) => {
-    botMessage += event.data;
+    const data = JSON.parse(event.data);
+    // console.log("Received message:", data);
+    botMessage += data;
     updateBotMessage(botMessage);
   };
 
@@ -107,7 +110,7 @@ function updateBotMessage(text) {
   // Now update the existing bot message's text
   const textDiv = last.querySelector('.chat-text');
   if (textDiv) {
-    textDiv.innerHTML = text.replace(/\n/g, "<br />");
+    textDiv.innerHTML = text.replace(/\n/g, "<br>");
   }
 
   messages.scrollTop = messages.scrollHeight;
@@ -120,7 +123,7 @@ function finalizeBotMessage(text) {
   if (last && last.classList.contains('bot')) {
     const textDiv = last.querySelector('.chat-text');
     if (textDiv) {
-      textDiv.innerHTML = marked.parse(text);
+      textDiv.innerHTML = md.render(text);
     }
   }
 

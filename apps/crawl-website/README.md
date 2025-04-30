@@ -61,7 +61,7 @@ Parameters:
 * **`WF_CONCURRENT_REQUESTS`**: Maximum number of concurrent crawl requests across all websites. Default 64. 
 * **`WF_CONCURRENT_REQUESTS_PER_DOMAIN`**: Maximum number of concurrent crawl requests on an individual website. Default 8. Reduce this if the website doesn't like being crawled.
 * **`WF_DOWNLOAD_DELAY`**: Number of seconds to wait between two consecutive requests to the same domain. Default 0.
-* **`WF_OUTPUT`**: This specifies the `id` field on the `CrawlSpec` entity. If not specified, a unique identifier will be generated. The jkob will fail if a `CrawlSpec` already exists with that identifier, unless `WF_CLEAN` is also specified.
+* **`WF_OUTPUT`**: This specifies the `id` field on the `CrawlSpec` entity. If not specified, a unique identifier will be generated. The job will fail if a `CrawlSpec` already exists with that identifier, unless `WF_CLEAN` is also specified.
 * **`WF_DELETE`**: If true, then the `CrawlSpec` specified in `WF_OUTPUT` will be deleted, with its associated artefacts.
 * **`WF_DELETE_ALL`**: If true, then all `CrawlSpec` in the database will be deleted, with their associated artefacts.
 * **`WF_CLEAN`**: If `WP_OUTPUT` is specified, and a `CrawlSpec` already exists with the same identifier, then it will be deleted.

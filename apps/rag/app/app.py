@@ -81,7 +81,8 @@ async def stream_ask(query: str,
         results = []
         start_time = time.time()
         async for token in qa_chain.stream_run(query, chat_history):
-            yield f"data: {token}\n\n"
+            yield f"data: {json.dumps(token)}\n\n"
+            # logger.debug(f"data: {token}\n\n")
             results.append(token)
         qa_duration = time.time() - start_time
         answer = "".join(results)
