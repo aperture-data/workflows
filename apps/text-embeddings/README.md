@@ -1,77 +1,64 @@
 # Text Extraction
 
-This workflow take a set of raw documents (say the results of a web crawl),
-extracts the text from them,
-segments the text (c.f. paragraphs),
-also extracts references to images,
-and stores the results in an ApertureDB database.
+This workflow take a collectiono of text segments and generates embeddings for them, storing them as descriptors.
 
 ## Database details
 
-In addition to the single `SegmentationJob`, three main types of object are emitted:
-* `Segment`: A text segment ready for embedding or similar use
-* `ImageText`: The URL for an image together with context text
-* `FullText`: The full extracted text for a document, with associated `Blob`
+This workflow uses `SegmentationSpec` and `Segment`, and generates `EmbeddingsSpec`, `EmbeddingsRun`, `DescriptorSet`, and `Descriptor`.
 
 ```mermaid
-erDiagram 
-    CrawlDocument {}
-    Crawl {}
-    SegmentationJob {
-      datetime start_time
-      string crawl_id
+erDiagram
+    Segment {}
+    SegmentationSpec {}
+    EmbeddingsSpec {
+      string segmentation_spec_id
       string id
-      datetime end_time
-      number duration
-      number n_segments
-      number n_images
-      number n_full_texts
+      string model
+      string mmodel_fingerprint
+      number dimensions
+      string metric
+      string descriptorset_name
+      string engine
+    }
+    EmbeddingsRun {}
+    DescriptorSet {
+      string model
+      string model_fingerprint
+    }
+    Descriptor {
+      string segment_id
+      string uniqueid
+      string spec_id
+      string run_id
+      string text
+      string url
     }
     Segment {
       string text
       string kind
       string url
     }
-    ImageText {
-      string image_url
-      string caption
-      string alt_text
-      string text
-      string anchor
-      string text_url
-    }
-    FullText {
-      string url
-    }
-    Blob {}
-    Crawl {}
-    Image {}
-    Crawl ||--o{ CrawlDocument : crawlHasDocument
-    Crawl ||--o{ SegmentationJob : crawlHasSegmentation
-    CrawlDocument ||--o{ Segment : documentHasSegment
-    SegmentationJob ||--o{ Segment : segmentationJobHasSegment
-    CrawlDocument ||--o{ ImageText : documentHasImageText
-    SegmentationJob ||--o{ ImageText : segmentationJobHasInageText
-    Image }o--o| ImageText : imageHasImageText
-    CrawlDocument ||--o{ FullText : documentHasFullText
-    FullText ||--|| Blob : fullTextHasBlob
-    SegmentationJob ||--o{ FullText : segmentationJobHasFullText
+
+    SegmentationSpec ||--o{ EmbeddingsSpec : segmentationSpecHasEmbeddingsSpec
+    EmbeddingsSpec ||--o{ EmbeddingsRun : embeddingsSpecHasRun
+    EmbeddingsSpec }o--|| DescriptorSet : embeddingsSpecHasDescriptorSet
+    EmbeddingsSpec ||--o{ Descriptor : embeddingsSpecHasDescriptor
+    EmbeddingsRun ||--o{ Descriptor : embeddingsRunHasDescriptor
+    SegmentationSpec ||--o{ Segment : segmentationSpecHasSegment
+    Segment ||--o{ Descriptor : segmentHasDescriptor
+    DescriptorSet ||--o{ Descriptor: DescriptorSetToDescriptor
 ```
 
 ```mermaid
 sequenceDiagram
-    participant W as Text Extraction
+    participant W as Text Embeddings
     participant A as ApertureDB instance
-    W->>A: FindEntity (Crawl)<br/>AddEntity (SegmentationJob)<br/>CreateIndex (SegmentationJob.id)
-    W->>A: FindEntity (Crawl)<br/>FindEntity (CrawlDocument)
-    loop For each batch
-        W->>A: FindEntity (CrawlDocument)<br/>FindBlob
-        A->>W: crawl documents, blobs
+    W->>A: FindEntity (SegmentationSpec)<br/>AddEntity (EmbeddingsSpec)<br/>AddDescriptorSet<br/>CreateIndex (various)
+    W->>A: FindEntity (SegmentationSpec)<br/>FindEntity (Segment)
+    loop For each segment
+        W->>A: FindEntity (EmbeddingsSpec)<br/>FindEntity (Segment)<br/>AddDescriptor <br/> AddConnection 
     end
-    loop For each webpage
-        W->>A: FindEntity (SegmentationJob)<br/>FindEntity (CrawlDocument)<br/>AddEntity (Segment) / AddConnection ...<br/>AddEntity (ImageText) / AddConnection / FindImage / AddConnection...<br/>AddEntity (FullText) / AddBlob / AddConnection ...
-    end
-    W->>A: FindEntity (SegmentationJob)<br/>UpdateEntity (SegmentationJob)
+    W->>A: FindEntity (EmbeddingsSpec)<br/>AddEntity (EmbeddingsRun)<br/>FindDescriptor<br/>AddConnection
 ```
 
 
