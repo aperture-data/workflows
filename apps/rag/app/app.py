@@ -4,7 +4,6 @@ import uuid
 from typing import Optional
 from rag import QAChain
 from llm import load_llm
-from history import InMemoryHistory
 from fastapi.staticfiles import StaticFiles
 from wf_argparse import ArgumentParser
 import logging
@@ -14,7 +13,6 @@ import time
 import json
 
 from llm import LLM, DEFAULT_MODEL, DEFAULT_PROVIDER
-from history import InMemoryHistory as History
 from embeddings import BatchEmbedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
@@ -31,16 +29,16 @@ async def ask(request: Request,
               authorization: str = Header(None),
               token: str = Cookie(default=None),
               query: str = Query(None),
-              session_id: str = Query(None)):
+              history: Optional[str] = Query(None)):
 
     verify_token(authorization, token)
 
     if request.method == "POST":
         body = await request.json()
         query = body.get("query")
-        session_id = body.get("session_id")
+        history = body.get("history")
 
-    # At this point, `query` and `session_id` are set, regardless of GET or POST
+    # At this point, `query` and `history` are set, regardless of GET or POST
 
     if not query:
         raise HTTPException(
@@ -48,39 +46,29 @@ async def ask(request: Request,
 
     logger.info(f"Received query: {query}")
 
-    if not session_id:
-        session_id = str(uuid.uuid4())
-        logger.info(f"New session ID: {session_id}")
-
-    chat_history = history.get_history(session_id)
     start_time = time.time()
-    answer = qa_chain.run(query, chat_history)
+    answer, new_history = qa_chain.run(query, history)
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
-    history.append_turn(session_id, query, answer)
-
-    return {"answer": answer, "session_id": session_id, "duration": qa_duration}
+    return {"answer": answer, "history": history, "duration": qa_duration}
 
 
 @app.get("/ask/stream")
-async def stream_ask(query: str,
-                     session_id: Optional[str] = None,
+async def stream_ask(query: str = Query(),
+                     history: Optional[str] = Query(None),
                      authorization: str = Header(None),
                      token: str = Cookie(default=None)):
+
     verify_token(authorization, token)
 
-    if not session_id:
-        session_id = str(uuid.uuid4())
-        logger.info(f"New session ID: {session_id}")
-
-    chat_history = history.get_history(session_id)
-
     async def event_generator():
-        yield f"event: start\ndata: {json.dumps({'session_id': session_id})}\n\n"
+        yield f"event: start\ndata: {json.dumps({})}\n\n"
         results = []
         start_time = time.time()
-        async for token in qa_chain.stream_run(query, chat_history):
+        answer_stream, history_fn, rewritten_query = await qa_chain.stream_run(query, history)
+        yield f"event: rewritten_query\ndata: {json.dumps(rewritten_query)}\n\n"
+        async for token in answer_stream:
             yield f"data: {json.dumps(token)}\n\n"
             # logger.debug(f"data: {token}\n\n")
             results.append(token)
@@ -88,8 +76,9 @@ async def stream_ask(query: str,
         answer = "".join(results)
         logger.info(
             f"Answer: {answer}, duration: {qa_duration: .2f}s")
-        history.append_turn(session_id, query, answer)
-        yield f"event: end\ndata: {json.dumps({'session_id': session_id, 'duration': qa_duration, 'parts': len(results)})}\n\n"
+        yield f"event: end\ndata: {json.dumps({'duration': qa_duration, 'parts': len(results)})}\n\n"
+        new_history = history_fn()
+        yield f"event: history\ndata: {json.dumps(new_history)}\n\n"
         # TODO: With arbitrary messages, we can send, e.g., images
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -115,6 +104,12 @@ async def login(request: Request):
         samesite="strict",
     )
     return response
+
+
+@app.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("token", path="/")
+    return {"message": "Logged out"}
 
 
 @app.get("/config")
@@ -178,9 +173,6 @@ def main(args):
 
     global API_TOKEN
     API_TOKEN = args.token
-
-    global history
-    history = InMemoryHistory()
 
     llm = load_llm(args.llm_provider, args.llm_model, args.llm_api_key)
 

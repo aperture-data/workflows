@@ -11,7 +11,14 @@
 <body>
     <h1>ChatBot Powered by ApertureDB</h1>
 
+    <div id="logout-container" style="display: none;">
+        <button id="logout-button">Logout</button>
+    </div>
+
     <div id="config-container" style="display: none;">
+        <div id="logout-container" style="display: none;">
+            <button id="logout-button">Logout</button>
+        </div>
         <h2>Configuration</h2>
         <table id="config-table" style="border-collapse: collapse; width: 100%; margin-top: 1rem;">
             <thead>
@@ -24,6 +31,18 @@
                 <!-- Rows will be inserted here -->
             </tbody>
         </table>
+    </div>
+
+    <div id="chat-summary"
+        style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; background-color: #f9f9f9;">
+        <h3>Chat History Summary</h3>
+        <p id="chat-summary-text"></p>
+    </div>
+
+    <div id="chat-rewritten-query"
+        style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; background-color: #f9f9f9;">
+        <h3>Rewritten Query</h3>
+        <p id="chat-rewritten-query-text"></p>
     </div>
 
     <div id="login-popup"

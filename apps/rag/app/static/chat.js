@@ -1,5 +1,6 @@
 let session_id = null;
 const md = window.markdownit({ breaks: true });
+let history = null;
 
 document.getElementById('chat-button').addEventListener('click', () => {
   if (!loggedIn) {
@@ -30,8 +31,8 @@ document.getElementById('chat-send').addEventListener('click', async () => {
 
   // Start the SSE connection for the response
   let url = `/ask/stream?query=${encodeURIComponent(message)}`;
-  if (session_id) {
-    url += `&session_id=${encodeURIComponent(session_id)}`;
+  if (history) {
+    url += `&history=${encodeURIComponent(history)}`;
   }
 
   const evtSource = new EventSource(url);
@@ -57,12 +58,40 @@ document.getElementById('chat-send').addEventListener('click', async () => {
     finalizeBotMessage(botMessage);
   });
 
+  evtSource.addEventListener('history', (event) => {
+    setHistory(JSON.parse(event.data));
+    console.log("History updated:", history);
+  });
+
+  evtSource.addEventListener('rewritten_query', (event) => {
+    const data = JSON.parse(event.data);
+    console.log("Rewritten query:", data);
+    setRewrittenQuery(data);
+  });
+
   evtSource.onerror = (err) => {
     console.error("EventSource failed:", err);
     evtSource.close();
   };
 
 });
+
+function setHistory(newHistory) {
+  history = newHistory;
+  const summaryDiv = document.getElementById('chat-summary');
+  const summaryText = document.getElementById('chat-summary-text');
+  summaryText.innerHTML = newHistory;
+  summaryDiv.style.display = 'block';
+  summaryDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+function setRewrittenQuery(query) {
+  const rewrittenDiv = document.getElementById('chat-rewritten-query');
+  const rewrittenText = document.getElementById('chat-rewritten-query-text');
+  rewrittenText.innerHTML = query;
+  rewrittenDiv.style.display = 'block';
+  rewrittenDiv.scrollIntoView({ behavior: 'smooth' });
+}
 
 function appendMessage(sender, text) {
   const messages = document.getElementById('chat-messages');
@@ -160,8 +189,7 @@ document.getElementById('login-submit').addEventListener('click', async () => {
   });
 
   if (res.ok) {
-    loggedIn = true;
-    hideLoginPopup();
+    setLoggedIn(true);
     loadConfigTable();
     // alert("Logged in!");
   } else {
@@ -170,6 +198,10 @@ document.getElementById('login-submit').addEventListener('click', async () => {
 });
 
 async function loadConfigTable() {
+  if (document.getElementById('config-container').style.display != 'none') {
+    return;
+  }
+
   try {
     const response = await fetch('/config');
     if (!response.ok) {
@@ -189,7 +221,38 @@ async function loadConfigTable() {
       tbody.appendChild(row);
     }
     document.getElementById('config-container').style.display = 'table';
+    setLoggedIn(true);
   } catch (err) {
-    console.error('Error loading config:', err);
+    console.error('Error loading config:', err, " - might be logged out");
+    setLoggedIn(false);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadConfigTable();
+});
+
+document.getElementById("logout-button").addEventListener("click", () => {
+  setLoggedIn(false);
+});
+
+async function setLoggedIn(value) {
+  console.log("Setting logged in to:", value, " was ", loggedIn);
+  if (loggedIn !== value) {
+    if (value) {
+      console.log("Logging in...");
+      document.getElementById('login-popup').style.display = 'none';
+      document.getElementById('logout-container').style.display = 'block';
+    } else {
+      console.log("Logging out...");
+      await fetch("/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      session_token = null;
+      location.reload();
+    }
+
+    loggedIn = value;
   }
 }

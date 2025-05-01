@@ -189,3 +189,15 @@
   font-size: 0.9em;
   border-radius: 3px;
 }
+
+#logout-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  border: none;
+  padding: 10px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 5px;
+  z-index: 1000;
+}
