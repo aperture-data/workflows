@@ -10,32 +10,49 @@ docker run \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS=password \
            -e WF_LOG_LEVEL=INFO \
+           -e WF_TOKEN=secretsquirrel \
+           -e WF_INPUT=mydescriptorset \
            aperturedata/workflows-rag
 ```
 
 Parameters: 
-* **`WF_CRAWL`**: (Required) Identifier for the crawl to work on
-* **`WF_CSS_SELECTOR`**: Optional CSS selector for HTML text extraction. If specified and if present in the document, only these sections of the document will have text extracted.
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
+* **`WF_TOKEN`**: Authorization token to use in API
+* **`WF_INPUT`**: Name of descriptorset to use
+* **`WF_LLM_PROVIDER`**: The LLM provider to use, e.g. openai, huggingface, together, groq
+* **`WF_LLM_MODEL`**: The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat
+* **`WF_LLM_API_KEY`**: API key for LLM provider
+* **`WF_MODEL`**: The embedding model to use, of the form "backend model pretrained
+* **`WF_PORT`**: The port to use; default 8000. Note that this service is HTTP and expects to be wrapped by an HTTPS proxy with appropriate keys.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
-## Cleaning up
+## LLMs
 
-To remove all objects created by all runs of this workflow, run the following query:
+This code supports a number of different LLM providers, and can easily be extended to more. One local "free" provider is included, but this will be slow to use. It should be straightforward to extend [the code](app/llm.py) to other providers.
 
-```javascript
-[
-  {"FindEntity": {"with_class": "SegmentationJob", "_ref": 1}},
-  {"FindEntity": {"with_class": "Segment", "_ref": 2}},
-  {"FindEntity": {"with_class": "ImageText", "_ref": 3}},
-  {"FindEntity": {"with_class": "FullText", "_ref": 4}},
-  {"FindBlob": {"is_connected_to": {"ref": 4}, "_ref": 5}},
-  {"DeleteBlob": {"ref": 5}},
-  {"DeleteEntity": {"ref": 4}}
-  {"DeleteEntity": {"ref": 3}}
-  {"DeleteEntity": {"ref": 2}}
-  {"DeleteEntity": {"ref": 1}}
-]
-```
+| Type | Provider | Suggested Model | API key required | 
+| --- | --- | --- | --- |
+| Local | [huggingface](https://huggingface.co/models) | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | No |
+| Cloud | [openai](https://platform.openai.com/docs/models) | gpt-3.5-turbo | Yes |
+| Cloud | [together](https://www.together.ai/models) | mistralai/Mistral-7B-Instruct-v0.2 | Yes |
+| Cloud | [groq](https://console.groq.com/docs/models) | llama3-8b-8192 | Yes |
 
+## API
+
+The service supports a number of API endpoints. It is implemented using FastAPI, so also supports `/docs`, `/redoc`, and `/openapi.json` for documentation. Brief documentation follows below:
+
+* **`/ask`**: Non-stream query interface. 
+    * As GET, expects `query` and optionally `history`.
+    * As POST, expects a JSON object with `query` and optionally `history`.
+* **`/ask/stream`**: Stream query interface. GET only. Expects `query` and optionally `history`.  Returns events:
+  * start: Indicates the start of the response
+  * rewritten_query: The rewritten query
+  * data: The answer tokens as they are generated
+  * end: Indicates the end of the response, with duration and number of parts
+  * history: The updated conversation history
+* **`/login`**: POST only. Expects a JSON object containing a `token` field. Returns a cookie.
+* **`/logout`**: POST only. Clears the cookie.
+* **`/config`**: GET only. Returns a JSON object reporting aspects of the server configuration. Used for debugging.
+
+With the exception of `/login` and `/logout`, all API methods require authentication using the token specified when the workflow was started. This can be supplied in as and authorization bearer token, or as a cookie called `token`.

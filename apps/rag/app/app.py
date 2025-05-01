@@ -28,8 +28,14 @@ app = FastAPI()
 async def ask(request: Request,
               authorization: str = Header(None),
               token: str = Cookie(default=None),
-              query: str = Query(None),
-              history: Optional[str] = Query(None)):
+              query: str = Query(None, description="The question to ask"),
+              history: Optional[str] = Query(None, description="A summary of the conversation history")):
+    """Non-streaming endpoint for asking questions, either GET or POST.
+    
+    Must supply token in the authorization bearer header or a cookie.
+
+    Returns a JSON response with the answer, history, and rewritten query.
+    """
 
     verify_token(authorization, token)
 
@@ -59,10 +65,21 @@ async def ask(request: Request,
 
 
 @app.get("/ask/stream")
-async def stream_ask(query: str = Query(),
-                     history: Optional[str] = Query(None),
+async def stream_ask(query: str = Query(description="The question to ask"),
+                     history: Optional[str] = Query(None, description="A summary of the conversation history"),
                      authorization: str = Header(None),
                      token: str = Cookie(default=None)):
+    """Streaming endpoint for asking questions.
+    
+    Must supply token in the authorization bearer header or a cookie.
+
+    Returns a streaming response with the following events:
+    - `start`: Indicates the start of the response
+    - `rewritten_query`: The rewritten query
+    - `data`: The answer tokens as they are generated
+    - `end`: Indicates the end of the response, with duration and number of parts
+    - `history`: The updated conversation history
+    """
 
     verify_token(authorization, token)
 
@@ -90,6 +107,10 @@ async def stream_ask(query: str = Query(),
 
 @app.post("/login")
 async def login(request: Request):
+    """
+    Login endpoint to set a cookie with the token.
+    Expects a JSON body with a "token" field.
+    """
     data = await request.json()
     client_token = data.get("token")
 
@@ -112,12 +133,19 @@ async def login(request: Request):
 
 @app.post("/logout")
 def logout(response: Response):
+    """
+    Logout endpoint to clear the cookie.
+    """
     response.delete_cookie("token", path="/")
     return {"message": "Logged out"}
 
 
 @app.get("/config")
 async def config(request: Request):
+    """
+    Endpoint to get the configuration of the API.
+    Used for debugging and demos.
+    """
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
@@ -132,6 +160,9 @@ async def config(request: Request):
 
 
 def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(None)):
+    """
+    Verify the token from the Authorization header or cookie.
+    """
     token = None
 
     # Prefer Authorization header if present
@@ -153,6 +184,7 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
 
 
 def get_retriever(descriptorset_name: str, model: str):
+    """Build the retriever for the given descriptorset and model."""
     embeddings = BatchEmbedder(model)
     # TODO: Check fingerprint
     # dim = embeddings.dimensions()
