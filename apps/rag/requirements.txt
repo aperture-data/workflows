@@ -7,10 +7,9 @@ groq
 transformers>=4.38.0
 torch
 fastapi
-uvicorn[standard]    
+uvicorn[standard]
 huggingface-hub
 accelerate
-torch>=2.0
 open_clip_torch>=2.23
 git+https://github.com/openai/CLIP.git
 numpy
