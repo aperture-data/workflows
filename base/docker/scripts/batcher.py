@@ -70,11 +70,11 @@ class SymbolicBatcher:
             commands.append(self._resolve_refs_in_command(proto))
         commands_start = len(commands)
 
-        for command in self._commands:
-            commands.append(self._resolve_refs_in_command(command))
+        for proto in self._commands:
+            commands.append(self._resolve_refs_in_command(proto))
 
         for proto in self.epilog_fn():
-            commands.append(self._resolve_refs_in_item(proto))
+            commands.append(self._resolve_refs_in_command(proto))
 
         results, blobs = self.execute_query(commands, self._blobs)
 
@@ -132,6 +132,7 @@ class SymbolicBatcher:
 
     def _resolve_refs_in_command(self, command):
         # TODO: Deep copy?
+        logger.debug("Resolving refs in command: %s", command)
         assert isinstance(command, dict)
         command_name = next(iter(command))
         command_body = command[command_name]

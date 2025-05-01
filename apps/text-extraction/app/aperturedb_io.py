@@ -10,13 +10,20 @@ from batcher import SymbolicBatcher
 
 logger = logging.getLogger(__name__)
 
-JOB_CLASS = "SegmentationJob"
+INPUT_SPEC_CLASS = "CrawlSpec"
+SPEC_CLASS = "SegmentationSpec"
+RUN_CLASS = "SegmentationRun"
 
 
 class AperturedbIO:
-    def __init__(self, crawl_id: str, batch_size: int = 100):
-        self.crawl_id = crawl_id
-        self.job_id = str(uuid4())
+    """Class to handle interactions with ApertureDB for segmentation jobs.
+    This class is specific to the task and insulates other components from
+    the details of the database."""
+
+    def __init__(self, crawl_spec_id: str, spec_id: str, run_id: str, batch_size: int = 100):
+        self.crawl_spec_id = crawl_spec_id
+        self.spec_id = spec_id
+        self.run_id = run_id
         self.batch_size = batch_size
         self.db = create_connector()
         self.start_time = datetime.now(timezone.utc)
@@ -47,7 +54,6 @@ class AperturedbIO:
         return results, result_blobs
 
     def __enter__(self):
-        self.create_job_document()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -55,7 +61,7 @@ class AperturedbIO:
         if exc_type is not None:
             logger.error(f"Error during processing: {exc_value}")
         self.batcher.flush()
-        self.update_job_document()
+        self.create_run()
 
     def _batcher_prolog(self) -> list[dict]:
         """Prolog function to create a new batch"""
@@ -63,11 +69,11 @@ class AperturedbIO:
         return [
             {
                 "FindEntity": {
-                    "with_class": JOB_CLASS,
+                    "with_class": SPEC_CLASS,
                     "constraints": {
-                        "id": ["==", self.job_id],
+                        "id": ["==", self.spec_id],
                     },
-                    "_ref": "JOB",
+                    "_ref": "SPEC",
                 }
             },
             {
@@ -84,51 +90,89 @@ class AperturedbIO:
         """Filter out null properties from a dictionary"""
         return {k: v for k, v in obj.items() if v is not None}
 
-    def create_job_document(self) -> None:
-        """Create SegmentationJob document in ApertureDB"""
-        logging.info(f"Starting {JOB_CLASS} at {self.start_time.isoformat()}")
+    def create_spec(self) -> None:
+        """Create SegmentationSpec document in ApertureDB"""
+        logging.info(f"Starting {SPEC_CLASS} at {self.start_time.isoformat()}")
         self.execute_query([
             {
                 "FindEntity": {
-                    "with_class": "Crawl",
+                    "with_class": INPUT_SPEC_CLASS,
                     "constraints": {
-                        "id": ["==", self.crawl_id],
+                        "id": ["==", self.crawl_spec_id],
                     },
                     "_ref": 1,
                 }
             },
             {
                 "AddEntity": {
-                    "class":  JOB_CLASS,
+                    "class":  SPEC_CLASS,
                     "properties": {
-                        "start_time": {"_date": self.start_time.isoformat()},
-                        "crawl_id": self.crawl_id,
-                        "id": self.job_id,
+                        "crawl_spec_id": self.crawl_spec_id,
+                        "id": self.spec_id,
                     },
                     "connect": {
                         "ref": 1,
-                        "class": "crawlHasSegmentation",
+                        "class": "crawlSpecHasSegmentationSpec",
                         "direction": "in",
                     }
                 }
             }])
 
+    def create_indexes(self) -> None:
+        """Create indexes"""
+        logger.info(
+            f"Creating indexes; may cause partial errors if they already exist")
         self.execute_query(
             [
                 {
                     "CreateIndex": {
                         "index_type": "entity",
-                        "class": JOB_CLASS,
+                        "class": SPEC_CLASS,
                         "property_key": "id",
+                    }
+                },
+                {
+                    "CreateIndex": {
+                        "index_type": "entity",
+                        "class": RUN_CLASS,
+                        "property_key": "id",
+                    }
+                },
+                {
+                    "CreateIndex": {
+                        "index_type": "entity",
+                        "class": RUN_CLASS,
+                        "property_key": "spec_id",
+                    }
+                },
+                {
+                    "CreateIndex": {
+                        "index_type": "entity",
+                        "class": "Segment",
+                        "property_key": "id",
+                    }
+                },
+                {
+                    "CreateIndex": {
+                        "index_type": "entity",
+                        "class": "Segment",
+                        "property_key": "spec_id",
+                    }
+                },
+                {
+                    "CreateIndex": {
+                        "index_type": "entity",
+                        "class": "Segment",
+                        "property_key": "run_id",
                     }
                 },
             ],
             success_statuses=[0, 2],  # 0 = success, 2 = already exists
         )
 
-    def update_job_document(self) -> None:
-        """Find and update SegmentationJob document in ApertureDB"""
-        logger.info(f"Ending {JOB_CLASS} {self.job_id} with "
+    def create_run(self) -> None:
+        """Create and connect SegmentationRun document in ApertureDB"""
+        logger.info(f"Ending run {self.run_id} with "
                     f"{self.n_segments} segments, {self.n_images} images, {self.n_full_texts} texts")
         end_time = datetime.now(timezone.utc)
         duration = (end_time - self.start_time).total_seconds()
@@ -137,25 +181,81 @@ class AperturedbIO:
         self.execute_query([
             {
                 "FindEntity": {
-                    "with_class": JOB_CLASS,
+                    "with_class": SPEC_CLASS,
                     "constraints": {
-                        "id": ["==", self.job_id],
+                        "id": ["==", self.spec_id],
                     },
                     "_ref": 1,
                 },
             },
             {
-                "UpdateEntity": {
-                    "ref": 1,
+                "AddEntity": {
+                    "class": RUN_CLASS,
                     "properties": {
+                        "spec_id": self.spec_id,
+                        "id": self.run_id,
                         "end_time": {"_date": end_time.isoformat()},
                         "duration": duration,
                         "n_segments": self.n_segments,
                         "n_images": self.n_images,
                         "n_full_texts": self.n_full_texts,
-                    }
+                    },
+                    "connect": {
+                        "ref": 1,
+                        "class": "segmentationSpecHasRun",
+                        "direction": "in",
+                    },
+                    "_ref": 2,
                 },
-            }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "Segment",
+                    "constraints": {
+                        "run_id": ["==", self.run_id],
+                    },
+                    "_ref": 3,
+                },
+            },
+            {
+                "AddConnection": {
+                    "src": 2,
+                    "dst": 3,
+                    "class": "segmentationRunHasSegment",
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "ImageText",
+                    "constraints": {
+                        "run_id": ["==", self.run_id],
+                    },
+                    "_ref": 4,
+                },
+            },
+            {
+                "AddConnection": {
+                    "src": 2,
+                    "dst": 4,
+                    "class": "segmentationRunHasImageText",
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "FullTextBlock",
+                    "constraints": {
+                        "run_id": ["==", self.run_id],
+                    },
+                    "_ref": 5,
+                },
+            },
+            {
+                "AddConnection": {
+                    "src": 2,
+                    "dst": 5,
+                    "class": "segmentationRunHasImageText",
+                }
+            },
         ])
 
     def get_crawl_documents(self) -> Iterator[CrawlDocument]:
@@ -163,9 +263,9 @@ class AperturedbIO:
         query = [
             {
                 "FindEntity": {
-                    "with_class": "Crawl",
+                    "with_class": INPUT_SPEC_CLASS,
                     "constraints": {
-                        "id": ["==", self.crawl_id],
+                        "id": ["==", self.crawl_spec_id],
                     },
                     "_ref": 1,
                 }
@@ -175,7 +275,7 @@ class AperturedbIO:
                     "with_class": "CrawlDocument",
                     "is_connected_to": {
                         "ref": 1,
-                        "connection_class": "crawlHasDocument",
+                        "connection_class": "crawlSpecHasDocument",
                         "direction": "out",
                     },
                     "uniqueids": True,
@@ -256,7 +356,7 @@ class AperturedbIO:
             ])
 
     def create_segment(self, segment: Segment) -> None:
-        """Create a Segment document in ApertureDB, linked to the CrawlDocument and SegmentationJob"""
+        """Create a Segment document in ApertureDB, linked to the CrawlDocument and SegmentationSpec"""
         assert self.current_document is not None, "No current document set"
         self.n_segments += 1
         self.batcher.add([
@@ -264,9 +364,13 @@ class AperturedbIO:
                 "AddEntity": {
                     "class": "Segment",
                     "properties": {
+                        "id": str(uuid4()),
                         "text": segment.text,
                         "kind": segment.kinds,
                         "url": segment.url(self.current_document.url),
+                        "spec_id": self.spec_id,
+                        "run_id": self.run_id,
+                        "n_tokens": segment.total_tokens,
                     },
                     "connect": {
                         "ref": "DOC",
@@ -278,15 +382,15 @@ class AperturedbIO:
             },
             {
                 "AddConnection": {
-                    "src": "JOB",
+                    "src": "SPEC",
                     "dst": "TEMP",
-                    "class": "segmentationJobHasSegment",
+                    "class": "segmentationSpecHasSegment",
                 }
             }
         ])
 
-    def create_image_block(self, block: ImageBlock):
-        """Create a ImageBlock document in ApertureDB, linked to the CrawlDocument, SegmentationJob, and possibly Image"""
+    def create_image_block(self, block: ImageBlock) -> None:
+        """Create a ImageBlock document in ApertureDB, linked to the CrawlDocument, SegmentationSpec, and possibly Image"""
         assert self.current_document is not None, "No current document set"
         self.n_images += 1
         self.batcher.add([
@@ -300,6 +404,8 @@ class AperturedbIO:
                         "text": block.best_text,
                         "anchor": block.anchor,
                         "text_url": block.url(self.current_document.url),
+                        "spec_id": self.spec_id,
+                        "run_id": self.run_id,
                     }),
                     "connect": {
                         "ref": "DOC",
@@ -311,9 +417,9 @@ class AperturedbIO:
             },
             {
                 "AddConnection": {
-                    "src": "JOB",
+                    "src": "SPEC",
                     "dst": "TEMP",
-                    "class": "segmentationJobHasImageText",
+                    "class": "segmentationSpecHasImageText",
                 }
             },
             {
@@ -333,8 +439,8 @@ class AperturedbIO:
             }
         ])
 
-    def create_full_text_block(self, block: FullTextBlock):
-        """Create a FullTextBlock document in ApertureDB, linked to the CrawlDocument and SegmentationJob"""
+    def create_full_text_block(self, block: FullTextBlock) -> None:
+        """Create a FullTextBlock document in ApertureDB, linked to the CrawlDocument and SegmentationSpec"""
         assert self.current_document is not None, "No current document set"
         self.n_full_texts += 1
         self.batcher.add([
@@ -343,6 +449,8 @@ class AperturedbIO:
                     "class": "FullText",
                     "properties": {
                         "url": self.current_document.url,
+                        "spec_id": self.spec_id,
+                        "run_id": self.run_id,
                     },
                     "connect": {
                         "ref": "DOC",
@@ -366,9 +474,133 @@ class AperturedbIO:
             },
             {
                 "AddConnection": {
-                    "src": "JOB",
+                    "src": "SPEC",
                     "dst": "TEMP",
-                    "class": "segmentationJobHasFullText",
+                    "class": "segmentationSpecHasFullText",
                 }
             },
         ], [block.text.encode("utf-8")])
+
+    def delete_spec(self, spec_id) -> None:
+        """Delete a SegmentationSpec document and all its dependent artefacts"""
+        logger.info(f"Deleting {SPEC_CLASS} {spec_id}")
+        self.execute_query([
+            {
+                "FindEntity": {
+                    "with_class": SPEC_CLASS,
+                    "constraints": {
+                        "id": ["==", spec_id],
+                    },
+                    "_ref": 1,
+                }
+            },
+            {
+                "DeleteEntity": {
+                    "ref": 1,
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": RUN_CLASS,
+                    "constraints": {
+                        "spec_id": ["==", spec_id],
+                    },
+                    "_ref": 2,
+                }
+            },
+            {
+                "DeleteEntity": {
+                    "ref": 2,
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "Segment",
+                    "constraints": {
+                        "spec_id": ["==", spec_id],
+                    },
+                    "_ref": 3,
+                }
+            },
+            {
+                "DeleteEntity": {
+                    "ref": 3,
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "ImageText",
+                    "constraints": {
+                        "spec_id": ["==", spec_id],
+                    },
+                    "_ref": 4,
+                }
+            },
+            {
+                "DeleteEntity": {
+                    "ref": 4,
+                }
+            },
+            {
+                "FindEntity": {
+                    "with_class": "FullText",
+                    "constraints": {
+                        "spec_id": ["==", spec_id],
+                    },
+                    "_ref": 5,
+                }
+            },
+            {
+                "DeleteEntity": {
+                    "ref": 5,
+                }
+            },
+        ])
+
+    def delete_all(self) -> None:
+        """Delete all SegmentationSpec documents and all their dependent artefacts
+        """
+        logger.info(f"Deleting all {SPEC_CLASS} documents")
+        response, _ = self.execute_query([
+            {
+                "FindEntity": {
+                    "with_class": SPEC_CLASS,
+                    "results": {
+                        "list": ["id"],
+                    }
+                }
+            },
+        ])
+
+        if 'entities' not in response[0]["FindEntity"]:
+            logger.info(f"No {SPEC_CLASS} documents found")
+            return
+
+        for entity in response[0]["FindEntity"]["entities"]:
+            spec_id = entity["id"]
+            logger.info(f"Deleting {SPEC_CLASS} {spec_id}")
+            self.delete_spec(spec_id)
+
+    def does_entity_exist(self, class_, id_) -> bool:
+        """Check if an entity exists in ApertureDB"""
+        query = [
+            {
+                "FindEntity": {
+                    "with_class": class_,
+                    "constraints": {
+                        "id": ["==", id_],
+                    },
+                    "results": {"count": True},
+                }
+            },
+        ]
+        results, _ = self.execute_query(query)
+        return results[0]["FindEntity"]["count"] > 0
+
+    def ensure_input_exists(self):
+        assert self.does_entity_exist(INPUT_SPEC_CLASS, self.crawl_spec_id), \
+            f"Crawl{INPUT_SPEC_CLASS} {self.crawl_spec_id} does not exist"
+
+    def ensure_output_does_not_exist(self):
+        assert not self.does_entity_exist(SPEC_CLASS, self.spec_id), \
+            f"{SPEC_CLASS} {self.spec_id} already exists"

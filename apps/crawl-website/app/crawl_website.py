@@ -1,4 +1,4 @@
-import argparse
+from wf_argparse import ArgumentParser
 import os
 import logging
 from typing import List, Optional
@@ -22,6 +22,8 @@ from aperturedb.CommonLibrary import create_connector, execute_query
 
 stats = None
 error_urls = None
+
+logger = logging.getLogger(__name__)
 
 
 class ContentTypeFilterMiddleware:
@@ -188,30 +190,36 @@ class ApertureDBSpider(CrawlSpider):
 class ApertureDBPipeline:
     """Pipeline to store items in ApertureDB"""
 
-    def __init__(self, db, crawl_id):
+    def __init__(self, db, spec_id, run_id):
         self.db = db
-        self.crawl_id = crawl_id
-        logging.info(f"ApertureDBPipeline: Using Crawl ID: {crawl_id}")
+        self.spec_id = spec_id
+        self.run_id = run_id
+        logging.info(f"ApertureDBPipeline: Using Crawl: {spec_id} / {run_id}")
 
     @classmethod
     def from_crawler(class_, crawler):
         db = create_connector()
         args = crawler.settings.get("APERTUREDB_PIPELINE_ARGS", {})
-        crawl_id = crawler.settings.get("APERTUREDB_CRAWL_ID")
+        spec_id = crawler.settings.get("APERTUREDB_SPEC_ID")
+        run_id = crawler.settings.get("APERTUREDB_RUN_ID")
 
-        pipeline = class_(db, crawl_id)
+        pipeline = class_(db, spec_id, run_id)
         pipeline.crawler = crawler
         return pipeline
 
     def process_item(self, item: ApertureDBItem, spider):
         """Process the item and store it in ApertureDB"""
         self.crawler.stats.inc_value('itempipeline/item_count')
+        properties = item.properties.copy()
+        properties['spec_id'] = self.spec_id
+        properties['run_id'] = self.run_id
+        properties['id'] = str(uuid4())
         query = [
             {
                 "FindEntity": {
-                    "with_class": "Crawl",
+                    "with_class": "CrawlSpec",
                     "constraints": {
-                        "id": ["==", self.crawl_id],
+                        "id": ["==", self.spec_id],
                     },
                     "_ref": 1,
                 }
@@ -219,10 +227,10 @@ class ApertureDBPipeline:
             {
                 "AddEntity": {
                     "class": "CrawlDocument",
-                    "properties": item.properties,
+                    "properties": properties,
                     "connect": {
                         "ref": 1,
-                        "class": "crawlHasDocument",
+                        "class": "crawlSpecHasDocument",
                         "direction": "in",
                     },
                     "_ref": 2,
@@ -244,41 +252,92 @@ class ApertureDBPipeline:
         execute_query(self.db, query, blobs)
 
 
-def create_crawl(db, args):
-    """Create a new Crawl entity in ApertureDB
+def create_spec(db, args):
+    """Create a new CrawlSpec entity in ApertureDB
     Also create an index on ids for faster lookups.
     """
     start_time = datetime.now(timezone.utc).isoformat()
-    logging.info(f"Starting Crawler at {start_time}")
-    id_ = str(uuid4())
+    spec_id = args.output
+    logging.info(f"Starting Crawler {spec_id} at {start_time}")
+
+    # If --clean is set, they will already have been deleted
+    _, results, _ = execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "constraints": {
+                    "id": ["==", spec_id],
+                },
+                "results": {"count": True}
+            }
+        }
+    ])
+    # TODO: Support incremental crawl here
+    count = results[0]['FindEntity']['count']
+    if count > 0:
+        logging.error(f"Spec {spec_id} already exists, skipping creation")
+        raise ValueError(
+            f"Spec {spec_id} already exists, skipping creation")
+
     execute_query(db, [
         {
             "AddEntity": {
-                "class": "Crawl",
+                "class": "CrawlSpec",
                 "properties": {
                     "start_urls": json.dumps(args.start_urls),
                     "allowed_domains": json.dumps(args.allowed_domains),
                     "max_documents": args.max_documents,
-                    "id": id_,
-                    "start_time": {"_date": start_time},
+                    "id": spec_id,
                 }
+            }
+        }])
+
+
+def create_indexes(db):
+    logger.info(
+        "Creating indexes. This will generate a partial error if the index already exists.")
+    execute_query(db, [
+        {
+            "CreateIndex": {
+                "index_type": "entity",
+                "class": "CrawlSpec",
+                "property_key": "id",
             }
         },
         {
             "CreateIndex": {
                 "index_type": "entity",
-                "class": "Crawl",
+                "class": "CrawlDocument",
+                "property_key": "id",
+            }
+        },
+        {
+            "CreateIndex": {
+                "index_type": "entity",
+                "class": "CrawlDocument",
+                "property_key": "spec_id",
+            }
+        },
+        {
+            "CreateIndex": {
+                "index_type": "entity",
+                "class": "CrawlDocument",
+                "property_key": "run_id",
+            }
+        },
+        {
+            "CreateIndex": {
+                "index_type": "entity",
+                "class": "CrawlRun",
                 "property_key": "id",
             }
         },
     ])
 
-    return id_
 
-
-def update_crawl(db, crawl_id, stats):
-    """Update the Crawl entity with end time, duration, and number of documents"""
-    logging.info(f"Ending Crawler {crawl_id}")
+def create_run(db, spec_id, run_id, stats):
+    """Create a CrawlRun entity with end time, duration, and number of documents"""
+    logging.info(f"Ending Crawl {spec_id} {run_id}")
 
     # Extract properties from stats and convert datetimes to strings
     properties = {
@@ -291,35 +350,159 @@ def update_crawl(db, crawl_id, stats):
     if error_urls:
         properties["error_urls"] = json.dumps(error_urls)
 
+    properties['id'] = run_id
+    properties['spec_id'] = spec_id
+
     execute_query(db, [{
         "FindEntity": {
-            "with_class": "Crawl",
+            "with_class": "CrawlSpec",
             "constraints": {
-                "id": ["==", crawl_id],
+                "id": ["==", spec_id],
             },
             "_ref": 1,
         }
     }, {
-        "UpdateEntity": {
-            "ref": 1,
+        "AddEntity": {
+            "class": "CrawlRun",
             "properties": properties,
+            "connect": {
+                "ref": 1,
+                "class": "crawlSpecHasRun",
+                "direction": "in",
+            },
+            "_ref": 2,
+        }
+    }, {
+        "FindEntity": {
+            "with_class": "CrawlDocument",
+            "constraints": {
+                "run_id": ["==", run_id],
+            },
+            "_ref": 3,
+        }
+    }, {
+        "AddConnection": {
+            "class": "crawlRunHasDocument",
+            "src": 2,
+            "dst": 3,
         }
     }])
 
 
-def main(args):
-    # The following line produces duplicate logs in the output.
-    # Presumably scrapy is also setting up logging.
-    # logging.basicConfig(level=args.log_level.upper())
+def delete_crawl(db, spec_id):
+    """Delete a crawl spec and all dependent artefacts"""
+    logger.info(f"Deleting Crawl {spec_id}")
+    execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "constraints": {
+                    "id": ["==", spec_id],
+                },
+                "_ref": 1,
+            },
+        },
+        {
+            "DeleteEntity": {
+                "ref": 1,
+            }
+        },
+        {
+            "FindEntity": {
+                "with_class": "CrawlDocument",
+                "constraints": {
+                    "spec_id": ["==", spec_id],
+                },
+                "_ref": 2,
+            }
+        },
+        {
+            "DeleteEntity": {
+                "ref": 2,
+            }
+        },
+        {
+            "FindEntity": {
+                "with_class": "CrawlRun",
+                "constraints": {
+                    "spec_id": ["==", spec_id],
+                },
+                "_ref": 3,
+            }
+        },
+        {
+            "FindBlob": {
+                "is_connected_to": {
+                    "ref": 2,
+                    "connection_class": "crawlDocumentHasBlob",
+                },
+                "_ref": 4,
+            }
+        },
+        {
+            "DeleteEntity": {
+                "ref": 3,
+            }
+        },
+        {
+            "DeleteBlob": {
+                "ref": 4,
+            }
+        },
+    ])
+    logger.info(f"Deleted Crawl {spec_id}")
 
+
+def delete_all(db):
+    """Delete all crawl specs and all dependent artefacts"""
+    logging.info(f"Deleting all Crawls")
+    _, results, _ = execute_query(db, [
+        {
+            "FindEntity": {
+                "with_class": "CrawlSpec",
+                "results": {
+                    "list": ["id"],
+                },
+            },
+        },
+    ])
+    if 'entities' not in results[0]['FindEntity']:
+        logger.warning("No Crawls to delete")
+        return
+
+    for result in results[0]['FindEntity']['entities']:
+        spec_id = result["id"]
+        delete_crawl(db, spec_id)
+
+    logger.info(f"Deleted all Crawls")
+
+
+def main(args):
     db = create_connector()
 
-    crawl_id = create_crawl(db, args)
-    logging.info(f"Starting Crawler with ID: {crawl_id}")
+    spec_id = args.output
+    run_id = str(uuid4())
+
+    if args.delete_all:
+        delete_all(db)
+        return
+
+    if args.delete:
+        delete_crawl(db, spec_id)
+        return
+
+    if args.clean:
+        delete_crawl(db, spec_id)
+        # continue
+
+    create_spec(db, args)
+    create_indexes(db)
+    logging.info(f"Starting Crawler with spec {spec_id}, run {run_id}")
     process = CrawlerProcess(settings={
         "ALLOWED_CONTENT_TYPES": args.content_types.split(";"),
         "APERTUREDB_PIPELINE_ARGS": args,
-        "APERTUREDB_CRAWL_ID": crawl_id,
+        "APERTUREDB_SPEC_ID": spec_id,
+        "APERTUREDB_RUN_ID": run_id,
         "CLOSESPIDER_ITEMCOUNT": args.max_documents,
         "CONCURRENT_REQUESTS": args.concurrent_requests,
         "CONCURRENT_REQUESTS_PER_DOMAIN": args.concurrent_requests_per_domain,
@@ -336,40 +519,62 @@ def main(args):
     })
     process.crawl(ApertureDBSpider)
     process.start()
-    update_crawl(db, crawl_id, stats)
+    create_run(db, spec_id, run_id, stats)
     logging.info("Crawling complete.")
 
 
 def get_args():
-    obj = argparse.ArgumentParser()
+    obj = ArgumentParser(support_legacy_envars=True)
 
-    obj.add_argument('--start-urls', type=str, action='append',
+    obj.add_argument('--start-urls', type=str,
                      help='The URLs to start crawling from',
-                     default=os.environ.get('START_URLS', 'https://docs.aperturedata.io/').split())
+                     default='https://docs.aperturedata.io/',
+                     sep=' ')
 
-    obj.add_argument('--allowed-domains', type=str, action='append',
+    obj.add_argument('--allowed-domains', type=str,
                      help='The allowed domains to crawl (in addition to those in start URLs)',
-                     default=os.environ.get('ALLOWED_DOMAINS', '').split())
+                     sep=' ')
 
     obj.add_argument('--max-documents',  type=int,
-                     default=os.environ.get('MAX_DOCUMENTS', 1000))
+                     default=1000)
 
     obj.add_argument('--content-types',  type=str,
-                     default=os.environ.get('CONTENT_TYPES', 'text/plain;text/html;application/pdf'))
+                     default='text/plain;text/html;application/pdf')
 
     obj.add_argument('--log-level', type=str,
-                     default=os.environ.get('LOG_LEVEL', 'WARNING'))
+                     default='WARNING')
 
     obj.add_argument('--concurrent-requests', type=int,
-                     default=os.environ.get('CONCURRENT_REQUESTS', 64))
+                     default=64)
 
     obj.add_argument('--concurrent-requests-per-domain', type=int,
-                     default=os.environ.get('CONCURRENT_REQUESTS_PER_DOMAIN', 8))
+                     default=8)
 
     obj.add_argument('--download-delay', type=float,
-                     default=os.environ.get('DOWNLOAD_DELAY', 0))
+                     default=0)
+
+    obj.add_argument(
+        '--output', type=str,
+        help="Identifier for the crawl spec document (default is generated UUID)",
+        default=str(uuid4()))
+
+    obj.add_argument('--delete', type=bool,
+                     default=False,
+                     help="Delete the crawl spec and dependent artefacts; don't run the crawl")
+
+    obj.add_argument('--delete-all', type=bool,
+                     default=False,
+                     help="Delete all crawl specs and their dependent artefacts; don't run the crawl")
+
+    obj.add_argument('--clean', type=bool,
+                     default=False,
+                     help="Delete any existing crawl spec with the same id before running the crawl")
 
     params = obj.parse_args()
+
+    logging.basicConfig(level=params.log_level.upper(), force=True)
+
+    logger.info(f"Parsed arguments: {params}")
 
     return params
 
