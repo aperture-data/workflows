@@ -6,6 +6,7 @@ class ContextBuilder:
     def __init__(self, max_tokens: int = 4096):
         self.max_tokens = max_tokens
 
+    separator = "===SUMMARY==="
     def build(self, retrieved_docs: List[Document], query: str, history: str) -> str:
         """
         retrieved_docs: list of LangChain Document objects
@@ -22,7 +23,7 @@ class ContextBuilder:
 === System Instructions ===
 You are a helpful assistant. Respond in two parts:
 First, answer the user's question. Format your answer using plain text and simple markdown (bold, lists) when appropriate. Answer the user's question based on the following context. Only answer based on provided information. If no relevant information exists, say you don't know. 
-After your answer, in plain text say "NEW_SUMMARY" and then summarize the conversation so far.
+After your answer, output the exact string `{self.separator}` on its own line, with no extra formatting, and then write the updated summary in plain text.
 
 === Retrieved Knowledge ===
 {context_text}

@@ -47,11 +47,15 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    answer, new_history = qa_chain.run(query, history)
+    answer, new_history, rewritten_query = await qa_chain.run(query, history)
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
-    return {"answer": answer, "history": history, "duration": qa_duration}
+    return {"answer": answer,
+            "history": new_history,
+            "rewritten_query": rewritten_query,
+            "duration": qa_duration
+            }
 
 
 @app.get("/ask/stream")
