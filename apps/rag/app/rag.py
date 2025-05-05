@@ -20,7 +20,10 @@ class QAChain:
         rewritten_query = await self._rewrite_query(
             query, history)
         response = await self.llm.predict(prompt)
-        answer, new_history = response.split(self.separator, 1)
+        if self.separator not in response:
+            answer, new_history = response, history
+        else:
+            answer, new_history = response.split(self.separator, 1)
         return answer.strip(), new_history.strip(), rewritten_query.strip()
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
