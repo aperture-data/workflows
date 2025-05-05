@@ -5,7 +5,7 @@
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background-color: #4CAF50;
+    background-color: #172f94;
     color: white;
     border: none;
     font-size: 30px;
@@ -92,7 +92,7 @@
 }
 
 #chat-send {
-    background: #4CAF50;
+    background: #172f94;
     color: white;
     border: none;
     padding: 10px;
