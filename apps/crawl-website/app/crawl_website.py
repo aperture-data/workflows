@@ -344,7 +344,7 @@ def create_run(db, spec_id, run_id, stats):
         k: {"_date": v.isoformat()} if isinstance(v, datetime) else v
         for k, v in stats.items()
         if v is not None
-    }
+    } if stats else {}
 
     global error_urls
     if error_urls:
