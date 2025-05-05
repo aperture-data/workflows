@@ -57,7 +57,7 @@
   }
 
   .chat-message.you {
-    background-color: #dcf8c6;
+    background-color: #06BBFF;
     align-self: flex-end;
     text-align: right;
     float: right;
@@ -200,4 +200,9 @@
   cursor: pointer;
   border-radius: 5px;
   z-index: 1000;
+}
+
+.document-text {
+  font-size: 0.6em;
+  line-height: 1.4;
 }

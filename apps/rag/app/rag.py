@@ -12,6 +12,16 @@ class QAChain:
         self.separator = context_builder.separator
         self.separator_length = len(self.separator)
 
+    def _langchain_docs_to_dicts(self, docs) -> List[Dict]:
+        result = []
+        for doc in docs:
+            result.append({
+                "text": doc.page_content,
+                "url": doc.metadata.get("url", ""),
+                "id": doc.id,
+            })
+        return result
+
     async def run(self, query: str, history: str) -> Tuple[str, str]:
         rewritten_query = await self._rewrite_query(
             query, history)
@@ -24,7 +34,11 @@ class QAChain:
             answer, new_history = response, history
         else:
             answer, new_history = response.split(self.separator, 1)
-        return answer.strip(), new_history.strip(), rewritten_query.strip()
+        answer = answer.strip()
+        if new_history:
+            new_history = new_history.strip()
+        rewritten_query = rewritten_query.strip()
+        return answer, new_history, rewritten_query, self._langchain_docs_to_dicts(docs)
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
         rewritten_query = await self._rewrite_query(
@@ -47,7 +61,8 @@ class QAChain:
                         # logger.debug(
                         #     f"token={token}: Separator found at index {sep_index}")
                         yield buffer[:sep_index]
-                        summary_buffer = buffer[sep_index + self.separator_length:]
+                        summary_buffer = buffer[sep_index +
+                                                self.separator_length:]
                         in_summary = True
                     elif len(buffer) > self.separator_length:
                         # logger.debug(
@@ -73,11 +88,11 @@ class QAChain:
                 logger.debug("No summary tokens found.")
                 return history  # old history
 
-        return _stream_answer(), get_summary, rewritten_query.strip()
+        return _stream_answer(), get_summary, rewritten_query.strip(), self._langchain_docs_to_dicts(docs)
 
     async def _rewrite_query(self, query: str, history_summary: str = "No history") -> str:
         prompt = f"""
-Rewrite the user's question so it can be understood without conversation context.
+Rewrite the user’s question so that it is self-contained, preserving the exact original meaning, without adding explanation, commentary, or answers. Keep it concise and in the form of a question.
 
 Conversation summary:
 {history_summary}

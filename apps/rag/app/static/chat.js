@@ -69,6 +69,38 @@ document.getElementById('chat-send').addEventListener('click', async () => {
     setRewrittenQuery(data);
   });
 
+  evtSource.addEventListener('documents', (event) => {
+    const data = JSON.parse(event.data);
+    console.log("Documents:", data);
+    setDocuments(data);
+  });
+
+  function setDocuments(data) {
+    const docDiv = document.getElementById('chat-documents');
+    const docText = document.getElementById('chat-documents-text');
+    docText.innerHTML = ''; // Clear any existing content
+    const list = document.createElement('ul');
+    data.forEach(doc => {
+      const listItem = document.createElement('li');
+      listItem.classList.add('document-list-item');
+      const link = document.createElement('a');
+      link.classList.add('document-link');
+      link.href = doc.url;
+      link.textContent = doc.url;
+      link.target = '_blank'; // Open in a new tab
+      const span = document.createElement('span');
+      span.classList.add('document-text');
+      span.textContent = doc.text;
+      listItem.appendChild(link);
+      listItem.appendChild(document.createElement('br'));
+      listItem.appendChild(span);
+      list.appendChild(listItem);
+    });
+    docText.appendChild(list);
+    docDiv.style.display = 'block';
+    docDiv.scrollIntoView({ behavior: 'smooth' });
+  }
+
   evtSource.onerror = (err) => {
     console.error("EventSource failed:", err);
     evtSource.close();
