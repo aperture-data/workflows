@@ -353,11 +353,12 @@ class AperturedbIO:
                     "set": self.descriptorset_name,
                     "properties": {
                         "segment_id": embedding.segment_id,
-                        "uniqueid": str(uuid4()),
+                        "uniqueid": str(uuid4()),  # LangChain supported field
                         "spec_id": self.spec_id,
                         "run_id": self.run_id,
-                        "text": embedding.text,
+                        "text": embedding.text,  # LangChain supported field
                         "url": embedding.url,
+                        "lc_url": embedding.url,  # LangChain supported field
                     },
                     "connect": {
                         "ref": "SEGMENT",
