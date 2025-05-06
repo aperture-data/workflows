@@ -1,5 +1,5 @@
 import aiohttp
-from typing import List, Iterator
+from typing import List, Iterator, Optional
 import os
 import logging
 import openai
@@ -16,7 +16,14 @@ HF_PRELOAD_MODELS = [
     # "llama-2-7b-chat",
 ]
 DEFAULT_PROVIDER = "huggingface"
-DEFAULT_MODEL = HF_PRELOAD_MODELS[0]
+
+# We have a different default model for each provider.
+DEFAULT_MODELS = {
+    "openai": "gpt-3.5-turbo",
+    "together": "mistralai/Mistral-7B-Instruct-v0.2",
+    "groq": "llama3-8b-8192",
+    "huggingface": HF_PRELOAD_MODELS[0],
+}
 
 
 class LLM:
@@ -157,8 +164,18 @@ class HuggingFaceLLM:
         return output[0]['generated_text']
 
 
-def load_llm(provider: str = DEFAULT_PROVIDER, model: str = DEFAULT_MODEL, api_key: str = None) -> LLM:
+def load_llm(
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    api_key: str = None
+) -> LLM:
     """Factory function to load LLM"""
+
+    if provider is None:
+        provider = DEFAULT_PROVIDER
+
+    if model is None:
+        model = DEFAULT_MODELS[provider]
 
     logger.info(f"Loading LLM: provider={provider}, model={model}")
 

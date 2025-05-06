@@ -191,7 +191,7 @@ class AperturedbIO:
             e = response[1]["FindDescriptorSet"]["entities"][0]
             if e["model"] != self.embedder.model_spec:
                 raise ValueError(
-                    f"Descriptor set {self.descriptorset_name} already exists with different model {e['model']}")
+                    f"Descriptor set {self.descriptorset_name} already exists with different model {e['model']}, wanted to set {self.embedder.model_spec}")
             if e["model_fingerprint"] != self.embedder.fingerprint_hash():
                 raise ValueError(
                     f"Descriptor set {self.descriptorset_name} already exists with different fingerprint {e['model_fingerprint']}")

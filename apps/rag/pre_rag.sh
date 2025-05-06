@@ -35,9 +35,6 @@ EXTRACT_NAME="${RUNNER_NAME}_text_extraction"
 EMBED_IMAGE="aperturedata/workflows-text-embeddings"
 EMBED_NAME="${RUNNER_NAME}_text_embeddings"
 
-RAG_IMAGE="aperturedata/workflows-rag"
-RAG_NAME="${RUNNER_NAME}_rag"
-
 
 CLEANUP=${CLEANUP:-true}
 
