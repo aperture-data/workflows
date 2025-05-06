@@ -20,8 +20,20 @@ from context_builder import ContextBuilder
 
 logger = logging.getLogger(__name__)
 
+APP_PATH = "/rag"
 
-app = FastAPI()
+
+# Set up the root app to redirect to /rag; useful for local dev
+root_app = FastAPI()
+
+
+@root_app.get("/")
+async def redirect_to_rag():
+    """Redirect the root URL to /rag."""
+    return Response(status_code=status.HTTP_307_TEMPORARY_REDIRECT, headers={"Location": APP_PATH})
+
+# This is the main app for the RAG API
+app = FastAPI(root_path=APP_PATH)
 
 
 @app.get("/ask")
@@ -285,5 +297,6 @@ def get_args(argv=[]):
 
 
 # Unconditional because invoked via uvicorn
+root_app.mount(APP_PATH, app)
 args = get_args()
 main(args)

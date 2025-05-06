@@ -1,6 +1,7 @@
 let session_id = null;
 const md = window.markdownit({ breaks: true });
 let history = null;
+const app_path = "/rag";
 
 document.getElementById('chat-button').addEventListener('click', () => {
   if (!loggedIn) {
@@ -30,7 +31,7 @@ document.getElementById('chat-send').addEventListener('click', async () => {
   input.value = '';
 
   // Start the SSE connection for the response
-  let url = `/ask/stream?query=${encodeURIComponent(message)}`;
+  let url = `${app_path}/ask/stream?query=${encodeURIComponent(message)}`;
   if (history) {
     url += `&history=${encodeURIComponent(history)}`;
   }
@@ -214,7 +215,7 @@ document.getElementById('login-submit').addEventListener('click', async () => {
   const token = document.getElementById('login-token').value.trim();
   if (!token) return;
 
-  const res = await fetch("/login", {
+  const res = await fetch(`${app_path}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token })
@@ -235,7 +236,7 @@ async function loadConfigTable() {
   }
 
   try {
-    const response = await fetch('/config');
+    const response = await fetch(`${app_path}/config`);
     if (!response.ok) {
       throw new Error('Failed to fetch config');
     }
@@ -277,7 +278,7 @@ async function setLoggedIn(value) {
       document.getElementById('logout-container').style.display = 'block';
     } else {
       console.log("Logging out...");
-      await fetch("/logout", {
+      await fetch(`${app_path}/logout`, {
         method: "POST",
         credentials: "include"
       });
