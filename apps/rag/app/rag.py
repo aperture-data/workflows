@@ -23,12 +23,10 @@ class QAChain:
         return result
 
     async def run(self, query: str, history: str) -> Tuple[str, str]:
-        rewritten_query = await self._rewrite_query(
-            query, history)
+        rewritten_query = await self._rewrite_query(query, history)
         docs = self.retriever.invoke(rewritten_query)
+        # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)
-        rewritten_query = await self._rewrite_query(
-            query, history)
         response = await self.llm.predict(prompt)
         if self.separator not in response:
             answer, new_history = response, history
@@ -41,9 +39,9 @@ class QAChain:
         return answer, new_history, rewritten_query, self._langchain_docs_to_dicts(docs)
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
-        rewritten_query = await self._rewrite_query(
-            query, history)
+        rewritten_query = await self._rewrite_query(query, history)
         docs = self.retriever.invoke(rewritten_query)
+        # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)
 
         summary_buffer = ""
