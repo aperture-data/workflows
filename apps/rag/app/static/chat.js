@@ -159,7 +159,7 @@ function updateBotMessage(text) {
 
     const senderDiv = document.createElement('div');
     senderDiv.classList.add('chat-sender');
-    senderDiv.textContent = 'Bot';
+    senderDiv.textContent = 'RAG agent';
     last.appendChild(senderDiv);
 
     const textDiv = document.createElement('div');
