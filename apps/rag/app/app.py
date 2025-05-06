@@ -24,27 +24,47 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
-@app.api_route("/ask", methods=["GET", "POST"])
-async def ask(request: Request,
-              authorization: str = Header(None),
-              token: str = Cookie(default=None),
-              query: str = Query(None, description="The question to ask"),
-              history: Optional[str] = Query(None, description="A summary of the conversation history")):
+@app.get("/ask")
+async def ask_get(request: Request,
+                  authorization: str = Header(None),
+                  token: str = Cookie(default=None),
+                  query: str = Query(None, description="The question to ask"),
+                  history: Optional[str] = Query(None, description="A summary of the conversation history")):
     """Non-streaming endpoint for asking questions, either GET or POST.
-    
+
+    Must supply token in the authorization bearer header or a cookie.
+
+    Returns a JSON response with the answer, history, and rewritten query.
+    """
+    return await ask(request, authorization, token, query, history)
+
+
+@app.post("/ask")
+async def ask_post(request: Request,
+                   authorization: str = Header(None),
+                   token: str = Cookie(default=None),
+                   query: str = Query(None, description="The question to ask"),
+                   history: Optional[str] = Query(None, description="A summary of the conversation history")):
+    """Non-streaming endpoint for asking questions, either GET or POST.
+
     Must supply token in the authorization bearer header or a cookie.
 
     Returns a JSON response with the answer, history, and rewritten query.
     """
 
+    body = await request.json()
+    query = body.get("query")
+    history = body.get("history")
+    return await ask(request, authorization, token, query, history)
+
+
+async def ask(request: Request,
+              authorization: str,
+              token: str,
+              query: str,
+              history: Optional[str]):
+
     verify_token(authorization, token)
-
-    if request.method == "POST":
-        body = await request.json()
-        query = body.get("query")
-        history = body.get("history")
-
-    # At this point, `query` and `history` are set, regardless of GET or POST
 
     if not query:
         raise HTTPException(
@@ -53,24 +73,26 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    answer, new_history, rewritten_query = await qa_chain.run(query, history)
+    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
     return {"answer": answer,
             "history": new_history,
             "rewritten_query": rewritten_query,
-            "duration": qa_duration
+            "duration": qa_duration,
+            "documents": docs,
             }
 
 
 @app.get("/ask/stream")
 async def stream_ask(query: str = Query(description="The question to ask"),
-                     history: Optional[str] = Query(None, description="A summary of the conversation history"),
+                     history: Optional[str] = Query(
+                         None, description="A summary of the conversation history"),
                      authorization: str = Header(None),
                      token: str = Cookie(default=None)):
     """Streaming endpoint for asking questions.
-    
+
     Must supply token in the authorization bearer header or a cookie.
 
     Returns a streaming response with the following events:
@@ -87,8 +109,9 @@ async def stream_ask(query: str = Query(description="The question to ask"),
         yield f"event: start\ndata: {json.dumps({})}\n\n"
         results = []
         start_time = time.time()
-        answer_stream, history_fn, rewritten_query = await qa_chain.stream_run(query, history)
+        answer_stream, history_fn, rewritten_query, docs = await qa_chain.stream_run(query, history)
         yield f"event: rewritten_query\ndata: {json.dumps(rewritten_query)}\n\n"
+        yield f"event: documents\ndata: {json.dumps(docs)}\n\n"
         async for token in answer_stream:
             yield f"data: {json.dumps(token)}\n\n"
             # logger.debug(f"data: {token}\n\n")

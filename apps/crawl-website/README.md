@@ -5,7 +5,7 @@ This workflow does a small-scale web crawl to get documents into ApertureDB.
 ## Database details
 
 Objects:
-* Every crawl results in a single `Crawl` document that records information about the crawl.
+* Crawls produce a `CrawlSpec` document that records the intention of the crawl, and a `CrawlRun` document that records the specific run.
 * Documents crawled (e.g. plain text, HTML, PDF) result in `CrawlDocument` entities, with appropriate information. `CrawlDocument`s are linked to the `Crawl`, and also to a corresponding `Blob` document that contains the raw document content.
 
 ```mermaid
@@ -22,11 +22,19 @@ erDiagram
         datetime expires
         datetime last_modified
     }
-    Crawl {
+    CrawlSpec {
         string id
-        various stats
+        string start_urls
+        string allowed_domains
+        number max_documents
     }
-    Crawl ||--o{ CrawlDocument : crawlHasDocument
+    CrawlRun {
+        string id
+        string spec_id
+        various …
+    }
+    CrawlSpec ||--o{ CrawlDocument : crawlSpecHasDocument
+    CrawlRun ||--o{ CrawlDocument : crawlRunHasDocument
     CrawlDocument ||--|| Blob : crawlDocumentHasBlob
 ```
 
@@ -34,11 +42,11 @@ erDiagram
 sequenceDiagram
     participant W as Crawl Website
     participant A as ApertureDB instance
-    W->>A: AddEntity (Crawl)<br/>CreateIndex (Crawl.id)
+    W->>A: AddEntity (CrawlSpec)<br/>CreateIndex (various)
     loop For each webpage
-        W->>A: FindEntity (Crawl)<br/>AddEntity (CrawlDocument)<br/>AddBlob
+        W->>A: FindEntity (CrawlSpec)<br/>AddEntity (CrawlDocument)<br/>AddBlob
     end
-    W->>A: FindEntity(Crawl)<br/>UpdateEntity (Crawl)
+    W->>A: FindEntity (CrawlSpec)<br />AddEntity(CrawlRun)<br/>FindEntity (CrawlDocument)<br />AddConnection (crawlRunHasDocument)
 ```
 
 

@@ -1,6 +1,6 @@
 # Text Extraction
 
-This workflow take a collectiono of text segments and generates embeddings for them, storing them as descriptors.
+This workflow take a collection of text segments and generates embeddings for them, storing them as descriptors.
 
 ## Database details
 
