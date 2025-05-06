@@ -159,6 +159,15 @@ class AperturedbIO:
                 f"Creating new descriptor set {self.descriptorset_name}")
             self.execute_query([
                 {
+                    "FindEntity": {
+                        "with_class": SPEC_CLASS,
+                        "constraints": {
+                            "id": ["==", self.spec_id],
+                        },
+                        "_ref": 1,
+                    }
+                },
+                {
                     "AddDescriptorSet": {
                         "name": self.descriptorset_name,
                         "engine": self.engine,
@@ -168,7 +177,6 @@ class AperturedbIO:
                         },
                         "metric": self.embedder.metric(),
                         "dimensions": self.embedder.dimensions(),
-                        "if_not_found": 2,
                         "connect": {
                             "ref": 1,
                             "class": "embeddingsSpecHasDescriptorSet",

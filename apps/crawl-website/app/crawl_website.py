@@ -80,7 +80,7 @@ class ApertureDBSpider(CrawlSpider):
         self.start_urls = start_urls
         # Extract the domains from the URLs; we only want to crawl the same domain
         self.allowed_domains = list(
-            set([urlparse(url).netloc for url in self.start_urls])) + allowed_domains
+            set([urlparse(url).netloc for url in self.start_urls])) + (allowed_domains or [])
         self.error_urls = []
         self.crawler.signals.connect(self.spider_closed,
                                      signal=signals.spider_closed)
