@@ -72,6 +72,11 @@ jobs:
           cd apps/jupyterlab
           bash test.sh
 
+      - name: Test text workflows
+        run: |
+          cd apps/rag
+          bash test.sh
+
       - name: Push to docker
         # Only push to docker when merged to main
         if: github.event_name == 'push'
