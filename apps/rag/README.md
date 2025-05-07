@@ -24,6 +24,7 @@ Parameters:
 * **`WF_LLM_API_KEY`**: API key for LLM provider
 * **`WF_MODEL`**: The embedding model to use, of the form "backend model pretrained
 * **`WF_PORT`**: The port to use; default 8000. Note that this service is HTTP and expects to be wrapped by an HTTPS proxy with appropriate keys.
+* **`WF_N_DOCUMENTS`**: Number of documents to retrieve
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 

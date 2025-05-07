@@ -182,23 +182,26 @@ def load_llm(
     if provider == "openai":
         if not api_key:
             raise ValueError("OPENAI API key required for OpenAI provider.")
-        return OpenAILLM(model, api_key)
+        result = OpenAILLM(model, api_key)
 
     elif provider == "together":
         if not api_key:
             raise ValueError(
                 "TOGETHER API key required for TogetherAI provider.")
-        return TogetherLLM(model, api_key)
+        result = TogetherLLM(model, api_key)
 
     elif provider == "groq":
         if not api_key:
             raise ValueError("GROQ API key required for Groq provider.")
-        return GroqLLM(model, api_key)
+        result = GroqLLM(model, api_key)
 
     elif provider == "huggingface":
-        return HuggingFaceLLM(model)
+        result = HuggingFaceLLM(model)
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")
+
+    result.provider = provider
+    return result
 
 
 def main():
