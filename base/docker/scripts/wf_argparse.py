@@ -14,6 +14,11 @@ from typing import List, Optional
 # # misspellings or unsupported parameters.
 # If the environment variable is not set, the default value is used.
 
+# The WF_ prefix is also used by other parts of the workflow infrastructure,
+# so we need to ignore some of them.
+
+ENVAR_IGNORE_LIST = {"WF_LOGS_AWS_BUCKET", "WF_LOGS_AWS_CREDENTIALS", }
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,7 +79,9 @@ class ArgumentParser:
     def check_envars(self):
         unused_envars = set()
         for envar in os.environ:
-            if envar.startswith("WF_") and envar not in self.envars_used:
+            if envar.startswith("WF_") \
+                and envar not in self.envars_used \
+                    and envar not in ENVAR_IGNORE_LIST:
                 logging.error(f"Environment variable {envar} is not used.")
                 unused_envars.add(envar)
         assert not unused_envars, "Unused environment variables found: " + \
