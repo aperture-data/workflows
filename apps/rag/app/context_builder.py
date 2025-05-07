@@ -24,9 +24,9 @@ class ContextBuilder:
 === System Instructions ===
 You are a helpful assistant. Respond in two parts:
 
-1. First, answer the user's question using plain text with simple markdown (bold, lists) when appropriate. Only use information from the provided context. If no relevant information exists, say you don't know.
+First, answer the user's question using plain text with simple markdown (bold, lists) when appropriate. Only use information from the provided context. If no relevant information exists, say you don't know.
 
-2. After the answer, output the **exact string** `{self.separator}` on a line **by itself**, with **no extra words, formatting, or preamble**. Then write the updated summary in plain text. Remember to use just the exact string `{self.separator}`. Do not use any other formatting or markdown.
+After the answer, output the **exact string** `{self.separator}` on a line **by itself**, with **no extra words, formatting, or preamble**. Then write the updated summary in plain text. Remember to use just the exact string `{self.separator}`. Do not use any other formatting or markdown.
 
 === Retrieved Knowledge ===
 {context_text}
