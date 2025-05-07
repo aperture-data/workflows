@@ -292,7 +292,7 @@ def get_args(argv=[]):
                      default=8000,
                      type=int)
 
-    params = obj.parse_args(argv)
+    params = obj.parse_args()
     return params
 
 
