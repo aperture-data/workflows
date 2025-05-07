@@ -20,7 +20,7 @@ Parameters:
 * **`WF_TOKEN`**: Authorization token to use in API
 * **`WF_INPUT`**: Name of descriptorset to use
 * **`WF_LLM_PROVIDER`**: The LLM provider to use, e.g. openai, huggingface, together, groq
-* **`WF_LLM_MODEL`**: The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat
+* **`WF_LLM_MODEL`**: The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat; default depends on provider - see table below
 * **`WF_LLM_API_KEY`**: API key for LLM provider
 * **`WF_MODEL`**: The embedding model to use, of the form "backend model pretrained
 * **`WF_PORT`**: The port to use; default 8000. Note that this service is HTTP and expects to be wrapped by an HTTPS proxy with appropriate keys.

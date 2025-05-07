@@ -12,7 +12,7 @@ from langchain_community.vectorstores import ApertureDB
 import time
 import json
 
-from llm import LLM, DEFAULT_MODEL, DEFAULT_PROVIDER
+from llm import LLM
 from embeddings import BatchEmbedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
@@ -20,8 +20,20 @@ from context_builder import ContextBuilder
 
 logger = logging.getLogger(__name__)
 
+APP_PATH = "/rag"
 
-app = FastAPI()
+
+# Set up the root app to redirect to /rag; useful for local dev
+root_app = FastAPI()
+
+
+@root_app.get("/")
+async def redirect_to_rag():
+    """Redirect the root URL to /rag."""
+    return Response(status_code=status.HTTP_307_TEMPORARY_REDIRECT, headers={"Location": APP_PATH})
+
+# This is the main app for the RAG API
+app = FastAPI(root_path=APP_PATH)
 
 
 @app.get("/ask")
@@ -251,12 +263,12 @@ def get_args(argv=[]):
                      help='The descriptorset to use')
 
     obj.add_argument('--llm_provider',
-                     help='The LLM provider to use, e.g. openai, huggingface, together, groq',
-                     default=DEFAULT_PROVIDER)
+                     help='The LLM provider to use, e.g. openai, huggingface, together, groq; default is huggingface',
+                     default=None)
 
     obj.add_argument('--llm_model',
-                     help='The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat',
-                     default=DEFAULT_MODEL)
+                     help='The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat; default depends on provider',
+                     default=None)
 
     obj.add_argument('--llm_api_key',
                      help='The LLM API key to use, if required by the provider',
@@ -285,5 +297,6 @@ def get_args(argv=[]):
 
 
 # Unconditional because invoked via uvicorn
+root_app.mount(APP_PATH, app)
 args = get_args()
 main(args)
