@@ -11,6 +11,7 @@ from uuid import uuid4
 from langchain_community.vectorstores import ApertureDB
 import time
 import json
+import os
 
 from llm import LLM
 from embeddings import BatchEmbedder
@@ -185,11 +186,13 @@ async def config(request: Request):
                  request.cookies.get("token"))
 
     config = {
-        "llm_provider": args.llm_provider,
-        "llm_model": args.llm_model,
+        "llm_provider": llm.provider,
+        "llm_model": llm.model,
         "embedding_model": args.model,
         "input": args.input,
         "embedding_model": args.model,
+        "n_documents": args.n_documents,
+        "host": os.getenv("DB_HOST", ""),
     }
     return JSONResponse(config)
 
@@ -218,7 +221,7 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
         )
 
 
-def get_retriever(descriptorset_name: str, model: str):
+def get_retriever(descriptorset_name: str, model: str, k: int):
     """Build the retriever for the given descriptorset and model."""
     embeddings = BatchEmbedder(model)
     # TODO: Check fingerprint
@@ -227,8 +230,7 @@ def get_retriever(descriptorset_name: str, model: str):
                              descriptor_set=descriptorset_name)
 
     search_type = "mmr"  # "similarity" or "mmr"
-    k = 4              # number of results used by LLM
-    fetch_k = 20       # number of results fetched for MMR
+    fetch_k = k*4       # number of results fetched for MMR
     retriever = vectorstore.as_retriever(search_type=search_type,
                                          search_kwargs=dict(k=k, fetch_k=fetch_k))
     return retriever
@@ -245,9 +247,10 @@ def main(args):
     global API_TOKEN
     API_TOKEN = args.token
 
+    global llm
     llm = load_llm(args.llm_provider, args.llm_model, args.llm_api_key)
 
-    retriever = get_retriever(args.input, args.model)
+    retriever = get_retriever(args.input, args.model, args.n_documents)
 
     context_builder = ContextBuilder()
     global qa_chain
@@ -290,6 +293,11 @@ def get_args(argv=[]):
     obj.add_argument('--port',
                      help='The port to use for the API',
                      default=8000,
+                     type=int)
+
+    obj.add_argument('--n-documents',
+                     help='The number of documents to return from the retriever',
+                     default=4,
                      type=int)
 
     params = obj.parse_args(argv)

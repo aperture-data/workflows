@@ -18,7 +18,6 @@ DB_USER=${DB_USER:-"admin"}
 DB_PASS=${DB_PASS:-"admin"}
 
 ID=${ID:-"my_key"}
-SECRET=${SECRET:-"my_secret"}
 START_URLS=${START_URLS:-"https://aperturedata.io/"}
 ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-"docs.aperturedata.io"}
 
@@ -35,6 +34,7 @@ EXTRACT_NAME="${RUNNER_NAME}_text_extraction"
 EMBED_IMAGE="aperturedata/workflows-text-embeddings"
 EMBED_NAME="${RUNNER_NAME}_text_embeddings"
 
+CSS_SELECTOR=${CSS_SELECTOR:-}
 
 CLEANUP=${CLEANUP:-true}
 
@@ -63,6 +63,7 @@ function run_extract() {
                -e WF_INPUT=${ID} \
                -e WF_OUTPUT=${ID} \
                -e WF_CLEAN=1 \
+               -e WF_CSS_SELECTOR=${CSS_SELECTOR} \
                --rm \
                ${EXTRACT_IMAGE}
 }
