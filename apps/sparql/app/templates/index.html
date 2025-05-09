@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>ApertureDB SPARQL</title>
+  <link href="https://unpkg.com/@triply/yasgui/build/yasgui.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://unpkg.com/@triply/yasgui/build/yasgui.min.js"></script>
+  <style>
+    html,
+    body,
+    #yasgui {
+      height: 100%;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>ApertureDB SPARQL</h1>
+  <div id="yasgui"></div>
+  <script>
+    function getToken() {
+      const existing = document.cookie
+        .split("; ")
+        .find(row => row.startsWith("access_token="));
+      if (existing) return existing.split("=")[1];
+
+      const token = prompt("Enter access token:");
+      if (token) {
+        document.cookie = `access_token=${token}; path=/`;
+      }
+      return token;
+    }
+
+    const token = getToken();
+
+    const prefixes = {
+      {% for prefix, uri in prefixes.items() %}
+        "{{ prefix }}": "{{ uri }}"{% if not loop.last %},{% endif %}
+      {% endfor %}
+    };
+
+    const yasgui = new Yasgui(document.getElementById("yasgui"), {
+      requestConfig: {
+        endpoint: "{{ endpoint_path }}",
+        headers: {
+          "Authorization": "Bearer " + token
+        }
+      },
+      yasqe: {
+        prefixes: prefixes
+      },
+      yasr: {
+        getUsedPrefixes: () => prefixes
+      }
+    });
+
+    // Optional: also inject into current tab explicitly
+    yasgui.getTab().yasqe.addPrefixes(prefixes);
+  </script>
+</body>
+
+</html>
