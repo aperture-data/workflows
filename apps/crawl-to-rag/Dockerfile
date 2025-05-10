@@ -6,6 +6,8 @@ FROM aperturedata/workflows-rag as rag
 
 FROM aperturedata/workflows-base
 
+ENV APP_NAME=workflows-crawl-to-rag
+
 # Needed for text-embeddings
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
