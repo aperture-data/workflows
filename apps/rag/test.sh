@@ -133,7 +133,7 @@ if [ "$CLEANUP" = true ]; then
     trap cleanup EXIT
 fi
 
-# build
+build
 cleanup
 setup
 run_aperturedb
