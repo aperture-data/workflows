@@ -22,7 +22,7 @@ RAG_NAME="${RUNNER_NAME}_rag"
 
 ID="my_key"
 SECRET="my_secret"
-CRAWL_URL="https://aperturedata.io/"
+CRAWL_URL="https://www.aperturedata.io/"
 ADB_CONFIG="TEMPORARY_CONFIG_USED_BY_TESTS"
 
 CLEANUP=${CLEANUP:-true}
@@ -133,7 +133,7 @@ if [ "$CLEANUP" = true ]; then
     trap cleanup EXIT
 fi
 
-build
+# build
 cleanup
 setup
 run_aperturedb
