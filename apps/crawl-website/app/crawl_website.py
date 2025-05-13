@@ -66,24 +66,18 @@ class ApertureDBSpider(CrawlSpider):
     _follow_links = True
     # Add 4XX codes to ensure they are passed to the spider
     handle_httpstatus_list = [404, 403, 400, 401, 402, 405]
+    start_urls = []
+    allowed_domains = []
+    error_urls = []
 
-    def __init__(self,
-                 start_urls: List[str],
-                 allowed_domains: Optional[List[str]] = [],
-                 **kwargs):
-        """ApertureDBSpider
+    def set_allowed_domains(self, allowed_domains: List[str]):
+        """Set the allowed domains for the spider
 
         Args:
-            start_urls (List[str]): The URLs to start crawling from
+            allowed_domains (List[str]): The allowed domains to crawl
         """
-        super().__init__(**kwargs)
-        self.start_urls = start_urls
-        # Extract the domains from the URLs; we only want to crawl the same domain
         self.allowed_domains = list(
             set([urlparse(url).netloc for url in self.start_urls])) + (allowed_domains or [])
-        self.error_urls = []
-        self.crawler.signals.connect(self.spider_closed,
-                                     signal=signals.spider_closed)
 
     @classmethod
     def from_crawler(class_, crawler, **kwargs):
@@ -97,12 +91,14 @@ class ApertureDBSpider(CrawlSpider):
         Returns:
             A new instance of the spider
         """
+
         settings = crawler.settings
-        args = settings.get("APERTUREDB_PIPELINE_ARGS", {})
-        spider = class_(start_urls=args.start_urls,
-                        allowed_domains=args.allowed_domains,
-                        crawler=crawler,
-                        **kwargs)
+        spider = super().from_crawler(crawler, **kwargs)
+        spider.start_urls = args.start_urls
+        spider.set_allowed_domains(args.allowed_domains)
+        spider.error_urls = []
+        crawler.signals.connect(spider.spider_closed,
+                                signal=signals.spider_closed)
         return spider
 
     def process_response(self, response) -> ApertureDBItem:
