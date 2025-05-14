@@ -37,6 +37,9 @@ jobs:
           bash build_all.sh
 
   test-apps:
+    needs:
+      - build-apps
+
     strategy:
       matrix:
         app: [
@@ -71,6 +74,9 @@ jobs:
     runs-on:
       - deployer
       - self-hosted
+
+    needs:
+      - test-apps
 
     steps:
 
