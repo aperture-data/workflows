@@ -30,7 +30,7 @@ jobs:
 
       - name: Build and export
         run: |
-          docker export --output=${{ runner.temp }}/workflows-base.tar
+          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:latest
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
