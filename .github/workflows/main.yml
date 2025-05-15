@@ -21,7 +21,6 @@ jobs:
     runs-on:
       - deployer
       - self-hosted
-
     steps:
 
       - uses: actions/checkout@v3
@@ -36,46 +35,54 @@ jobs:
           cd apps
           bash build_all.sh
 
-      - name: Test workflow dataset-ingestion
+  test-apps:
+    needs:
+      - build-apps
+
+    strategy:
+      matrix:
+        app: [
+          dataset-ingestion,
+          object-detection,
+          embeddings-extraction,
+          face-detection,
+          jupyterlab,
+          rag
+        ]
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: aperture-data/common_job_steps@v1
+        with:
+          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
+
+      - name: Test app
         env:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
-          cd apps/dataset-ingestion
+          cd apps/${{ matrix.app }}
           bash test.sh
 
-      - name: Test workflow object-detection
-        env:
-          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-        run: |
-          cd apps/object-detection
-          bash test.sh
+  push-apps:
+    runs-on:
+      - ubuntu-latest
 
-      - name: Test workflow embeddings-extraction
-        env:
-          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-        run: |
-          cd apps/embeddings-extraction
-          bash test.sh
+    needs:
+      - test-apps
 
-      - name: Test workflow face-detection
-        env:
-          CLEANUP: "true"
-          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-        run: |
-            cd apps/face-detection
-            bash test.sh
+    steps:
 
-      - name: Test workflow jupyterlab
-        run: |
-          cd apps/jupyterlab
-          bash test.sh
+      - uses: actions/checkout@v3
 
-      - name: Test text workflows
-        run: |
-          cd apps/rag
-          bash test.sh
+      - uses: aperture-data/common_job_steps@v1
+        with:
+          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
 
       - name: Push to docker
         # Only push to docker when merged to main
