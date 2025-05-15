@@ -53,7 +53,8 @@ jobs:
           rag,
           crawl-website,
           text-extraction,
-          text-embeddings
+          text-embeddings,
+          crawl-to-rag
         ]
     runs-on:
       - ubuntu-latest
