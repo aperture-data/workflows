@@ -50,7 +50,11 @@ jobs:
           embeddings-extraction,
           face-detection,
           jupyterlab,
-          rag
+          rag,
+          crawl-website,
+          text-extraction,
+          text-embeddings,
+          crawl-to-rag
         ]
     runs-on:
       - ubuntu-latest
