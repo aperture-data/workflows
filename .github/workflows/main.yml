@@ -51,8 +51,7 @@ jobs:
           rag
         ]
     runs-on:
-      - deployer
-      - self-hosted
+      - ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
