@@ -28,14 +28,9 @@ jobs:
           cd base/docker
           bash build.sh
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build and export
-        uses: docker/build-push-action@v6
-        with:
-          tags: aperturedata/workflows-base:latest
-          outputs: type=docker,dest=${{ runner.temp }}/workflows-base.tar
+        run: |
+          docker export --output=${{ runner.temp }}/workflows-base.tar
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
