@@ -38,6 +38,9 @@ with_env_only() {
         fi
     done
 
+    echo
+    echo "Running $command"
+    
     cd /workflows/$command || exit 1
     env -i "${env_args[@]}" bash app.sh
 }
@@ -48,4 +51,4 @@ with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEA
 
 with_env_only text-embeddings DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
 
-with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS
+with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS

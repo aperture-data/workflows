@@ -24,22 +24,36 @@ class QAChain:
 
     async def run(self, query: str, history: str) -> Tuple[str, str]:
         rewritten_query = await self._rewrite_query(query, history)
+        logger.debug(f"Rewritten query: {rewritten_query}")
+        if not rewritten_query:
+            logger.error(
+                "Rewritten query is empty, using original query; check that the LLM is working.")
+            rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
+        logger.debug(f"Retrieved {len(docs)} documents")
         # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)
+        logger.debug(f"Prompt: {prompt}")
         response = await self.llm.predict(prompt)
+        logger.debug(f"Response: {response}")
         if self.separator not in response:
             answer, new_history = response, history
         else:
             answer, new_history = response.split(self.separator, 1)
         answer = answer.strip()
+        logger.debug(f"Answer: {answer}")
         if new_history:
             new_history = new_history.strip()
+        logger.debug(f"New history: {new_history}")
         rewritten_query = rewritten_query.strip()
         return answer, new_history, rewritten_query, self._langchain_docs_to_dicts(docs)
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
         rewritten_query = await self._rewrite_query(query, history)
+        if not rewritten_query:
+            logger.error(
+                "Rewritten query is empty, using original query; check that the LLM is working.")
+            rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)

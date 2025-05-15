@@ -156,6 +156,7 @@ async def login(request: Request):
     if client_token != API_TOKEN:
         return JSONResponse({"error": "Invalid token"}, status_code=401)
 
+    logger.info(f"Login successful")
     response = JSONResponse({"message": "Login successful"})
     response.set_cookie(
         key="token",
@@ -172,6 +173,7 @@ def logout(response: Response):
     """
     Logout endpoint to clear the cookie.
     """
+    logger.info(f"Logout successful")
     response.delete_cookie("token", path="/")
     return {"message": "Logged out"}
 
@@ -194,6 +196,7 @@ async def config(request: Request):
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
     }
+    logger.info(f"Config: {config}")
     return JSONResponse(config)
 
 
@@ -207,14 +210,18 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
     if auth_header:
         scheme, _, auth_token = auth_header.partition(" ")
         if scheme.lower() == "bearer":
+            logger.info(f"Token from Authorization header")
             token = auth_token
 
     # Otherwise fall back to cookie
     if not token and token_cookie:
         token = token_cookie
+        if token:
+            logger.info(f"Token from cookie")
 
     # Now check if token matches
     if not token or token != API_TOKEN:
+        logger.info(f"No valid token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API token",
