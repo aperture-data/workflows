@@ -38,6 +38,37 @@ jobs:
           name: workflows-base
           path: ${{ runner.temp }}/workflows-base.tar
 
+  build-test-meta:
+    needs:
+      - build-base
+
+    runs-on:
+      - deployer
+      - self-hosted
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: workflows-base
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/workflows-base.tar
+          docker image ls -a
+
+      - uses: actions/checkout@v3
+
+      - name: Test meta workflow
+        env:
+          CLEANUP: "true"
+          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+        run: |
+          cd apps/crawl-to-rag
+          bash test.sh
+          docker push aperturedata/workflows-crawl-to-rag:latest
+
   build-test-apps:
     needs:
       - build-base
@@ -53,8 +84,7 @@ jobs:
           rag,
           crawl-website,
           text-extraction,
-          text-embeddings,
-          crawl-to-rag
+          text-embeddings
         ]
     runs-on:
       - ubuntu-latest
