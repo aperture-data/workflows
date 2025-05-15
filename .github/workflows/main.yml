@@ -25,7 +25,7 @@ jobs:
 
       - name: Build base
         run: |
-          cd base
+          cd base/docker
           bash build.sh
 
       - name: Set up Docker Buildx
