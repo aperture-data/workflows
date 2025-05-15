@@ -59,6 +59,12 @@ jobs:
 
       - uses: actions/checkout@v3
 
+      - uses: aperture-data/common_job_steps@v1
+        with:
+          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
+
+
       - name: Test meta workflow
         env:
           CLEANUP: "true"
@@ -67,6 +73,12 @@ jobs:
         run: |
           cd apps/crawl-to-rag
           bash test.sh
+
+      - name: Push to docker (on main)
+        # Only push to docker when merged to main
+        # Pushing base to docker should be no-op after the first time
+        if: github.event_name == 'push'
+        run: |
           docker push aperturedata/workflows-crawl-to-rag:latest
 
   build-test-apps:
@@ -116,11 +128,10 @@ jobs:
           cd apps/${{ matrix.app }}
           bash test.sh || bash build.sh
 
-      - name: Push to docker
+      - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push'
         run: |
-          cd apps/${{ matrix.app }}
           docker push aperturedata/workflows-base:latest
           docker push aperturedata/workflows-${{ matrix.app }}:latest
