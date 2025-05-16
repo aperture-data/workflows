@@ -1,4 +1,5 @@
 # This builds the dependencies for the crawl-to-rag.
+set -e
 
 cd ../crawl-website
 bash build.sh
