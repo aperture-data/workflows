@@ -4,6 +4,8 @@ set -e # exit on error
 set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
+NOT_READY_FILE=/workflows/rag/not-ready.txt
+
 function uuid() {
     python3 -c 'import uuid; print(uuid.uuid4())'
 }
@@ -45,10 +47,34 @@ with_env_only() {
     env -i "${env_args[@]}" bash app.sh
 }
 
-with_env_only crawl-website DB_HOST DB_USER DB_PASS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
+function log_status() {
+    local message="$1"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $message" >> $NOT_READY_FILE
+    echo "*** $message"
+}
 
-with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
+function cleanup() {
+    mv $NOT_READY_FILE $NOT_READY_FILE.bak
+}
 
-with_env_only text-embeddings DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
+log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
+
+# Run these in a separate thread so we can start the rag server
+(
+    log_status "Starting crawl"
+
+    with_env_only crawl-website DB_HOST DB_USER DB_PASS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
+
+    log_status "Crawl complete; starting text-extraction"
+
+    with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
+
+    log_status "Text-extraction complete; starting text-embeddings"
+
+    with_env_only text-embeddings DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
+
+    log_status "Text-embeddings complete"
+    cleanup
+)&
 
 with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS

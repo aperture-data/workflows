@@ -194,7 +194,8 @@ class AperturedbIO:
                     f"Descriptor set {self.descriptorset_name} already exists with different model {e['model']}, wanted to set {self.embedder.model_spec}")
             fingerprint_hash = self.embedder.fingerprint_hash()
             if e["model_fingerprint"] != fingerprint_hash:
-                raise ValueError(
+                # Don't raise an error, just log it
+                logger.error(
                     f"Descriptor set {self.descriptorset_name} already exists with different fingerprint found {e['model_fingerprint']}, expected {fingerprint_hash}")
 
             if self.embedder.metric() not in e["_metrics"] != self.embedder.metric():

@@ -79,6 +79,10 @@ async def ask(request: Request,
 
     verify_token(authorization, token)
 
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready, status_code=503)
+
     if not query:
         raise HTTPException(
             status_code=422, detail="Missing 'query' parameter")
@@ -117,6 +121,10 @@ async def stream_ask(query: str = Query(description="The question to ask"),
     """
 
     verify_token(authorization, token)
+
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready, status_code=503)
 
     async def event_generator():
         yield f"event: start\ndata: {json.dumps({})}\n\n"
@@ -187,6 +195,11 @@ async def config(request: Request):
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
+    # If we're not ready, then return that information instead
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready)
+
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
@@ -241,6 +254,18 @@ def get_retriever(descriptorset_name: str, model: str, k: int):
     retriever = vectorstore.as_retriever(search_type=search_type,
                                          search_kwargs=dict(k=k, fetch_k=fetch_k))
     return retriever
+
+
+def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
+    """Check if the app is ready to serve requests.
+    This allows this workflow to be composed with other workflows
+    that may not be ready yet.
+    """
+    try:
+        with open(path, "r") as f:
+            return {"ready": False, "detail": f.read()}
+    except FileNotFoundError:
+        return None
 
 
 def main(args):

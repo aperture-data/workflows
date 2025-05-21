@@ -242,6 +242,21 @@ async function loadConfigTable() {
     }
     const config = await response.json();
 
+    if (config.ready !== true) {
+      const existing = document.getElementById('status-pre');
+      if (existing) existing.remove();
+
+      const pre = document.createElement('pre');
+      pre.id = 'status-pre';
+      pre.textContent = config.message || "Preparing...";
+      pre.style.margin = "1em";
+      document.body.appendChild(pre);
+
+      // Try again in 3 seconds
+      setTimeout(loadConfigTable, 3000);
+      return;
+  }
+
     const tbody = document.querySelector('#config-table tbody');
     tbody.innerHTML = '';
 
