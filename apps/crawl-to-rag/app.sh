@@ -6,6 +6,14 @@ set -o pipefail # exit on pipe failure
 
 NOT_READY_FILE=/workflows/rag/not-ready.txt
 
+function log_status() {
+    local message="$1"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $message" >> $NOT_READY_FILE
+    echo "*** $message"
+}
+
+trap 'log_status "An error occurred at line $LINENO"; exit 1' ERR
+
 function uuid() {
     python3 -c 'import uuid; print(uuid.uuid4())'
 }
@@ -47,12 +55,6 @@ with_env_only() {
     env -i "${env_args[@]}" bash app.sh
 }
 
-function log_status() {
-    local message="$1"
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $message" >> $NOT_READY_FILE
-    echo "*** $message"
-}
-
 function cleanup() {
     mv $NOT_READY_FILE $NOT_READY_FILE.bak
 }
@@ -77,4 +79,5 @@ log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
     cleanup
 )&
 
+echo "Running webserver for RAG API"
 with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS

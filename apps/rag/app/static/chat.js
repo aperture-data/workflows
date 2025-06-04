@@ -248,7 +248,7 @@ async function loadConfigTable() {
 
       const pre = document.createElement('pre');
       pre.id = 'status-pre';
-      pre.textContent = config.message || "Preparing...";
+      pre.textContent = config.detail || "Preparing...";
       pre.style.margin = "1em";
       document.body.appendChild(pre);
 
