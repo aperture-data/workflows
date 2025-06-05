@@ -81,7 +81,7 @@ jobs:
           VERSION: ${{ vars.RAG_VERSION }}
         id: bump-version
         run: |
-          NEW_VERSION=`scripts/increment_version.sh ${VERSION}`
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           curl --silent --show-error --fail --location --request PATCH \
             --header "Accept: application/vnd.github+json" \
@@ -156,7 +156,7 @@ jobs:
           VERSION: ${{ vars.VERSION }}
         id: bump-version
         run: |
-          NEW_VERSION=`scripts/increment_version.sh ${VERSION}`
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           curl --silent --show-error --fail --location --request PATCH \
             --header "Accept: application/vnd.github+json" \
