@@ -98,6 +98,7 @@ jobs:
         run: |
           export VERSION=${{ steps.bump-version.outputs.version }}
           echo "Using version $VERSION"
+          docker tag aperturedata/workflows-crawl-to-rag aperturedata/workflows-crawl-to-rag:$VERSION
           docker push aperturedata/workflows-crawl-to-rag:$VERSION
 
 
@@ -170,5 +171,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           export VERSION=${{ steps.bump-version.outputs.version }}
+          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
           docker push aperturedata/workflows-base:$VERSION
+          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
