@@ -74,12 +74,33 @@ jobs:
           cd apps/crawl-to-rag
           bash test.sh
 
+      - name: Increment version
+        # Only increment version when merged to main, after builds succeed
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ vars.RAG_VERSION }}
+        id: bump-version
+        run: |
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          curl --silent --show-error --fail --location --request PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/RAG_VERSION \
+            -d "{\"value\":\"${NEW_VERSION}\"}"
+
+
       - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push'
         run: |
-          docker push aperturedata/workflows-crawl-to-rag:latest
+          export VERSION=${{ steps.bump-version.outputs.version }}
+          echo "Using version $VERSION"
+          docker tag aperturedata/workflows-crawl-to-rag aperturedata/workflows-crawl-to-rag:$VERSION
+          docker push aperturedata/workflows-crawl-to-rag:$VERSION
+
 
   build-test-apps:
     needs:
@@ -128,10 +149,29 @@ jobs:
           cd apps/${{ matrix.app }}
           bash test.sh || bash build.sh
 
+      - name: Increment version
+        # Only increment version when merged to main, after builds succeed
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ vars.VERSION }}
+        id: bump-version
+        run: |
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          curl --silent --show-error --fail --location --request PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/VERSION \
+            -d "{\"value\":\"${NEW_VERSION}\"}"
+
       - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push'
         run: |
-          docker push aperturedata/workflows-base:latest
-          docker push aperturedata/workflows-${{ matrix.app }}:latest
+          export VERSION=${{ steps.bump-version.outputs.version }}
+          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
+          docker push aperturedata/workflows-base:$VERSION
+          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
+          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
