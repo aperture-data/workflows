@@ -1,5 +1,4 @@
 import os
-import sys
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
 
@@ -17,9 +16,7 @@ def ingest_coco(cli_args):
     dbutils.create_entity_index("_Descriptor", "yfcc_id")
 
     args = {
-        "images": "IMAGE",
         "bboxes": "BOUNDING_BOX",
-        "pixelmaps": "IMAGE",
         "img_pixelmap_connections": "CONNECTION",
         "polygons": "POLYGON",
         "images.adb.csv_clip_pytorch_embeddings_metadata": "DESCRIPTOR",
@@ -29,10 +26,9 @@ def ingest_coco(cli_args):
     if cli_args.train == "true":
         stages.append("train")
 
-    objs = ["images",
+    objs = [
             "bboxes",
             "polygons",
-            "pixelmaps",
             "img_pixelmap_connections",
             "images.adb.csv_clip_pytorch_embeddings_metadata",
             "images.adb.csv_clip_pytorch_embeddings_connection"]
