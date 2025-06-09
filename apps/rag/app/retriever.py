@@ -12,7 +12,7 @@ class Retriever:
     fetch_k: int
     client: "Connector"
 
-    def invoke(query: str) -> List[Dict]:
+    def invoke(self, query: str) -> List[Dict]:
         descriptors = Decriptors(self.client)
         embedding = self.embeddings.embed_query(query)
         if self.search_type == "mmr":
