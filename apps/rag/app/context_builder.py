@@ -1,5 +1,4 @@
 from typing import List, Dict
-from langchain.schema import Document
 
 
 class ContextBuilder:
@@ -8,9 +7,9 @@ class ContextBuilder:
 
     separator = "===SUMMARY==="
 
-    def build(self, retrieved_docs: List[Document], query: str, history: str) -> str:
+    def build(self, retrieved_docs: List[Dict], query: str, history: str) -> str:
         """
-        retrieved_docs: list of LangChain Document objects
+        retrieved_docs: list of documents
         query: the user's current question
         history: summary of the conversation history
         """

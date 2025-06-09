@@ -154,6 +154,9 @@ class AperturedbIO:
             },
         ])
 
+        logger.info(
+            f"Preparing to create descriptor set {self.descriptorset_name} with model {self.embedder.model_spec}, fingerprint {self.embedder.fingerprint_hash()}, metric {self.embedder.metric()}, dimensions {self.embedder.dimensions()}")
+
         if "entities" not in response[1]["FindDescriptorSet"]:
             logger.info(
                 f"Creating new descriptor set {self.descriptorset_name}")

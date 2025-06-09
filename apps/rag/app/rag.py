@@ -12,16 +12,6 @@ class QAChain:
         self.separator = context_builder.separator
         self.separator_length = len(self.separator)
 
-    def _langchain_docs_to_dicts(self, docs) -> List[Dict]:
-        result = []
-        for doc in docs:
-            result.append({
-                "text": doc.page_content,
-                "url": doc.metadata.get("url", ""),
-                "id": doc.id,
-            })
-        return result
-
     async def run(self, query: str, history: str) -> Tuple[str, str]:
         rewritten_query = await self._rewrite_query(query, history)
         logger.debug(f"Rewritten query: {rewritten_query}")
@@ -46,7 +36,7 @@ class QAChain:
             new_history = new_history.strip()
         logger.debug(f"New history: {new_history}")
         rewritten_query = rewritten_query.strip()
-        return answer, new_history, rewritten_query, self._langchain_docs_to_dicts(docs)
+        return answer, new_history, rewritten_query, docs
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
         rewritten_query = await self._rewrite_query(query, history)
@@ -100,7 +90,7 @@ class QAChain:
                 logger.debug("No summary tokens found.")
                 return history  # old history
 
-        return _stream_answer(), get_summary, rewritten_query.strip(), self._langchain_docs_to_dicts(docs)
+        return _stream_answer(), get_summary, rewritten_query.strip(), docs
 
     async def _rewrite_query(self, query: str, history_summary: str = "No history") -> str:
         prompt = f"""

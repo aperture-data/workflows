@@ -242,9 +242,10 @@ async function loadConfigTable() {
     }
     const config = await response.json();
 
-    if (config.ready !== true) {
-      const existing = document.getElementById('status-pre');
-      if (existing) existing.remove();
+    const existing = document.getElementById('status-pre');
+    if (existing) existing.remove();
+
+    if (('ready' in config) && (config.ready !== true)) {
 
       const pre = document.createElement('pre');
       pre.id = 'status-pre';
@@ -255,7 +256,7 @@ async function loadConfigTable() {
       // Try again in 3 seconds
       setTimeout(loadConfigTable, 3000);
       return;
-  }
+    }
 
     const tbody = document.querySelector('#config-table tbody');
     tbody.innerHTML = '';
