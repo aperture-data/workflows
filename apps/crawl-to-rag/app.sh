@@ -4,6 +4,7 @@ set -e # exit on error
 set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
+bg_pid="" # track background process ID
 NOT_READY_FILE=/workflows/rag/not-ready.txt
 
 function log_status() {
@@ -56,6 +57,15 @@ with_env_only() {
 }
 
 function cleanup() {
+    # If background job is still running, kill it
+    if [[ -n "$bg_pid" && -e /proc/$bg_pid ]]; then
+        echo "Killing background process $bg_pid"
+        kill $bg_pid 2>/dev/null || true
+        wait $bg_pid 2>/dev/null || true
+    fi
+}
+    
+function set_ready() {
     mv $NOT_READY_FILE $NOT_READY_FILE.bak
 }
 
@@ -76,8 +86,13 @@ log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
     with_env_only text-embeddings DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
 
     log_status "Text-embeddings complete"
-    cleanup
+    set_ready
 )&
+bg_pid=$!
+
+# Trap ERR and script exit
+trap 'fatal $LINENO' ERR
+trap cleanup EXIT
 
 echo "Running webserver for RAG API"
 with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS

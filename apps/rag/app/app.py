@@ -227,6 +227,9 @@ async def config(request: Request):
         logger.info(f"Not ready: {not_ready}")
         return JSONResponse(not_ready)
 
+    # calculate number of descriptors in the descriptorset
+    count = retriever.count() if retriever else 0
+
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
@@ -235,7 +238,8 @@ async def config(request: Request):
         "embedding_model": args.model,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
-        # "startup_time": startup_time, # Debugging, but confusing to user
+        # "startup_time": startup_time,  # Debugging, but confusing to user
+        "count": count,
     }
     logger.info(f"Config: {config}")
     return JSONResponse(config)
@@ -307,6 +311,7 @@ async def main(args):
     global llm
     llm = load_llm(args.llm_provider, args.llm_model, args.llm_api_key)
 
+    global retriever
     retriever = get_retriever(args.input, args.model, args.n_documents)
 
     context_builder = ContextBuilder()
