@@ -11,7 +11,6 @@ class Document:
     id: str
     url: str
     page_content: str
-    metadata: Dict[str, str] = None
 
     def __init__(self, data):
         self.id = data.get("uniqueid", "")

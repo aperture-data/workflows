@@ -46,7 +46,7 @@ class LLM:
     def validate(self):
         """Check if the LLM is ready to use. """
 
-        async def _validate(self):
+        async def _validate():
             print(
                 f"> Validating LLM {self.__class__.__name__}, provider={self.provider}, model={self.model}")
             response = await self.predict("Hello! Just testing LLM. Ignore this.")
@@ -58,7 +58,7 @@ class LLM:
         print(
             f"Validating LLM {self.__class__.__name__}, provider={self.provider}, model={self.model}")
         # validate needs to be synchronous to be called from the top-level code
-        asyncio.run(_validate(self))
+        asyncio.run(_validate())
 
 
 class OpenAILLM(LLM):
