@@ -1,6 +1,25 @@
 from dataclasses import dataclass
 from typing import List, Dict
 from aperturedb.Descriptors import Descriptors
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Document:
+    id: str
+    url: str
+    page_content: str
+    metadata: Dict[str, str] = None
+
+    def __init__(self, data):
+        self.id = data.get("id", "")
+        self.url = data.get("lc_url", "")
+        self.page_content = data.get("text", "")
+
+    def to_json(self):
+        return {"id": self.id, "url": self.url, "content": self.page_content}
 
 
 @dataclass
@@ -12,23 +31,31 @@ class Retriever:
     fetch_k: int
     client: "Connector"
 
-    def invoke(self, query: str) -> List[Dict]:
-        descriptors = Decriptors(self.client)
+    def invoke(self, query: str) -> List[Document]:
+        descriptors = Descriptors(self.client)
         embedding = self.embeddings.embed_query(query)
         if self.search_type == "mmr":
-            results = descriptors.find_similar_mmr(
-                embedding,
-                self.k,
-                self.fetch_k,
+            descriptors.find_similar_mmr(
+                set=self.descriptor_set,
+                vector=embedding,
+                k_neighbors=self.k,
+                fetch_k=self.fetch_k,
             )
         elif self.search_type == "similarity":
-            results = descriptors.find_similar(
-                embedding,
-                self.k,
+            descriptors.find_similar(
+                set=self.descriptor_set,
+                vector=embedding,
+                k_neighbors=self.k,
             )
         else:
             raise ValueError(
                 f"Invalid search type: {self.search_type}. Must be 'mmr' or 'similarity'.")
+
+        results = [Document(doc) for doc in descriptors.response]
+        logger.info(
+            f"Retrieved {len(results)} documents for query: {query}")
+        logger.debug(
+            f"Results: {results}")
         return results
 
     def count(self):

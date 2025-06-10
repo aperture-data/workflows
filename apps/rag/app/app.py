@@ -154,7 +154,8 @@ async def stream_ask(query: str = Query(description="The question to ask"),
         start_time = time.time()
         answer_stream, history_fn, rewritten_query, docs = await qa_chain.stream_run(query, history)
         yield f"event: rewritten_query\ndata: {json.dumps(rewritten_query)}\n\n"
-        yield f"event: documents\ndata: {json.dumps(docs)}\n\n"
+        json_docs = [doc.to_json() for doc in docs]
+        yield f"event: documents\ndata: {json.dumps(json_docs)}\n\n"
         async for token in answer_stream:
             yield f"data: {json.dumps(token)}\n\n"
             # logger.debug(f"data: {token}\n\n")
