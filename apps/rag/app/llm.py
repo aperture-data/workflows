@@ -152,15 +152,21 @@ class CohereLLM(LLM):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload) as resp:
                 async for line in resp.content:
-                    if line.startswith(b"data:"):
-                        data = line[len(b"data:"):].strip()
-                        if data == b"[DONE]":
-                            break
-                        chunk = json.loads(data)
-                        # Adjust to match actual Cohere delta format
-                        delta = chunk.get("text", "")
-                        if delta:
-                            yield delta
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    logger.debug(f"Cohere response line: {line}")
+
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if chunk.get("event_type") == "text-generation":
+                        text = chunk.get("text", "")
+                        if text:
+                            yield text
 
 
 class HuggingFaceLLM:
