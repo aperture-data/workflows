@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Dict
 from aperturedb.Descriptors import Descriptors
+from aperturedb.CommonLibrary import execute_query
 import logging
 
 logger = logging.getLogger(__name__)
+
+ID_KEY = "uniqueid"
+URL_KEY = "lc_url"
+PAGE_CONTENT_KEY = "text"
 
 
 @dataclass
@@ -13,9 +18,9 @@ class Document:
     page_content: str
 
     def __init__(self, data):
-        self.id = data.get("uniqueid", "")
-        self.url = data.get("lc_url", "")
-        self.page_content = data.get("text", "")
+        self.id = data.get(ID_KEY, "")
+        self.url = data.get(URL_KEY, "")
+        self.page_content = data.get(PAGE_CONTENT_KEY, "")
 
     def to_json(self):
         return {"id": self.id, "url": self.url, "content": self.page_content}
@@ -64,7 +69,10 @@ class Retriever:
                 "counts": True
             }}
         ]
-        response, _ = self.client.query(query)
+        status, response, _ = execute_query(self.client, query)
+        if status != 0:
+            logger.error(f"Error executing count query: {response}")
+            return 0
         if not response or not response[0].get("FindDescriptorSet"):
             return 0
         if "entities" not in response[0]["FindDescriptorSet"]:

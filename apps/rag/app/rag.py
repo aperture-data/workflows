@@ -1,4 +1,4 @@
-from typing import List, Dict, Iterator, Tuple, Callable
+from typing import Iterator, Tuple, Callable
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ class QAChain:
         logger.debug(f"Answer: {answer}")
         if new_history:
             new_history = new_history.strip()
+        # Not a complete history; more a running summary
         logger.debug(f"New history: {new_history}")
         rewritten_query = rewritten_query.strip()
         return answer, new_history, rewritten_query, docs

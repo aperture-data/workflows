@@ -241,6 +241,7 @@ async def config(request: Request):
         "host": os.getenv("DB_HOST", ""),
         # "startup_time": startup_time,  # Debugging, but confusing to user
         "count": count,
+        "ready": True,
     }
     logger.info(f"Config: {config}")
     return JSONResponse(config)
