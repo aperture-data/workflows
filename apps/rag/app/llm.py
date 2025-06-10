@@ -22,6 +22,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-3.5-turbo",
     "together": "mistralai/Mistral-7B-Instruct-v0.2",
     "groq": "llama3-8b-8192",
+    "cohere": "command-r-plus",
     "huggingface": HF_PRELOAD_MODELS[0],
 }
 
@@ -129,6 +130,39 @@ class GroqLLM(LLM):
                             yield delta
 
 
+class CohereLLM(LLM):
+    def __init__(self, model: str, api_key: str):
+        self.model = model
+        self.api_key = api_key
+
+    async def stream_predict(self, prompt: str):
+        url = "https://api.cohere.ai/v1/chat"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "message": prompt,
+            "stream": True,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                async for line in resp.content:
+                    if line.startswith(b"data:"):
+                        data = line[len(b"data:"):].strip()
+                        if data == b"[DONE]":
+                            break
+                        chunk = json.loads(data)
+                        # Adjust to match actual Cohere delta format
+                        delta = chunk.get("text", "")
+                        if delta:
+                            yield delta
+
+
 class HuggingFaceLLM:
     def __init__(self, model_id: str):
         """
@@ -194,6 +228,11 @@ def load_llm(
         if not api_key:
             raise ValueError("GROQ API key required for Groq provider.")
         result = GroqLLM(model, api_key)
+
+    elif provider == "cohere":
+        if not api_key:
+            raise ValueError("COHERE API key required for Cohere provider.")
+        result = CohereLLM(model, api_key)
 
     elif provider == "huggingface":
         result = HuggingFaceLLM(model)
