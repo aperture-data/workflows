@@ -8,24 +8,44 @@ from fastapi.staticfiles import StaticFiles
 from wf_argparse import ArgumentParser
 import logging
 from uuid import uuid4
-from langchain_community.vectorstores import ApertureDB
 import time
 import json
 import os
+from aperturedb.CommonLibrary import create_connector
+import asyncio
 
 from llm import LLM
 from embeddings import BatchEmbedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
 from context_builder import ContextBuilder
+from retriever import Retriever
+from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
 APP_PATH = "/rag"
 
+ready = False
+
+start_time = time.time()
+startup_time = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global args
+    args = get_args()
+    asyncio.create_task(main(args))
+    global startup_time
+    startup_time = time.time() - start_time
+    logger.info(
+        f"RAG API is ready to serve requests after {startup_time:.2f}s")
+    yield
+    logger.info("Shutting down RAG API.")
 
 # Set up the root app to redirect to /rag; useful for local dev
-root_app = FastAPI()
+root_app = FastAPI(lifespan=lifespan)
 
 
 @root_app.get("/")
@@ -33,8 +53,10 @@ async def redirect_to_rag():
     """Redirect the root URL to /rag."""
     return Response(status_code=status.HTTP_307_TEMPORARY_REDIRECT, headers={"Location": APP_PATH})
 
+
 # This is the main app for the RAG API
 app = FastAPI(root_path=APP_PATH)
+root_app.mount(APP_PATH, app)
 
 
 @app.get("/ask")
@@ -79,6 +101,10 @@ async def ask(request: Request,
 
     verify_token(authorization, token)
 
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready, status_code=503)
+
     if not query:
         raise HTTPException(
             status_code=422, detail="Missing 'query' parameter")
@@ -118,13 +144,18 @@ async def stream_ask(query: str = Query(description="The question to ask"),
 
     verify_token(authorization, token)
 
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready, status_code=503)
+
     async def event_generator():
         yield f"event: start\ndata: {json.dumps({})}\n\n"
         results = []
         start_time = time.time()
         answer_stream, history_fn, rewritten_query, docs = await qa_chain.stream_run(query, history)
         yield f"event: rewritten_query\ndata: {json.dumps(rewritten_query)}\n\n"
-        yield f"event: documents\ndata: {json.dumps(docs)}\n\n"
+        json_docs = [doc.to_json() for doc in docs]
+        yield f"event: documents\ndata: {json.dumps(json_docs)}\n\n"
         async for token in answer_stream:
             yield f"data: {json.dumps(token)}\n\n"
             # logger.debug(f"data: {token}\n\n")
@@ -156,6 +187,7 @@ async def login(request: Request):
     if client_token != API_TOKEN:
         return JSONResponse({"error": "Invalid token"}, status_code=401)
 
+    logger.info(f"Login successful")
     response = JSONResponse({"message": "Login successful"})
     response.set_cookie(
         key="token",
@@ -172,6 +204,7 @@ def logout(response: Response):
     """
     Logout endpoint to clear the cookie.
     """
+    logger.info(f"Logout successful")
     response.delete_cookie("token", path="/")
     return {"message": "Logged out"}
 
@@ -185,6 +218,19 @@ async def config(request: Request):
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
+    global ready
+    if not ready:
+        logger.info("App is not ready yet")
+        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
+
+    # If we're not ready, then return that information instead
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        return JSONResponse(not_ready)
+
+    # calculate number of descriptors in the descriptorset
+    count = retriever.count() if retriever else 0
+
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
@@ -193,7 +239,11 @@ async def config(request: Request):
         "embedding_model": args.model,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
+        # "startup_time": startup_time,  # Debugging, but confusing to user
+        "count": count,
+        "ready": True,
     }
+    logger.info(f"Config: {config}")
     return JSONResponse(config)
 
 
@@ -207,14 +257,18 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
     if auth_header:
         scheme, _, auth_token = auth_header.partition(" ")
         if scheme.lower() == "bearer":
+            logger.info(f"Token from Authorization header")
             token = auth_token
 
     # Otherwise fall back to cookie
     if not token and token_cookie:
         token = token_cookie
+        if token:
+            logger.info(f"Token from cookie")
 
     # Now check if token matches
     if not token or token != API_TOKEN:
+        logger.info(f"No valid token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API token",
@@ -224,21 +278,30 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
 def get_retriever(descriptorset_name: str, model: str, k: int):
     """Build the retriever for the given descriptorset and model."""
     embeddings = BatchEmbedder(model)
-    # TODO: Check fingerprint
-    # dim = embeddings.dimensions()
-    vectorstore = ApertureDB(embeddings=embeddings,
-                             descriptor_set=descriptorset_name)
-
-    search_type = "mmr"  # "similarity" or "mmr"
-    fetch_k = k*4       # number of results fetched for MMR
-    retriever = vectorstore.as_retriever(search_type=search_type,
-                                         search_kwargs=dict(k=k, fetch_k=fetch_k))
+    retriever = Retriever(
+        embeddings=embeddings,
+        descriptor_set=descriptorset_name,
+        search_type="mmr",  # "similarity" or "mmr"
+        k=k,
+        fetch_k=k * 4,  # number of results fetched for MMR
+        client=create_connector(),
+    )
     return retriever
 
 
-def main(args):
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
+    """Check if the app is ready to serve requests.
+    This allows this workflow to be composed with other workflows
+    that may not be ready yet.
+    """
+    try:
+        with open(path, "r") as f:
+            return {"ready": False, "detail": f.read()}
+    except FileNotFoundError:
+        return None
 
+
+async def main(args):
     logging.basicConfig(level=args.log_level, force=True)
     logger.info("Starting text embeddings")
     logger.info(f"Log level: {args.log_level}")
@@ -250,11 +313,15 @@ def main(args):
     global llm
     llm = load_llm(args.llm_provider, args.llm_model, args.llm_api_key)
 
+    global retriever
     retriever = get_retriever(args.input, args.model, args.n_documents)
 
     context_builder = ContextBuilder()
     global qa_chain
     qa_chain = QAChain(retriever, context_builder, llm)
+
+    global ready
+    ready = True
 
     logger.info("Complete.")
 
@@ -304,7 +371,4 @@ def get_args(argv=[]):
     return params
 
 
-# Unconditional because invoked via uvicorn
-root_app.mount(APP_PATH, app)
-args = get_args()
-main(args)
+app.mount("/", StaticFiles(directory="static", html=True), name="static")

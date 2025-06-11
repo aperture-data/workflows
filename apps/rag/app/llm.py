@@ -4,7 +4,7 @@ import os
 import logging
 import openai
 import json
-
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,23 @@ class LLM:
         assert type(self).predict is not LLM.predict, \
             "LLM subclasses must implement stream_predict() or predict()"
         yield await self.predict(prompt)
+
+    def validate(self):
+        """Check if the LLM is ready to use. """
+
+        async def _validate():
+            print(
+                f"> Validating LLM {self.__class__.__name__}, provider={self.provider}, model={self.model}")
+            response = await self.predict("Hello! Just testing LLM. Ignore this.")
+            if not response:
+                print(response)
+                raise ValueError(
+                    f"LLM is not ready to use. Double-check your API key and model. {response}")
+
+        print(
+            f"Validating LLM {self.__class__.__name__}, provider={self.provider}, model={self.model}")
+        # validate needs to be synchronous to be called from the top-level code
+        asyncio.run(_validate())
 
 
 class OpenAILLM(LLM):
@@ -179,9 +196,9 @@ class HuggingFaceLLM:
 
         device = 0 if torch.cuda.is_available() else -1
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
@@ -189,8 +206,8 @@ class HuggingFaceLLM:
 
         self.pipeline = pipeline(
             "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
+            model=model,
+            tokenizer=tokenizer,
             max_new_tokens=128,
             temperature=0.2,
             top_p=0.9,
@@ -199,7 +216,7 @@ class HuggingFaceLLM:
             return_full_text=False,
         )
 
-    def predict(self, prompt: str) -> str:
+    async def predict(self, prompt: str) -> str:
         output = self.pipeline(prompt)
         return output[0]['generated_text']
 
@@ -245,7 +262,10 @@ def load_llm(
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
+    result.model = model
     result.provider = provider
+    # result.validate()
+
     return result
 
 
@@ -258,9 +278,6 @@ def main():
     try:
         for model in HF_PRELOAD_MODELS:
             llm = load_llm(model=model)
-            response = llm.predict("Hello! Just testing caching. Ignore this.")
-            logger.info(
-                f"[Cache Warmer] LLM predict() test successful: {response}")
         logger.info("[Cache Warmer] LLM loaded successfully.")
 
     except Exception as e:
