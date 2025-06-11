@@ -22,6 +22,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-3.5-turbo",
     "together": "mistralai/Mistral-7B-Instruct-v0.2",
     "groq": "llama3-8b-8192",
+    "cohere": "command-r-plus",
     "huggingface": HF_PRELOAD_MODELS[0],
 }
 
@@ -146,7 +147,46 @@ class GroqLLM(LLM):
                             yield delta
 
 
-class HuggingFaceLLM(LLM):
+class CohereLLM(LLM):
+    def __init__(self, model: str, api_key: str):
+        self.model = model
+        self.api_key = api_key
+
+    async def stream_predict(self, prompt: str):
+        url = "https://api.cohere.ai/v1/chat"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": self.model,
+            "message": prompt,
+            "stream": True,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                async for line in resp.content:
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    logger.debug(f"Cohere response line: {line}")
+
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if chunk.get("event_type") == "text-generation":
+                        text = chunk.get("text", "")
+                        if text:
+                            yield text
+
+
+class HuggingFaceLLM:
     def __init__(self, model_id: str):
         """
         model_id: Hugging Face model repo ID, like 'mistralai/Mistral-7B-v0.1'
@@ -211,6 +251,11 @@ def load_llm(
         if not api_key:
             raise ValueError("GROQ API key required for Groq provider.")
         result = GroqLLM(model, api_key)
+
+    elif provider == "cohere":
+        if not api_key:
+            raise ValueError("COHERE API key required for Cohere provider.")
+        result = CohereLLM(model, api_key)
 
     elif provider == "huggingface":
         result = HuggingFaceLLM(model)

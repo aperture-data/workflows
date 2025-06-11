@@ -333,7 +333,7 @@ def get_args(argv=[]):
                      help='The descriptorset to use')
 
     obj.add_argument('--llm_provider',
-                     help='The LLM provider to use, e.g. openai, huggingface, together, groq; default is huggingface',
+                     help='The LLM provider to use, e.g. openai, huggingface, together, groq, cohere; default is huggingface',
                      default=None)
 
     obj.add_argument('--llm_model',
