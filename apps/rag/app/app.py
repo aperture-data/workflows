@@ -21,6 +21,7 @@ from rag import QAChain
 from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -372,3 +373,19 @@ def get_args(argv=[]):
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+origins = [
+    "https://docs.aperturedata.io",
+    "https://docs.aperturedata.dev",
+    "http://localhost:3002"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logger.warning("Added CORS middleware with origins: %s", origins)
