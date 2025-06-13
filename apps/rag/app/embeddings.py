@@ -3,7 +3,6 @@ import numpy as np
 import hashlib
 import os
 from typing import List, Union
-from langchain_core.embeddings import Embeddings
 
 # backend model pretrained
 # Keep this short to reduce docker build time and image size
@@ -21,7 +20,7 @@ DEFAULT_MODEL = SUPPORTED_MODELS[0]
 FINGERPRINT_TEXT = "ApertureDB unifies multimodal data, knowledge graphs, and vector search into a single database solution for rapid AI deployments at enterprise scale."
 
 
-class BatchEmbedder(Embeddings):
+class BatchEmbedder:
     def __init__(self, model_spec: str, device: str = None):
         self.model_spec = model_spec
         self.backend, self.model_name, self.pretrained = \
