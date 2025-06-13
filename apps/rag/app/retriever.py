@@ -25,7 +25,7 @@ class Document:
         self.page_content = data.get(PAGE_CONTENT_KEY, "")
 
     def to_json(self):
-        return {"id": self.id, "url": self.url, "content": self.page_content}
+        return {"id": self.id, "url": self.url, "content": self.page_content, "title": self.title}
 
 
 @dataclass
@@ -44,7 +44,8 @@ class Retriever:
                     "with_class": "CrawlDocument",
                     "_ref": 1,
                     "constraints": {
-                        "url": ["==", url]
+                        # TODO fix the problem with the URL
+                        "url": ["==", url.replace("#__docusaurus", "")]
                     },
                     "results": {
                         "all_properties": True,

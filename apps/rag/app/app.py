@@ -1,20 +1,18 @@
+import threading
 from fastapi import FastAPI, Request, Response, Header, HTTPException, status, Query, Cookie
-from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
-import uuid
+from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
 from rag import QAChain
 from llm import load_llm
 from fastapi.staticfiles import StaticFiles
 from wf_argparse import ArgumentParser
 import logging
-from uuid import uuid4
 import time
 import json
 import os
 from aperturedb.CommonLibrary import create_connector
 import asyncio
 
-from llm import LLM
 from embeddings import BatchEmbedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
@@ -22,6 +20,62 @@ from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from aimon import Detect
+import functools
+
+# Running a background event loop for async operations
+# Source : https://stackoverflow.com/questions/52232177/runtimeerror-timeout-context-manager-should-be-used-inside-a-task/69514930#69514930
+def _start_background_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+_LOOP = asyncio.new_event_loop()
+_LOOP_THREAD = threading.Thread(
+    target=_start_background_loop, args=(_LOOP,), daemon=True
+)
+_LOOP_THREAD.start()
+
+detect = Detect(
+    application_name="ApertureDB chatbot",
+    model_name="all-MiniLM-L6-v2.gguf2.f16.gguf",
+    publish=True,
+    values_returned=['actual_context', 'context', 'generated_text', 'user_query'],
+    config={
+            "hallucination": {"detector_name": "default"},
+            "conciseness": {"detector_name": "default"},
+            "completeness": {"detector_name": "default"},
+            "toxicity": {"detector_name": "default"}
+        },
+    async_mode=True,
+    )
+
+def convert_to_response(inner):
+    @functools.wraps(inner)
+    def wrapper(*args, **kwargs):
+        response = inner(*args, **kwargs)
+        print(f"{response=}")
+        return {
+            "docs": response[0],
+            "formatted_context": response[1],
+            "answer": response[2],
+            "query": response[3],
+            "rewritten_query": response[4],
+            "history": response[5]
+        }
+    return wrapper
+
+@convert_to_response
+@detect
+def query_with_aimon(query:str, history: Optional[str]):
+    # loop = asyncio.get_event_loop()
+    answer, new_history, rewritten_query, docs = asyncio.run_coroutine_threadsafe(qa_chain.run(query, history), _LOOP).result()
+    # answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    # answer, new_history, rewritten_query, docs = asyncio.run(qa_chain.run(query, history))
+    print(f"{answer=}")
+    # print(f"{new_history=}")
+    # print(f"{rewritten_query=}")
+    # print(f"{docs=}")
+    return [d.to_json() for d in docs], [d.page_content for d in docs], answer, query, rewritten_query, new_history
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +147,6 @@ async def ask_post(request: Request,
     history = body.get("history")
     return await ask(request, authorization, token, query, history)
 
-
 async def ask(request: Request,
               authorization: str,
               token: str,
@@ -113,12 +166,18 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    # c, fc, answer, new_history, rewritten_query, docs
+    r = query_with_aimon(query, history)
+    answer = r["answer"]
+    docs = r["docs"]
+    history = r["history"]
+    rewritten_query = r["rewritten_query"]
+
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
     return {"answer": answer,
-            "history": new_history,
+            "history": history,
             "rewritten_query": rewritten_query,
             "duration": qa_duration,
             "documents": docs,
