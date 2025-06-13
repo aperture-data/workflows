@@ -53,7 +53,7 @@ def convert_to_response(inner):
     @functools.wraps(inner)
     def wrapper(*args, **kwargs):
         response = inner(*args, **kwargs)
-        print(f"{response=}")
+
         return {
             "docs": response[0],
             "formatted_context": response[1],
@@ -67,14 +67,8 @@ def convert_to_response(inner):
 @convert_to_response
 @detect
 def query_with_aimon(query:str, history: Optional[str]):
-    # loop = asyncio.get_event_loop()
     answer, new_history, rewritten_query, docs = asyncio.run_coroutine_threadsafe(qa_chain.run(query, history), _LOOP).result()
-    # answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
-    # answer, new_history, rewritten_query, docs = asyncio.run(qa_chain.run(query, history))
-    print(f"{answer=}")
-    # print(f"{new_history=}")
-    # print(f"{rewritten_query=}")
-    # print(f"{docs=}")
+
     return [d.to_json() for d in docs], [d.page_content for d in docs], answer, query, rewritten_query, new_history
 
 logger = logging.getLogger(__name__)
@@ -166,7 +160,6 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    # c, fc, answer, new_history, rewritten_query, docs
     r = query_with_aimon(query, history)
     answer = r["answer"]
     docs = r["docs"]
