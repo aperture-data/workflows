@@ -32,30 +32,35 @@ class TextExtractor:
         mimetype, options = self._parse_content_type(content_type)
         # TODO: Handle options like charset
         if mimetype == "text/plain":
-            gen = self. _extract_plain_text_blocks(data)
+            gen = self._extract_plain_text_blocks(data)
         elif mimetype == "text/html":
             gen = self._extract_html_blocks(data)
         elif mimetype == "application/pdf":
-            gen = _extract_pdf_text_blocks(data)
+            gen = self._extract_pdf_text_blocks(data)
         else:
             raise ValueError(f"Unsupported content type: {content_type}")
+        title = None
         for block in gen:
             if self.emit_full_text and isinstance(block, TextBlock):
+                if not title:
+                    title = block.title
                 full_text_buffer.write(block.text)
                 full_text_buffer.write("\n\n")
             yield block
         if self.emit_full_text:
-            yield FullTextBlock(text=full_text_buffer.getvalue())
+            yield FullTextBlock(text=full_text_buffer.getvalue(), title=title)
 
     def _extract_pdf_text_blocks(self, data: bytes) -> Iterator[Block]:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
+            title = pdf.metadata.get("Title")  # or None
             for page_number, page in enumerate(pdf.pages, start=1):
                 text = page.extract_text()
                 if text:
                     yield TextBlock(
                         text=text.strip(),
                         kind="body",
-                        page_number=page_number
+                        page_number=page_number,
+                        title=title,
                     )
 
     def _extract_plain_text_blocks(self, data: bytes) -> Iterator[Block]:
@@ -64,6 +69,10 @@ class TextExtractor:
 
     def _extract_html_blocks(self, data: bytes) -> Iterator[Block]:
         soup = BeautifulSoup(data, "html.parser")
+        title_element = soup.find("title")
+        title = title_element.get_text(strip=True) if title_element else None
+        logger.info(f"Title found in HTML: {title}")
+
         content_tags = ["p", "h1", "h2", "h3", "h4", "h5", "li",
                         "figcaption", "img", "div", "span"]
         # TODO: Tag code blocks for language-sensitive splitting.
@@ -74,7 +83,7 @@ class TextExtractor:
                 for root in root_elements:
                     yield from self._yield_html_content_blocks(
                         self._filter_nested_elements(
-                            root.find_all(content_tags)))
+                            root.find_all(content_tags)), title)
                 return
             else:
                 logger.warning(
@@ -82,7 +91,7 @@ class TextExtractor:
 
         # Fallback: no CSS selector provided or no matches found
         yield from self._yield_html_content_blocks(
-            self._filter_nested_elements(soup.find_all(content_tags)))
+            self._filter_nested_elements(soup.find_all(content_tags)), title)
 
     def _filter_nested_elements(self, elements):
         seen = set()
@@ -94,7 +103,7 @@ class TextExtractor:
             seen.add(id(el))
             yield el
 
-    def _yield_html_content_blocks(self, elements: list) -> Iterator[Block]:
+    def _yield_html_content_blocks(self, elements: list, title: Optional[str]) -> Iterator[Block]:
         pending_image = None
         current_anchor = None
         for el in elements:
@@ -109,7 +118,7 @@ class TextExtractor:
                         yield pending_image
                     # Defer image block in case caption is found; slightly hacky
                     pending_image = ImageBlock(
-                        image_url=image_url, alt_text=alt_text, anchor=current_anchor)
+                        image_url=image_url, alt_text=alt_text, anchor=current_anchor, title=title)
             else:
                 if el.name == "figcaption":
                     text = el.get_text(strip=True)
@@ -124,7 +133,7 @@ class TextExtractor:
                 text = el.get_text(strip=True)
                 if text:
                     kind = self._tag_kind(el.name)
-                    yield TextBlock(text=text, kind=kind, anchor=current_anchor)
+                    yield TextBlock(text=text, kind=kind, anchor=current_anchor, title=title)
             # TODO: Maybe get context text in other ways
         if pending_image is not None and pending_image.has_text:  # Flush final image block
             yield pending_image

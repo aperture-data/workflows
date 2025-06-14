@@ -53,6 +53,7 @@ def run_text_embeddings(args):
                     segment_id=segment.id,
                     url=segment.url,
                     text=segment.text,
+                    title=segment.title,
                     vector=v,
                 )
                 io.create_embedding(embedding)
