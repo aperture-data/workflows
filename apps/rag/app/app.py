@@ -76,6 +76,7 @@ logger = logging.getLogger(__name__)
 APP_PATH = "/rag"
 
 ready = False
+allowed_origins = ""
 
 start_time = time.time()
 startup_time = None
@@ -105,6 +106,17 @@ async def redirect_to_rag():
 
 # This is the main app for the RAG API
 app = FastAPI(root_path=APP_PATH)
+allowed_origins = os.getenv("WF_ALLOWED_ORIGINS", "").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+print(f"Added CORS middleware with origins: {allowed_origins}")
+
 root_app.mount(APP_PATH, app)
 
 
@@ -359,6 +371,7 @@ async def main(args):
     logger.info("Starting text embeddings")
     logger.info(f"Log level: {args.log_level}")
     logger.info(f"Input ID: {args.input}")
+    logger.info(args)
 
     global API_TOKEN
     API_TOKEN = args.token
@@ -420,24 +433,13 @@ def get_args(argv=[]):
                      default=4,
                      type=int)
 
+    obj.add_argument('--allowed-origins',
+                     help='Comma-separated list of allowed origins for CORS',
+                     default="")
+
     params = obj.parse_args(argv)
     return params
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-origins = [
-    "https://docs.aperturedata.io",
-    "https://docs.aperturedata.dev",
-    "http://localhost:3002"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-logger.warning("Added CORS middleware with origins: %s", origins)
