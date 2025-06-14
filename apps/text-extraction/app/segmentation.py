@@ -48,9 +48,12 @@ class TextSegmenter:
         buffer_tokens = 0
         total_tokens = 0
         n_segments = 0
-        title = blocks[0].title if blocks else None
+        title = None
 
         for block in blocks:
+            if not title:
+                title = block.title
+
             # TODO: Consider suppressing overlap for some kinds of block
             token_count = self._token_count(block.text)
             total_tokens += token_count
