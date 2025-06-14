@@ -323,7 +323,7 @@ class AperturedbIO:
                         "direction": "out",
                     },
                     "results": {
-                        "list": ["id", "url", "text"],
+                        "list": ["id", "url", "text", "title"],
                     },
                     "batch": {},
                 }
@@ -346,6 +346,7 @@ class AperturedbIO:
                     id=result["id"],
                     url=result["url"],
                     text=result["text"],
+                    title=result.get("title", None),
                 )
 
     def create_embedding(self, embedding: Embedding) -> None:
@@ -372,6 +373,7 @@ class AperturedbIO:
                         "text": embedding.text,  # LangChain supported field
                         "url": embedding.url,
                         "lc_url": embedding.url,  # LangChain supported field
+                        "title": embedding.title,
                     },
                     "connect": {
                         "ref": "SEGMENT",

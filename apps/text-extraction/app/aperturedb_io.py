@@ -371,6 +371,8 @@ class AperturedbIO:
                         "spec_id": self.spec_id,
                         "run_id": self.run_id,
                         "n_tokens": segment.total_tokens,
+                        "n_characters": len(segment.text),
+                        **({"title": segment.title} if segment.title else {}),
                     },
                     "connect": {
                         "ref": "DOC",
@@ -406,6 +408,7 @@ class AperturedbIO:
                         "text_url": block.url(self.current_document.url),
                         "spec_id": self.spec_id,
                         "run_id": self.run_id,
+                        **({"title": block.title} if block.title else {}),
                     }),
                     "connect": {
                         "ref": "DOC",
@@ -451,6 +454,7 @@ class AperturedbIO:
                         "url": self.current_document.url,
                         "spec_id": self.spec_id,
                         "run_id": self.run_id,
+                        **({"title": block.title} if block.title else {}),
                     },
                     "connect": {
                         "ref": "DOC",
