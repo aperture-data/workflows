@@ -115,12 +115,13 @@ async def ask(request: Request,
     answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
+    json_docs = [doc.to_json() for doc in docs]
 
     return {"answer": answer,
             "history": new_history,
             "rewritten_query": rewritten_query,
             "duration": qa_duration,
-            "documents": docs,
+            "documents": json_docs,
             }
 
 
@@ -303,7 +304,7 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
 
 async def main(args):
     logging.basicConfig(level=args.log_level, force=True)
-    logger.info("Starting text embeddings")
+    logger.info("Starting RAG API")
     logger.info(f"Log level: {args.log_level}")
     logger.info(f"Input ID: {args.input}")
 

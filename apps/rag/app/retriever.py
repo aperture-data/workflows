@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 from aperturedb.Descriptors import Descriptors
 from aperturedb.CommonLibrary import execute_query
 import logging
@@ -16,14 +16,16 @@ class Document:
     id: str
     url: str
     page_content: str
+    title: Optional[str] = None
 
     def __init__(self, data):
         self.id = data.get(ID_KEY, "")
         self.url = data.get(URL_KEY, "")
         self.page_content = data.get(PAGE_CONTENT_KEY, "")
+        self.title = data.get("title", None)
 
     def to_json(self):
-        return {"id": self.id, "url": self.url, "content": self.page_content}
+        return {"id": self.id, "url": self.url, "content": self.page_content, "title": self.title}
 
 
 @dataclass
