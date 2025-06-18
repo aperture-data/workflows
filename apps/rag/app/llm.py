@@ -173,8 +173,6 @@ class CohereLLM(LLM):
                     if not line:
                         continue
 
-                    logger.debug(f"Cohere response line: {line}")
-
                     try:
                         chunk = json.loads(line)
                     except json.JSONDecodeError:

@@ -87,11 +87,11 @@ document.getElementById('chat-send').addEventListener('click', async () => {
       const link = document.createElement('a');
       link.classList.add('document-link');
       link.href = doc.url;
-      link.textContent = doc.url;
+      link.textContent = doc.title ? doc.title : doc.url;
       link.target = '_blank'; // Open in a new tab
       const span = document.createElement('span');
       span.classList.add('document-text');
-      span.textContent = doc.text;
+      span.textContent = doc.content ? doc.content : "(no content available)";
       listItem.appendChild(link);
       listItem.appendChild(document.createElement('br'));
       listItem.appendChild(span);

@@ -8,6 +8,7 @@ class Segment:
     id: str
     url: str
     text: str
+    title: Optional[str] = None
 
 
 @dataclass
@@ -16,3 +17,4 @@ class Embedding:
     url: str
     text: str
     vector: np.ndarray
+    title: Optional[str] = None
