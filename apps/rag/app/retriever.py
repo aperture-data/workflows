@@ -17,11 +17,7 @@ class Document:
     id: str
     url: str
     page_content: str
-<<<<<<< update_instructions
-    title: str = ""
-=======
     title: Optional[str] = None
->>>>>>> main
 
     def __init__(self, data):
         self.id = data.get(ID_KEY, "")
@@ -41,41 +37,6 @@ class Retriever:
     k: int
     fetch_k: int
     client: "Connector"
-
-    def get_title_from_url(self, url: str) -> str:
-        query = [
-            {
-                "FindEntity": {
-                    "with_class": "CrawlDocument",
-                    "_ref": 1,
-                    "constraints": {
-                        # TODO fix the problem with the URL
-                        "url": ["==", url.replace("#__docusaurus", "")]
-                    },
-                    "results": {
-                        "all_properties": True,
-                    }
-                }
-            },
-            {
-                "FindBlob": {
-                    "blobs": True,
-                    "is_connected_to": {
-                        "ref": 1
-                    },
-                    "results": {
-                        "all_properties": True,
-                    }
-                }
-            }
-        ]
-        status, response, blobs = execute_query(self.client, query)
-        assert status == 0, f"Error executing query: {response}"
-        assert len(blobs) == 1, f"Expected exactly one blob in response for URL {url}, got {len(blobs)}"
-        soup = BeautifulSoup(blobs[0], "html.parser")
-        title = soup.title.string if soup.title else "No Title"
-        return title.strip()
-
 
     def invoke(self, query: str) -> List[Document]:
         descriptors = Descriptors(self.client)
@@ -102,9 +63,6 @@ class Retriever:
             f"Retrieved {len(results)} documents for query: {query}")
         logger.debug(
             f"Results: {results}")
-
-        for result in results:
-            result.title = self.get_title_from_url(result.url)
 
         return results
 
