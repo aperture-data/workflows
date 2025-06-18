@@ -1,4 +1,3 @@
-import threading
 from fastapi import FastAPI, Request, Response, Header, HTTPException, status, Query, Cookie
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
@@ -20,56 +19,8 @@ from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from aimon import Detect
-import functools
 
-# Running a background event loop for async operations
-# Source : https://stackoverflow.com/questions/52232177/runtimeerror-timeout-context-manager-should-be-used-inside-a-task/69514930#69514930
-def _start_background_loop(loop):
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
 
-_LOOP = asyncio.new_event_loop()
-_LOOP_THREAD = threading.Thread(
-    target=_start_background_loop, args=(_LOOP,), daemon=True
-)
-_LOOP_THREAD.start()
-
-detect = Detect(
-    application_name="ApertureDB chatbot",
-    model_name="all-MiniLM-L6-v2.gguf2.f16.gguf",
-    publish=True,
-    values_returned=['actual_context', 'context', 'generated_text', 'user_query'],
-    config={
-            "hallucination": {"detector_name": "default"},
-            "conciseness": {"detector_name": "default"},
-            "completeness": {"detector_name": "default"},
-            "toxicity": {"detector_name": "default"}
-        },
-    async_mode=True,
-    )
-
-def convert_to_response(inner):
-    @functools.wraps(inner)
-    def wrapper(*args, **kwargs):
-        response = inner(*args, **kwargs)
-
-        return {
-            "docs": response[0],
-            "formatted_context": response[1],
-            "answer": response[2],
-            "query": response[3],
-            "rewritten_query": response[4],
-            "history": response[5]
-        }
-    return wrapper
-
-@convert_to_response
-@detect
-def query_with_aimon(query:str, history: Optional[str]):
-    answer, new_history, rewritten_query, docs = asyncio.run_coroutine_threadsafe(qa_chain.run(query, history), _LOOP).result()
-
-    return [d.to_json() for d in docs], [d.page_content for d in docs], answer, query, rewritten_query, new_history
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +32,67 @@ allowed_origins = ""
 start_time = time.time()
 startup_time = None
 
+async def query_with_aimon(query: str, history: Optional[str] = None):
+    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    from aimon import AsyncClient
+    # Add your AIMON_API_KEY, get it from app.aimon.ai -> My Account -> Keys -> "Copy API Key"
+    aimon_api_key = os.environ.get('AIMON_API_KEY', None)
+    logger.info(f"AIMON_API_KEY: {aimon_api_key is not None}")
+    if aimon_api_key:
+        # The user query and generated text are important
+        aimon_payload = {}
+        # This is the user query that you sent to the original LLM
+        aimon_payload["user_query"] = rewritten_query
+        # This is the generated response from the original LLM
+        aimon_payload["generated_text"] = answer
+        # This is the instructions that you want to evaluate
+        aimon_payload["instructions"] = ["Ensure that the output is correct and is derived from the provided context."]
+        aimon_payload["context"] = [docs.page_content for docs in docs] + [history]  # The context is the documents retrieved by the retriever
+
+        # This configuration invokes AIMon's "instruction_adherence" model
+        # that validates if an LLM response has been
+        aimon_payload["config"] = {
+            "hallucination": {"detector_name": "default"},
+            "conciseness": {"detector_name": "default"},
+            "completeness": {"detector_name": "default"},
+            "toxicity": {"detector_name": "default"},
+            "instruction_adherence": {
+                "detector_name": "default",
+                "explain": "true",  # Generates textual explanation that helps understand AIMon's evaluation
+            }
+        }
+
+        # This parameter controls whether you want to publish the analysis to the go/aimonui
+        aimon_payload["publish"] = True
+
+        # This parameter controls whether you would like to perform this computation asynchronously
+        aimon_payload["async_mode"] = False
+
+        # Include application_name and model_name if publishing
+        if aimon_payload["publish"]:
+            aimon_payload["application_name"] = os.environ.get('AIMON_APP_NAME', "ChatBot workflow")
+            # This is the LLM you used to generate the SQL query from text,
+            # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
+            aimon_payload["model_name"] = os.environ.get('LLM_MODEL_NAME', args.llm_model)
+
+        data_to_send = [aimon_payload]
+
+
+        async def call_aimon():
+            async with AsyncClient(auth_header=f"Bearer {aimon_api_key}") as aimon:
+                resp = await aimon.inference.detect(body=data_to_send)
+                return resp
+
+
+        # Await on
+        resp = await call_aimon()
+        resp_json = resp[0].instruction_adherence
+        print(json.dumps(resp_json, indent='\t'))
+    else:
+        logger.info("AIMON_API_KEY not set, skipping AIMon analysis")
+        resp_json = {}
+
+    return answer, new_history, rewritten_query, docs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -172,17 +184,14 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    r = query_with_aimon(query, history)
-    answer = r["answer"]
-    docs = r["docs"]
-    history = r["history"]
-    rewritten_query = r["rewritten_query"]
+    # answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    answer, new_history, rewritten_query, docs = await query_with_aimon(query, history)
 
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
 
     return {"answer": answer,
-            "history": history,
+            "history": new_history,
             "rewritten_query": rewritten_query,
             "duration": qa_duration,
             "documents": docs,

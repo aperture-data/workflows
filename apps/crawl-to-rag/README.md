@@ -23,4 +23,9 @@ The following parameters are recommended:
 * **`WF_LLM_API_KEY`**: Required by the `rag` workflow when using a cloud LLM
 * **`AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work.
 
+The following parameters are required, if configuring for AIMon analytics.
+* **`AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work. If not specified the AIMon integration would be disabled.
+* **`AIMON_APP_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
+* **`LLM_MODEL_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
+
 See the respective workflow READMEs for more details.
