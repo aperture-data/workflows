@@ -1,1 +1,2 @@
-# Add Python requirements here
+git+https://github.com/aperture-data/aperturedb-python@croissant_data_enrichment
+mlcroissant
