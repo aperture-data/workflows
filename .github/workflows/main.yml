@@ -118,7 +118,7 @@ jobs:
           crawl-website,
           text-extraction,
           text-embeddings,
-          croissant-ingestion,
+          ingest-croissant,
         ]
     runs-on:
       - ubuntu-latest

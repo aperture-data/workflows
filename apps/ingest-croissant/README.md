@@ -13,7 +13,7 @@ docker run \
            -e RUN_NAME=ingestion \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS="password" \
-           aperturedata/workflows-croissant-ingestion
+           aperturedata/workflows-ingest-croissant
 ```
 
 Parameters:

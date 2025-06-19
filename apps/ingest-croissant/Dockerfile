@@ -1,10 +1,7 @@
 # Pull base image.
 FROM aperturedata/workflows-base
 
-ENV APP_NAME=workflows-croissant-ingestion
-
-
-
+ENV APP_NAME=workflows-ingest-croissant
 
 COPY requirements.txt /
 RUN apt-get update && apt-get install -y \
