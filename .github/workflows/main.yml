@@ -117,7 +117,8 @@ jobs:
           rag,
           crawl-website,
           text-extraction,
-          text-embeddings
+          text-embeddings,
+          ingest-croissant,
         ]
     runs-on:
       - ubuntu-latest
