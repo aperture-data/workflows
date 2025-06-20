@@ -28,7 +28,7 @@ docker run -d \
 
 sleep 20
 
-docker run -rm \
+docker run --rm \
     --network ${NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
