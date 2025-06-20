@@ -24,14 +24,22 @@ docker run -d \
            --network ${NW_NAME} \
            -e ADB_MASTER_KEY="admin" \
            -e ADB_KVGD_DB_SIZE="204800" \
+           --health-cmd='nc -z localhost 55555 || exit 1' \
+           --health-retries=20 \
+           --health-interval=1s \
            aperturedata/aperturedb-community
+docker exec ${DB_NAME} apt-get install -y netcat
 
-sleep 20
+echo "Waiting for the ${DB_NAME} to be ready..."
+until [ "`docker inspect -f {{.State.Health.Status}} ${DB_NAME}`" == "healthy" ]; do
+    sleep 1;
+done;
+echo "${DB_NAME} is ready."
 
 docker run --rm \
     --network ${NW_NAME} \
     -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-    -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
+    -e "WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET}" \
     -e "DB_HOST=${DB_NAME}" \
-    -e WF_CROISSANT_URL=${CROISSANT_URL} \
+    -e "WF_CROISSANT_URL=${CROISSANT_URL}" \
     aperturedata/workflows-${WORKFLOW_NAME}

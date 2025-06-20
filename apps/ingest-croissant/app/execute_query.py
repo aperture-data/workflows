@@ -11,5 +11,5 @@ with open("delete_dataset_by_url.json") as in_file:
     }
     client = create_connector()
     result, response, _ = execute_query(client, query)
-
     print("Result:", json.dumps(response, indent=2))
+    sys.exit(result)
