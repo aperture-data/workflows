@@ -34,4 +34,4 @@ docker run --rm \
     -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
     -e "DB_HOST=${DB_NAME}" \
     -e WF_CROISSANT_URL=${CROISSANT_URL} \
-    aperturedata/workflows-${WORKFLOW_NAME} &
+    aperturedata/workflows-${WORKFLOW_NAME}
