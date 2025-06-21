@@ -92,6 +92,13 @@ fi
 
 GRAFANA_START_TIME=$(($(date '+%s') * 1000))
 
+echo "Starting Status Server: ..."
+# Start fastapi-based status server
+# This is used to provide a status endpoint for the workflow.
+python3 status_server.py &
+echo "Starting Status Server is up."
+
+
 # Move all log files to output folder
 
 start=`date +%s`
