@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger(__name__)
 
 APP_PATH = "/rag"
+API_TOKEN = None  # Set by the command line argument
 
 ready = False
 
@@ -55,7 +56,14 @@ async def redirect_to_rag():
 
 
 # This is the main app for the RAG API
-app = FastAPI(root_path=APP_PATH)
+app = FastAPI(
+    root_path=APP_PATH,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    title="RAG API",
+    description="A simple RAG API for question answering using LLMs and document retrieval.",
+)
 root_app.mount(APP_PATH, app)
 
 
@@ -248,6 +256,77 @@ async def config(request: Request):
     return JSONResponse(config)
 
 
+@app.get("/retrieve")
+async def retrieve_get(request: Request,
+                       authorization: str = Header(None),
+                       token: str = Cookie(default=None),
+                       query: str = Query(None, description="The query to retrieve documents for")):
+    """
+    Simple endpoint to retrieve documents based on a query.
+    Does not rewrite query or use LLMs, just retrieves documents.
+    Intended for debugging and demos.
+    """
+    return await retrieve(request, authorization, token, query)
+
+
+@app.post("/retrieve")
+async def retrieve_post(request: Request,
+                        authorization: str = Header(None),
+                        token: str = Cookie(default=None),
+                        query: str = Query(None, description="The query to retrieve documents for")):
+    """
+    Simple endpoint to retrieve documents based on a query.
+    Does not rewrite query or use LLMs, just retrieves documents.
+    Intended for debugging and demos.
+    """
+    body = await request.json()
+    query = body.get("query")
+    return await retrieve(request, authorization, token, query)
+
+
+async def retrieve(request: Request,
+                   authorization: str = Header(None),
+                   token: str = Cookie(default=None),
+                   query: str = Query(..., description="The query to retrieve documents for")):
+    """
+    Simple endpoint to retrieve documents based on a query.
+    Does not rewrite query or use LLMs, just retrieves documents.
+    Intended for debugging and demos.
+    """
+    verify_token(authorization, token)
+
+    global ready
+    if not ready:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="App is not ready yet"
+        )
+
+    # If we're not ready, then return that information instead
+    if not_ready := get_not_ready_status():
+        logger.info(f"Not ready: {not_ready}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="App is not ready yet"
+        )
+
+    if not query:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Missing 'query' parameter"
+        )
+
+    logger.info(f"Received query for retrieval: {query}")
+    documents = retriever.invoke(query)
+    logger.info(f"Retrieved {len(documents)} documents for query: {query}")
+    json_docs = [doc.to_json() for doc in documents]
+    return JSONResponse({
+        "query": query,
+        "documents": json_docs,
+        "count": len(json_docs),
+    })
+
+
 def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(None)):
     """
     Verify the token from the Authorization header or cookie.
@@ -266,6 +345,13 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
         token = token_cookie
         if token:
             logger.info(f"Token from cookie")
+
+    if API_TOKEN is None:
+        logger.error("API token is not set. Please provide a valid token.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="API token is not set. Please provide a valid token.",
+        )
 
     # Now check if token matches
     if not token or token != API_TOKEN:
