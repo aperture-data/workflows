@@ -1,7 +1,5 @@
-mcp[cli]
-# modelcontextprotocol
+fastmcp
 fastapi
-uvicorn
 pydantic
 torch>=2.0
 open_clip_torch>=2.23
