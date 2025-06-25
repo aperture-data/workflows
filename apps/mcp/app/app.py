@@ -8,10 +8,13 @@ from fastmcp import FastMCP
 
 from decorators import register_tools
 import tools
+from shared import logger
 
 TOKEN = os.getenv('WF_TOKEN')
 
-LOG_LEVEL = os.getenv('WF_LOG_LEVEL', 'INFO').upper()
+# LOG_LEVEL = os.getenv('WF_LOG_LEVEL', 'INFO').upper()
+# logger.info(f"Starting MCP server with log level: {LOG_LEVEL}")
+# print(f"Starting MCP server with log level: {LOG_LEVEL}")
 
 security = HTTPBearer(auto_error=True)
 
@@ -26,30 +29,29 @@ def require_token(credentials: HTTPAuthorizationCredentials = Depends(security))
         )
 
 
-async def main():
+mcp = FastMCP(
+    name="ApertureDB",
+    instructions="""
+    This  MCP server providers access to an instance of the ApertureDB database.
+    This is a multi-modal hybrid graph and vector database.
+    It supports both vector and graph queries, allowing you to perform complex data retrieval and analysis.
+    """,
+    # tags=["ApertureDB", "graph", "vector", "database", "similarity",
+    #       "text", "image", "video", "audio", "multi-modal", "retrieval", "search", "query"],
+    # log_level=LOG_LEVEL,
+    dependencies=[Depends(require_token)],
+    # path="/mcp",
+)
 
-    mcp = FastMCP(
-        name="ApertureDB",
-        instructions="""
-        This  MCP server providers access to an instance of the ApertureDB database.
-        This is a multi-modal hybrid graph and vector database.
-        It supports both vector and graph queries, allowing you to perform complex data retrieval and analysis.
-        """,
-        # tags=["ApertureDB", "graph", "vector", "database", "similarity",
-        #       "text", "image", "video", "audio", "multi-modal", "retrieval", "search", "query"],
-        log_level=LOG_LEVEL,
-        dependencies=[Depends(require_token)],
-    )
+register_tools(mcp)
 
-    register_tools(mcp)
+#     await mcp.run_async(
+#         transport="http",  # no streaming required
+#         host="0.0.0.0",
+#         port=80,
+#         path="/mcp",
+#         # cors_origins=["*"],  # allow all origins
+#     )
 
-    await mcp.run_async(
-        transport="http",  # no streaming required
-        host="0.0.0.0",
-        port=80,
-        path="/mcp",
-        # cors_origins=["*"],  # allow all origins
-    )
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())

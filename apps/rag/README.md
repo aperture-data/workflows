@@ -19,7 +19,7 @@ Parameters:
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`WF_TOKEN`**: Authorization token to use in API
 * **`WF_INPUT`**: Name of descriptorset to use
-* **`WF_LLM_PROVIDER`**: The LLM provider to use, e.g. openai, huggingface, together, groq
+* **`WF_LLM_PROVIDER`**: The LLM provider to use, e.g. openai, huggingface, together, groq, cohere
 * **`WF_LLM_MODEL`**: The LLM model to use, e.g. gpt-3.5-turbo, gpt-4, llama-2-7b-chat; default depends on provider - see table below
 * **`WF_LLM_API_KEY`**: API key for LLM provider
 * **`WF_MODEL`**: The embedding model to use, of the form "backend model pretrained
@@ -38,6 +38,7 @@ This code supports a number of different LLM providers, and can easily be extend
 | Cloud | [openai](https://platform.openai.com/docs/models) | gpt-3.5-turbo | Yes |
 | Cloud | [together](https://www.together.ai/models) | mistralai/Mistral-7B-Instruct-v0.2 | Yes |
 | Cloud | [groq](https://console.groq.com/docs/models) | llama3-8b-8192 | Yes |
+| Cloud | [cohere](https://docs.cohere.com/v2/docs/models) | command-r-plus | Yes |
 
 ## API
 
