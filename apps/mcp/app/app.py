@@ -9,14 +9,24 @@ from fastmcp import FastMCP
 from decorators import register_tools
 import tools
 from shared import logger
+from shared import args
 
-TOKEN = os.getenv('WF_TOKEN')
+TOKEN = args.auth_token
 
 # LOG_LEVEL = os.getenv('WF_LOG_LEVEL', 'INFO').upper()
 # logger.info(f"Starting MCP server with log level: {LOG_LEVEL}")
 # print(f"Starting MCP server with log level: {LOG_LEVEL}")
 
 security = HTTPBearer(auto_error=True)
+
+
+def test_connection():
+    """Test connection to the ApertureDB database."""
+    from aperturedb.CommonLibrary import create_connector
+    client = create_connector()
+    from aperturedb.Utils import Utils
+    utils = Utils(client)
+    utils.summary()
 
 
 def require_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -28,6 +38,8 @@ def require_token(credentials: HTTPAuthorizationCredentials = Depends(security))
             detail="Invalid bearer token",
         )
 
+
+test_connection()
 
 mcp = FastMCP(
     name="ApertureDB",

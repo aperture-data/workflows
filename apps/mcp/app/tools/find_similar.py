@@ -3,17 +3,15 @@ from typing import List, Annotated
 
 from pydantic import BaseModel, Field
 
-from aperturedb import Descriptors
+from aperturedb.Descriptors import Descriptors
 from aperturedb.CommonLibrary import create_connector
 
-from shared import logger
+from shared import logger, args
 from decorators import declare_mcp_tool
 from embeddings import BatchEmbedder, DEFAULT_MODEL
 
 
 embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
-
-descriptor_set = os.environ.get("WF_INPUT", "aperturedata")
 
 
 class FindSimilarDocumentsRequest(BaseModel):
@@ -42,24 +40,27 @@ class FindSimilarDocumentsResponse(BaseModel):
 def find_similar_documents(query: Annotated[str, Field(description="The query text to find similar documents for")],
                            k: Annotated[int, Field(
                                description="The maximum number of documents to return")] = 5,
-                           ) -> List[Document]:
+                           ) -> FindSimilarDocumentsResponse:
     """Find documents that are similar to a given text string"""
     logger.info(f"Finding similar documents for query: {query}")
+    logger.info("embedding query")
     embedding = embedder.embed_query(query)
-    client = create_connector()
-    descriptors = Descriptors(client)
-    descriptors.find_similar(
-        set=descriptor_set,
+    logger.info("creating client")
+    client = create_connector()  # TODO: Don't create a new client every time, reuse it
+    logger.info("creating descriptors")
+    entities = Descriptors(client)
+    logger.info("Calling find_similar")
+    entities.find_similar(
+        set=args.input,  # TODO: Make this an optional parameter with optional default
         vector=embedding,
         k_neighbors=k,
         results={"list": ["uniqueid", "url", "text"]}
     )
-    entities = list(descriptors)
     logger.info(f"Found {len(entities)} similar documents")
-    return [
+    return FindSimilarDocumentsResponse([
         Document(doc_id=e["uniqueid"], url=e["url"], text=e["text"])
         for e in entities
-    ]
+    ])
 
 
 logger.info("find_similar_documents tool registered!")

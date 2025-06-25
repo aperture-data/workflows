@@ -1,16 +1,37 @@
 import logging
 import os
 
-logger = logging.getLogger("aperture")  # use a named logger
-LOG_LEVEL = os.getenv('WF_LOG_LEVEL', 'INFO').upper()
-logger.setLevel(LOG_LEVEL)
 
-if not logger.hasHandlers():
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%SZ"
-    ))
-    logger.addHandler(handler)
+def configure_logging(log_level):
+    logger = logging.getLogger("aperture")  # use a named logger
+    logger.setLevel(log_level.upper())
 
-logger.info("Logger configured!")
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%SZ"
+        ))
+        logger.addHandler(handler)
+
+    logger.info("Logger configured!")
+    return logger
+
+
+def get_args():
+    from wf_argparse import ArgumentParser
+    parser = ArgumentParser(
+        description="ApertureDB MCP server")
+    parser.add_argument("--input", required=True,
+                        help="Input set of documents to find similar ones")
+    parser.add_argument("--auth-token", required=True, type=str,
+                        help="Bearer token for authentication")
+    parser.add_argument("--log-level", type=str, default='INFO',
+                        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+
+    args = parser.parse_args([])
+    return args
+
+
+args = get_args()
+logger = configure_logging(args.log_level)
