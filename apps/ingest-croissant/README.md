@@ -4,7 +4,7 @@ This workflow can ingest a Dataset which is published via a croissant URL. Many 
 
 ## Database details
 
-ingest-croissant tries to replicate the Dataset as 1 is to 1 as available from mlcroissant library.
+ingest-croissant tries to replicate the Dataset in a one-to-one manner as available from mlcroissant library.
 
 #### Objects Added to the Database
 
