@@ -1,6 +1,10 @@
 import logging
 import os
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastmcp.server.auth import BearerAuthProvider
+from fastapi import Depends, HTTPException, status
+
 
 def configure_logging(log_level):
     logger = logging.getLogger("aperture")  # use a named logger

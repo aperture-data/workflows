@@ -3,9 +3,6 @@ set -e
 
 LOG_LEVEL=${WF_LOG_LEVEL:-INFO}
 
-pip freeze | grep fastmcp
-
-fastmcp version
 echo "[Startup] Launching MCP server..."
 PYTHONPATH=. fastmcp run app.py:mcp \
     --transport http \

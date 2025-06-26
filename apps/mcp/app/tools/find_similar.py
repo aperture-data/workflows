@@ -57,7 +57,7 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
         results={"list": ["uniqueid", "url", "text"]}
     )
     logger.info(f"Found {len(entities)} similar documents")
-    return FindSimilarDocumentsResponse([
+    return FindSimilarDocumentsResponse(documents=[
         Document(doc_id=e["uniqueid"], url=e["url"], text=e["text"])
         for e in entities
     ])

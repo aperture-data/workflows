@@ -1,33 +1,46 @@
 from typing import Callable, List, Tuple
 from pydantic import BaseModel
-# from fastmcp.server.tool import Tool
-# from mcp.server.fastmcp import FastMCP
-# from fastapi import APIRouter, Depends, Security
-# from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException
 import inspect
 import os
-from shared import logger
+import functools
+
+from shared import logger, args
+from fastapi import Depends
+from fastmcp.server.dependencies import get_http_headers
 
 _registered_tools: List[Tuple[str, Callable]] = []
+
+TOKEN = args.auth_token
+assert TOKEN, "You must provide a valid auth token in WF_AUTH_TOKEN"
+
+
+def check_auth():
+    """Check if the request has a valid bearer token."""
+    headers = get_http_headers() or {}
+    auth = headers.get("authorization", "")
+    if not auth or auth != f"Bearer {TOKEN}":
+        logger.error("Invalid bearer token")
+        raise HTTPException(status_code=401, detail="Invalid bearer token")
 
 
 def declare_mcp_tool(fn=None, *, name: str = None):
     """Decorator to expose a tool to both MCP and FastAPI, DRY."""
     def decorator(fn: Callable[[BaseModel], BaseModel]):
-        # sig = inspect.signature(fn)
-        # if len(sig.parameters) != 1:
-        #     raise ValueError(
-        #         "Tool functions must take a single Pydantic model argument")
-
-        # input_type = list(sig.parameters.values())[0].annotation
-        # output_type = sig.return_annotation
         tool_name = name or fn.__name__
 
-        # Save for FastAPI registration
-        _registered_tools.append((tool_name, fn))
-        # logger.info(
-        #     f"Registered tool: {tool_name} with input type {input_type} and output type {output_type}; we now have {_registered_tools} tools registered")
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            """Wrapper to call the tool function."""
+            logger.info(
+                f"Calling tool: {tool_name} with args: {args}, kwargs: {kwargs}")
+            check_auth()
+            return fn(*args, **kwargs)
+
+        _registered_tools.append((tool_name, wrapper))
         return fn
+
+    # Support for both styles of decorator usage
     if fn is None:
         return decorator
     else:
@@ -42,27 +55,9 @@ def register_tools(mcp: "FastMCP"):
     for tool_name, fn in _registered_tools:
         logger.info(f"Registering tool: {tool_name}")
 
-        # if issubclass(input_type, BaseModel):
-        #     input_schema = input_type.schema()
-        #     params = {
-        #         "type": "object",
-        #         "properties": input_schema["properties"],
-        #         "required": input_schema.get("required", []),
-        #     }
-        # else:
-        #     input_schema = input_type
-
-        # if issubclass(output_type, BaseModel):
-        #     output_schema = output_type.schema()
-        #     response = {
-        #         "type": "object",
-        #         "properties": output_schema["properties"],
-        #         "required": output_schema.get("required", []),
-        #     }
-        # else:
-        #     response = output_type
-
-        # mcp.tool(name=tool_name, description=fn.__doc__ or "",
-        #          parameters=params, response=response, handler=fn)
-
-        mcp.tool(fn, name=tool_name, description=fn.__doc__ or "",)
+        # Register the tool with MCP
+        mcp.tool(
+            fn,
+            name=tool_name,
+            description=fn.__doc__ or "",
+        )
