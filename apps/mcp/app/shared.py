@@ -18,7 +18,7 @@ def configure_logging(log_level):
         ))
         logger.addHandler(handler)
 
-    logger.info("Logger configured!")
+    logger.info(f"Logger configured with level: {log_level}")
     return logger
 
 
@@ -30,7 +30,7 @@ def get_args():
                         help="Input set of documents to find similar ones")
     parser.add_argument("--auth-token", required=True, type=str,
                         help="Bearer token for authentication")
-    parser.add_argument("--log-level", type=str, default='INFO',
+    parser.add_argument("--log-level", type=str, default='DEBUG',
                         help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
 
     args = parser.parse_args([])

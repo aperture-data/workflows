@@ -10,15 +10,17 @@ from shared import logger, args
 from decorators import declare_mcp_tool
 from embeddings import BatchEmbedder, DEFAULT_MODEL
 
+# from fastmcp.prompts.prompt import Message, PromptMessage, TextContent
+
 
 embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
 
 
 class FindSimilarDocumentsRequest(BaseModel):
     query: Annotated[str, Field(
-        description="The query text to find similar documents for")]
+        description="The query text to find similar documents for", min_length=1)]
     k: Annotated[int, Field(
-        description="The maximum number of documents to return")] = 5
+        description="The maximum number of documents to return", gt=0)] = 5
 
 
 class Document(BaseModel):
@@ -42,25 +44,45 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
                                description="The maximum number of documents to return")] = 5,
                            ) -> FindSimilarDocumentsResponse:
     """Find documents that are similar to a given text string"""
-    logger.info(f"Finding similar documents for query: {query}")
-    logger.info("embedding query")
     embedding = embedder.embed_query(query)
-    logger.info("creating client")
     client = create_connector()  # TODO: Don't create a new client every time, reuse it
-    logger.info("creating descriptors")
     entities = Descriptors(client)
-    logger.info("Calling find_similar")
     entities.find_similar(
         set=args.input,  # TODO: Make this an optional parameter with optional default
         vector=embedding,
         k_neighbors=k,
         results={"list": ["uniqueid", "url", "text"]}
     )
-    logger.info(f"Found {len(entities)} similar documents")
+    logger.info(
+        f"Found {len(entities)} similar documents for query: {query} (k={k})")
     return FindSimilarDocumentsResponse(documents=[
         Document(doc_id=e["uniqueid"], url=e["url"], text=e["text"])
         for e in entities
     ])
 
 
-logger.info("find_similar_documents tool registered!")
+# @declare_mcp_prompt(name="answer_question_about_aperturedb",
+#             description="Answers questions about ApertureDB using the document corpus.")
+# def answer_question_about_aperturedb(req: PromptRequest) -> str:
+#     """Answer a user’s question about ApertureDB by searching the document corpus."""
+
+#     query = req.prompt
+#     logger.info(f"Prompt received: {query}")
+
+#     # Call the tool directly
+#     results = find_similar_documents(
+#         FindSimilarDocumentsRequest(query=query, k=5)
+#     )
+
+#     # Simple RAG summarization (you could use Claude here!)
+#     if not results.documents:
+#         return "Sorry, I couldn't find any relevant documents."
+
+#     context = "\n\n".join(f"- {doc.text}" for doc in results.documents)
+#     answer = f"""Here are some relevant details about your question:
+
+# {context}
+
+# Please let me know if you'd like to explore further."""
+
+#     return answer

@@ -32,6 +32,4 @@ mcp = FastMCP(
     """,
 )
 
-logger.info(f"MCP DIR: {dir(mcp)}")
-
 register_tools(mcp)
