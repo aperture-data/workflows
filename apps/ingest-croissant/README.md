@@ -32,6 +32,8 @@ docker run \
 
 Parameters:
 * **`WF_CROISSANT_URL`**: Croissant URL of the published dataset.
+* **`WF_SAMPLE_COUNT`**: The number of records from each record set that should be ingested. The actual records would be min(actual count, WF_SAMPLE_COUNT). A value of -1 would imply all the records. Default value is -1.
+* **`WF_FLATTEN_JSON`**: Persists a list in record value as a set of connected entities. Defaults to false.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
