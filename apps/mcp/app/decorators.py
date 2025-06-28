@@ -37,7 +37,7 @@ class Tool:
             """Wrapper to call the tool function."""
             logger.info(
                 f"Calling tool: {self.name} with args: {args}, kwargs: {kwargs}")
-            # check_auth()
+            check_auth()
 
             # Ordinary exceptions may not be propagated to the client, so we catch them here and re-wrap them
             # as ToolError with an informative message.
