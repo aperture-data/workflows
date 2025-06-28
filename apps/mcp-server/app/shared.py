@@ -5,6 +5,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastmcp.server.auth import BearerAuthProvider
 from fastapi import Depends, HTTPException, status
 
+from connection_pool import ConnectionPool
+
 
 def configure_logging(log_level):
     logger = logging.getLogger("aperture")  # use a named logger
@@ -33,9 +35,10 @@ def get_args():
     parser.add_argument("--log-level", type=str, default='DEBUG',
                         help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
 
-    args = parser.parse_args([])
+    args = parser.parse_args([])  # suppress command line parsing
     return args
 
 
 args = get_args()
 logger = configure_logging(args.log_level)
+connection_pool = ConnectionPool()

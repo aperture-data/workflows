@@ -4,9 +4,8 @@ from typing import List, Annotated
 from pydantic import BaseModel, Field
 
 from aperturedb.Descriptors import Descriptors
-from aperturedb.CommonLibrary import create_connector
 
-from shared import logger, args
+from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
 from embeddings import BatchEmbedder, DEFAULT_MODEL
 
@@ -45,14 +44,14 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
                            ) -> FindSimilarDocumentsResponse:
     """Find documents that are similar to a given text string"""
     embedding = embedder.embed_query(query)
-    client = create_connector()  # TODO: Don't create a new client every time, reuse it
-    entities = Descriptors(client)
-    entities.find_similar(
-        set=args.input,  # TODO: Make this an optional parameter with optional default
-        vector=embedding,
-        k_neighbors=k,
-        results={"list": ["uniqueid", "url", "text"]}
-    )
+    with connection_pool.get_connection() as client:
+        entities = Descriptors(client)
+        entities.find_similar(
+            set=args.input,  # TODO: Make this an optional parameter with optional default
+            vector=embedding,
+            k_neighbors=k,
+            results={"list": ["uniqueid", "url", "text"]}
+        )
     logger.info(
         f"Found {len(entities)} similar documents for query: {query} (k={k})")
     return FindSimilarDocumentsResponse(documents=[

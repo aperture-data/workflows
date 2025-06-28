@@ -5,8 +5,9 @@ import functools
 
 from fastmcp import FastMCP
 
-from decorators import register_tools
+from decorators import register_tools, register_resources
 import tools
+import resources
 from shared import logger
 from shared import args
 
@@ -33,3 +34,4 @@ mcp = FastMCP(
 )
 
 register_tools(mcp)
+register_resources(mcp)
