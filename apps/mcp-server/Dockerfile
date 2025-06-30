@@ -9,7 +9,7 @@ ENV APP_NAME=workflows-mcp-server
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
-EXPOSE 8002
+EXPOSE 8000
 
 # Copy the rest of the application code
 COPY app /app/

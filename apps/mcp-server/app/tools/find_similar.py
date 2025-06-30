@@ -58,30 +58,3 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
         Document(doc_id=e["uniqueid"], url=e["url"], text=e["text"])
         for e in entities
     ])
-
-
-# @declare_mcp_prompt(name="answer_question_about_aperturedb",
-#             description="Answers questions about ApertureDB using the document corpus.")
-# def answer_question_about_aperturedb(req: PromptRequest) -> str:
-#     """Answer a user’s question about ApertureDB by searching the document corpus."""
-
-#     query = req.prompt
-#     logger.info(f"Prompt received: {query}")
-
-#     # Call the tool directly
-#     results = find_similar_documents(
-#         FindSimilarDocumentsRequest(query=query, k=5)
-#     )
-
-#     # Simple RAG summarization (you could use Claude here!)
-#     if not results.documents:
-#         return "Sorry, I couldn't find any relevant documents."
-
-#     context = "\n\n".join(f"- {doc.text}" for doc in results.documents)
-#     answer = f"""Here are some relevant details about your question:
-
-# {context}
-
-# Please let me know if you'd like to explore further."""
-
-#     return answer

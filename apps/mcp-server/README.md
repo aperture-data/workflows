@@ -1,6 +1,6 @@
 # MCP (Model Context Protocol)
 
-This workflow make an ApertureDB instance accessible by a 
+This workflow make an ApertureDB instance accessible by an MCP platform, such as Claude or ChatGPT.
 
 ## Running in docker
 
