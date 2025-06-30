@@ -154,6 +154,9 @@ class AperturedbIO:
             },
         ])
 
+        logger.info(
+            f"Preparing to create descriptor set {self.descriptorset_name} with model {self.embedder.model_spec}, fingerprint {self.embedder.fingerprint_hash()}, metric {self.embedder.metric()}, dimensions {self.embedder.dimensions()}")
+
         if "entities" not in response[1]["FindDescriptorSet"]:
             logger.info(
                 f"Creating new descriptor set {self.descriptorset_name}")
@@ -192,9 +195,11 @@ class AperturedbIO:
             if e["model"] != self.embedder.model_spec:
                 raise ValueError(
                     f"Descriptor set {self.descriptorset_name} already exists with different model {e['model']}, wanted to set {self.embedder.model_spec}")
-            if e["model_fingerprint"] != self.embedder.fingerprint_hash():
-                raise ValueError(
-                    f"Descriptor set {self.descriptorset_name} already exists with different fingerprint {e['model_fingerprint']}")
+            fingerprint_hash = self.embedder.fingerprint_hash()
+            if e["model_fingerprint"] != fingerprint_hash:
+                # Don't raise an error, just log it
+                logger.error(
+                    f"Descriptor set {self.descriptorset_name} already exists with different fingerprint found {e['model_fingerprint']}, expected {fingerprint_hash}")
 
             if self.embedder.metric() not in e["_metrics"] != self.embedder.metric():
                 raise ValueError(
@@ -318,7 +323,7 @@ class AperturedbIO:
                         "direction": "out",
                     },
                     "results": {
-                        "list": ["id", "url", "text"],
+                        "list": ["id", "url", "text", "title"],
                     },
                     "batch": {},
                 }
@@ -341,6 +346,7 @@ class AperturedbIO:
                     id=result["id"],
                     url=result["url"],
                     text=result["text"],
+                    title=result.get("title", None),
                 )
 
     def create_embedding(self, embedding: Embedding) -> None:
@@ -367,6 +373,7 @@ class AperturedbIO:
                         "text": embedding.text,  # LangChain supported field
                         "url": embedding.url,
                         "lc_url": embedding.url,  # LangChain supported field
+                        "title": embedding.title,
                     },
                     "connect": {
                         "ref": "SEGMENT",

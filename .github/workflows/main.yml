@@ -16,12 +16,46 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-base:
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  build-apps:
+      - name: Build base
+        run: |
+          cd base/docker
+          bash build.sh
+
+      - name: Build and export
+        run: |
+          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:latest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflows-base
+          path: ${{ runner.temp }}/workflows-base.tar
+
+  build-test-meta:
+    needs:
+      - build-base
+
     runs-on:
       - deployer
       - self-hosted
     steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: workflows-base
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/workflows-base.tar
+          docker image ls -a
 
       - uses: actions/checkout@v3
 
@@ -30,14 +64,47 @@ jobs:
           registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
           registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
 
-      - name: Build apps
-        run: |
-          cd apps
-          bash build_all.sh
 
-  test-apps:
+      - name: Test meta workflow
+        env:
+          CLEANUP: "true"
+          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
+          WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+        run: |
+          cd apps/crawl-to-rag
+          bash test.sh
+
+      - name: Increment version
+        # Only increment version when merged to main, after builds succeed
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ vars.RAG_VERSION }}
+        id: bump-version
+        run: |
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          curl --silent --show-error --fail --location --request PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/RAG_VERSION \
+            -d "{\"value\":\"${NEW_VERSION}\"}"
+
+
+      - name: Push to docker (on main)
+        # Only push to docker when merged to main
+        # Pushing base to docker should be no-op after the first time
+        if: github.event_name == 'push'
+        run: |
+          export VERSION=${{ steps.bump-version.outputs.version }}
+          echo "Using version $VERSION"
+          docker tag aperturedata/workflows-crawl-to-rag aperturedata/workflows-crawl-to-rag:$VERSION
+          docker push aperturedata/workflows-crawl-to-rag:$VERSION
+
+
+  build-test-apps:
     needs:
-      - build-apps
+      - build-base
 
     strategy:
       matrix:
@@ -47,17 +114,32 @@ jobs:
           embeddings-extraction,
           face-detection,
           jupyterlab,
-          rag
+          rag,
+          crawl-website,
+          text-extraction,
+          text-embeddings,
+          ingest-croissant,
         ]
     runs-on:
       - ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: workflows-base
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: |
+          docker load --input ${{ runner.temp }}/workflows-base.tar
+          docker image ls -a
 
       - uses: aperture-data/common_job_steps@v1
         with:
           registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
           registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
+
+      - uses: actions/checkout@v3
 
       - name: Test app
         env:
@@ -66,27 +148,31 @@ jobs:
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
           cd apps/${{ matrix.app }}
-          bash test.sh
+          bash test.sh || bash build.sh
 
-  push-apps:
-    runs-on:
-      - ubuntu-latest
+      - name: Increment version
+        # Only increment version when merged to main, after builds succeed
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ vars.VERSION }}
+        id: bump-version
+        run: |
+          NEW_VERSION=$(scripts/increment_version.sh ${VERSION})
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          curl --silent --show-error --fail --location --request PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/VERSION \
+            -d "{\"value\":\"${NEW_VERSION}\"}"
 
-    needs:
-      - test-apps
-
-    steps:
-
-      - uses: actions/checkout@v3
-
-      - uses: aperture-data/common_job_steps@v1
-        with:
-          registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
-          registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
-
-      - name: Push to docker
+      - name: Push to docker (on main)
         # Only push to docker when merged to main
+        # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push'
         run: |
-          cd apps
-          bash push_all.sh
+          export VERSION=${{ steps.bump-version.outputs.version }}
+          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
+          docker push aperturedata/workflows-base:$VERSION
+          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
+          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION

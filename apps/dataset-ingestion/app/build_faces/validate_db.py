@@ -51,6 +51,7 @@ count_queries = [
         [{
             "FindImage":{
                 "constraints":{
+                    "celebahq_id" : ["!=", None],
                     "Blurry" : ["==", None]
                 },
                 "results":{
@@ -60,6 +61,9 @@ count_queries = [
         }],
         [{
             "FindPolygon":{
+                "constraints":{
+                    "celebahqmask_id" : ["!=", None]
+                },
                 "results":{
                     "count": True
                 }
@@ -67,6 +71,9 @@ count_queries = [
         }],
         [{
             "FindBoundingBox":{
+                "constraints":{
+                    "celebahqbbox_id" : ["!=", None]
+                },
                 "results":{
                     "count": True
                 }

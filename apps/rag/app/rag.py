@@ -1,4 +1,4 @@
-from typing import List, Dict, Iterator, Tuple, Callable
+from typing import Iterator, Tuple, Callable
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,34 +12,39 @@ class QAChain:
         self.separator = context_builder.separator
         self.separator_length = len(self.separator)
 
-    def _langchain_docs_to_dicts(self, docs) -> List[Dict]:
-        result = []
-        for doc in docs:
-            result.append({
-                "text": doc.page_content,
-                "url": doc.metadata.get("url", ""),
-                "id": doc.id,
-            })
-        return result
-
     async def run(self, query: str, history: str) -> Tuple[str, str]:
         rewritten_query = await self._rewrite_query(query, history)
+        logger.debug(f"Rewritten query: {rewritten_query}")
+        if not rewritten_query:
+            logger.error(
+                "Rewritten query is empty, using original query; check that the LLM is working.")
+            rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
+        logger.debug(f"Retrieved {len(docs)} documents")
         # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)
+        logger.debug(f"Prompt: {prompt}")
         response = await self.llm.predict(prompt)
+        logger.debug(f"Response: {response}")
         if self.separator not in response:
             answer, new_history = response, history
         else:
             answer, new_history = response.split(self.separator, 1)
         answer = answer.strip()
+        logger.debug(f"Answer: {answer}")
         if new_history:
             new_history = new_history.strip()
+        # Not a complete history; more a running summary
+        logger.debug(f"New history: {new_history}")
         rewritten_query = rewritten_query.strip()
-        return answer, new_history, rewritten_query, self._langchain_docs_to_dicts(docs)
+        return answer, new_history, rewritten_query, docs
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
         rewritten_query = await self._rewrite_query(query, history)
+        if not rewritten_query:
+            logger.error(
+                "Rewritten query is empty, using original query; check that the LLM is working.")
+            rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         # Use original query and history for context
         prompt = self.context_builder.build(docs, query, history)
@@ -86,7 +91,7 @@ class QAChain:
                 logger.debug("No summary tokens found.")
                 return history  # old history
 
-        return _stream_answer(), get_summary, rewritten_query.strip(), self._langchain_docs_to_dicts(docs)
+        return _stream_answer(), get_summary, rewritten_query.strip(), docs
 
     async def _rewrite_query(self, query: str, history_summary: str = "No history") -> str:
         prompt = f"""

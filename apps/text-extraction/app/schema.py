@@ -22,6 +22,8 @@ class TextBlock:
     anchor: Optional[str] = None
     # dom_path field removed
     page_number: Optional[int] = None
+    # Optional title for the block, e.g., from a <title> tag
+    title: Optional[str] = None
 
     def __str__(self):
         return self.text
@@ -41,6 +43,7 @@ class TextBlock:
             kind=self.kind,
             anchor=self.anchor,
             page_number=self.page_number,
+            title=self.title
         )
 
 
@@ -56,6 +59,7 @@ class ImageBlock:
     alt_text: Optional[str] = None
     # dom_path field removed
     anchor: Optional[str] = None
+    title: Optional[str] = None
 
     @property
     def best_text(self):
@@ -80,6 +84,7 @@ class FullTextBlock:
     Represents the full extracted text.
     """
     text: str
+    title: Optional[str] = None
 
     def __str__(self):
         return self.text
@@ -93,6 +98,7 @@ class Segment:
     text: str
     blocks: List[TextBlock]
     total_tokens: int
+    title: Optional[str] = None
 
     def url(self, url: str):
         """Pick the first URL from the blocks, if any

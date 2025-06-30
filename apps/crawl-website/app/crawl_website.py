@@ -182,6 +182,9 @@ class ApertureDBSpider(CrawlSpider):
         error_urls = self.error_urls
         logging.info(f"Error URLs: {error_urls}")
 
+        doc_count = self.crawler.stats.get_value('itempipeline/item_count', 0)
+        logging.info(f"Total documents processed: {doc_count}")
+
 
 class ApertureDBPipeline:
     """Pipeline to store items in ApertureDB"""
@@ -512,6 +515,9 @@ def main(args):
             ApertureDBPipeline: 1000,
         },
         "LOG_LEVEL": args.log_level.upper(),
+        "EXTENSIONS": {
+            'scrapy.extensions.closespider.CloseSpider': 100,
+        },
     })
     process.crawl(ApertureDBSpider)
     process.start()

@@ -48,8 +48,12 @@ class TextSegmenter:
         buffer_tokens = 0
         total_tokens = 0
         n_segments = 0
+        title = None
 
         for block in blocks:
+            if not title:
+                title = block.title
+
             # TODO: Consider suppressing overlap for some kinds of block
             token_count = self._token_count(block.text)
             total_tokens += token_count
@@ -75,6 +79,7 @@ class TextSegmenter:
                         text=segment_text,
                         blocks=buffer.copy(),
                         total_tokens=buffer_tokens,
+                        title=title
                     )
                     n_segments += 1
 
@@ -99,7 +104,7 @@ class TextSegmenter:
 
         if buffer:  # Finally flush buffer by emitting one more segment
             segment_text = "\n\n".join(b.text for b in buffer)
-            yield Segment(text=segment_text, blocks=buffer.copy(), total_tokens=buffer_tokens)
+            yield Segment(text=segment_text, blocks=buffer.copy(), total_tokens=buffer_tokens, title=title)
             n_segments += 1
 
         logger.info(

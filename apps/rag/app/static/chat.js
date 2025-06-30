@@ -87,11 +87,11 @@ document.getElementById('chat-send').addEventListener('click', async () => {
       const link = document.createElement('a');
       link.classList.add('document-link');
       link.href = doc.url;
-      link.textContent = doc.url;
+      link.textContent = doc.title ? doc.title : doc.url;
       link.target = '_blank'; // Open in a new tab
       const span = document.createElement('span');
       span.classList.add('document-text');
-      span.textContent = doc.text;
+      span.textContent = doc.content ? doc.content : "(no content available)";
       listItem.appendChild(link);
       listItem.appendChild(document.createElement('br'));
       listItem.appendChild(span);
@@ -241,6 +241,22 @@ async function loadConfigTable() {
       throw new Error('Failed to fetch config');
     }
     const config = await response.json();
+
+    const existing = document.getElementById('status-pre');
+    if (existing) existing.remove();
+
+    if (('ready' in config) && (config.ready !== true)) {
+
+      const pre = document.createElement('pre');
+      pre.id = 'status-pre';
+      pre.textContent = config.detail || "Preparing...";
+      pre.style.margin = "1em";
+      document.body.appendChild(pre);
+
+      // Try again in 3 seconds
+      setTimeout(loadConfigTable, 3000);
+      return;
+    }
 
     const tbody = document.querySelector('#config-table tbody');
     tbody.innerHTML = '';
