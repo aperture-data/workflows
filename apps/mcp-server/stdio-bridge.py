@@ -41,7 +41,7 @@ def extract_jsonrpc_from_sse(body):
         if line.startswith("data:"):
             info(f"Extracting JSON-RPC from SSE line: {line}")
             return json.loads(line[len("data:"):].strip())
-    info("No data line found in SSE response, returning empty  response")
+    info("No data line found in SSE response, returning empty response")
     return None
 
 
