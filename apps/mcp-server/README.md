@@ -22,14 +22,14 @@ Parameters:
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
-== Integration ==
+## Integration 
 
-=== MCP Inspector ===
+### MCP Inspector 
 
 1. You can run the MCP inspector using something like:
 
 ```
-docker run -it -p 6274:6274 -p 6277:6277 allfunc/mcp-inspector
+docker run -it -p 6274:6274 -p 6277:6277 allfunc/mcp-inspector:0.14.0
 ```
 
 2. And visit http://localhost:6274/
@@ -38,9 +38,10 @@ docker run -it -p 6274:6274 -p 6277:6277 allfunc/mcp-inspector
 ```
 https://workflowstesting.cloud.aperturedata.io/mcp/
 ```
+Because of the way MCP Inspector uses a proxy, you will likely need a fully-qualified domain name.
 5. Hit "Connect", and start exploring the tools, resources, and prompt.
 
-=== Claude Desktop ===
+### Claude Desktop 
 
 While it is theorically possible to get Claude Desktop to use remote MCP servers, the more reliable path is to use a `stdio` bridge, especially as Claude has trouble with Authentication Bearer tokens.
 
