@@ -9,7 +9,6 @@ from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
 from embeddings import BatchEmbedder, DEFAULT_MODEL
 
-# from fastmcp.prompts.prompt import Message, PromptMessage, TextContent
 
 
 embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
