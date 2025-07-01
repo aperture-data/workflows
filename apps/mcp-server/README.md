@@ -43,7 +43,7 @@ Because of the way MCP Inspector uses a proxy, you will likely need a fully-qual
 
 ### Claude Desktop 
 
-While it is theorically possible to get Claude Desktop to use remote MCP servers, the more reliable path is to use a `stdio` bridge, especially as Claude has trouble with Authentication Bearer tokens.
+While it is theoretically possible to get Claude Desktop to use remote MCP servers, the more reliable path is to use a `stdio` bridge, especially as Claude has trouble with Authentication Bearer tokens.
 
 1. Download [`stdio-bridge.py`](./stdio-bridge.py)
 2. Find the Claude configuration directory (e.g. `~/Library/Application\ Support/Claude` on MacOS)
