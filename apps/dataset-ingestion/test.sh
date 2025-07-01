@@ -48,6 +48,7 @@ docker run \
     -e "NUM_WORKERS=8" \
     -e "SAMPLE_COUNT=-1" \
     -e "DATASET=coco" \
+    -e "PUSH_TO_S3=true" \
     aperturedata/workflows-dataset-ingestion &
 pid1=$!
 
@@ -65,6 +66,7 @@ docker run \
     -e "SAMPLE_COUNT=-1" \
     -e "LOAD_CELEBAHQ=true" \
     -e "DATASET=faces" \
+    -e "PUSH_TO_S3=true" \
     aperturedata/workflows-dataset-ingestion &
 pid2=$!
 
