@@ -23,6 +23,10 @@
 #     }
 # }
 
+import sys
+import json
+import urllib.request
+import urllib.error
 
 session_id = None  # Assigned by server on first request
 
@@ -44,12 +48,14 @@ def extract_jsonrpc_from_sse(body):
 
 def post_json(url, token, req_json):
     global session_id
+    # data = f"data: {json.dumps(req_json)}\n\n".encode("utf-8")
     data = json.dumps(req_json).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
         headers={
             "Content-Type": "application/json",
+            # "Content-Type": "text/event-stream",
             "Accept": "application/json, text/event-stream",
             "Authorization": f"Bearer {token}",
             "Content-Length": str(len(data)),
@@ -100,13 +106,17 @@ def main():
             }), flush=True)
             continue
 
+        # if "id" not in req:
+        #     info(f"Ignoring notification: {req['method']}")
+        #     continue
+
         if "params" not in req or not isinstance(req["params"], dict):
             req["params"] = {}
 
         # inject `_meta.progressToken`
         if "_meta" not in req["params"]:
             req["params"]["_meta"] = {
-                "progressToken": req.get("id")
+                "progressToken": req.get("id")  # Claude uses id for tracking
             }
 
         info(f"req={req}")
