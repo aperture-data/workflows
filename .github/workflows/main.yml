@@ -115,6 +115,7 @@ jobs:
           face-detection,
           jupyterlab,
           rag,
+          mcp-server,
           crawl-website,
           text-extraction,
           text-embeddings,
