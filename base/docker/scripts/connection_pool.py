@@ -13,17 +13,19 @@ class ConnectionPool:
     threads to safely execute queries by borrowing and returning connections.
     """
 
-    def __init__(self, pool_size: int = 10):
+    def __init__(self, pool_size: int = 10, connection_factory=create_connector):
         """
         Initializes the connection pool.
 
         Args:
             pool_size (int): The number of connections to keep in the pool.
+            connection_factory (callable): A factory function to create new connections.
         """
         if pool_size <= 0:
             raise ValueError("Pool size must be greater than 0.")
 
         self._pool_size = pool_size
+        self._connection_factory = connection_factory
         # A thread-safe queue to hold the available connections
         self._pool = queue.Queue(maxsize=pool_size)
 
@@ -33,7 +35,9 @@ class ConnectionPool:
         # Pre-populate the pool with connections
         for _ in range(pool_size):
             try:
-                connection = create_connector()
+                connection = self._connection_factory()
+                if not connection:
+                    raise ConnectionError("Failed to create a connection.")
                 self._pool.put(connection)
             except Exception as e:
                 print(f"Failed to create a connection for the pool: {e}")
