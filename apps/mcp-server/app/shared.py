@@ -28,8 +28,8 @@ def get_args():
     from wf_argparse import ArgumentParser
     parser = ArgumentParser(
         description="ApertureDB MCP server")
-    parser.add_argument("--input", required=True,
-                        help="Input set of documents to find similar ones")
+    parser.add_argument("--input", required=False,
+                        help="Default descriptor set to use for find similar")
     parser.add_argument("--auth-token", required=True, type=str,
                         help="Bearer token for authentication")
     parser.add_argument("--log-level", type=str, default='DEBUG',
