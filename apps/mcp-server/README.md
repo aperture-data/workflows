@@ -55,7 +55,7 @@ While it is theorically possible to get Claude Desktop to use remote MCP servers
         "command": "python3",
         "args": [
             "/path/to/stdio-bridge.py",
-            "http://<hostname>/mcp/",
+            "https://<hostname>/mcp/",
             "<token>"
         ]
     }
