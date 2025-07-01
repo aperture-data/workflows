@@ -41,21 +41,18 @@ def extract_jsonrpc_from_sse(body):
         if line.startswith("data:"):
             info(f"Extracting JSON-RPC from SSE line: {line}")
             return json.loads(line[len("data:"):].strip())
-    # raise ValueError("No data line found in SSE response")
     info("No data line found in SSE response, returning empty  response")
     return None
 
 
 def post_json(url, token, req_json):
     global session_id
-    # data = f"data: {json.dumps(req_json)}\n\n".encode("utf-8")
     data = json.dumps(req_json).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
         headers={
             "Content-Type": "application/json",
-            # "Content-Type": "text/event-stream",
             "Accept": "application/json, text/event-stream",
             "Authorization": f"Bearer {token}",
             "Content-Length": str(len(data)),
@@ -105,10 +102,6 @@ def main():
                 "error": {"code": -32700, "message": f"Invalid JSON: {e}"}
             }), flush=True)
             continue
-
-        # if "id" not in req:
-        #     info(f"Ignoring notification: {req['method']}")
-        #     continue
 
         if "params" not in req or not isinstance(req["params"], dict):
             req["params"] = {}
