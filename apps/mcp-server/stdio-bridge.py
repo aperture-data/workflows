@@ -23,6 +23,10 @@
 #     }
 # }
 
+import sys
+import json
+import urllib.request
+import urllib.error
 
 session_id = None  # Assigned by server on first request
 
@@ -37,8 +41,7 @@ def extract_jsonrpc_from_sse(body):
         if line.startswith("data:"):
             info(f"Extracting JSON-RPC from SSE line: {line}")
             return json.loads(line[len("data:"):].strip())
-    # raise ValueError("No data line found in SSE response")
-    info("No data line found in SSE response, returning empty  response")
+    info("No data line found in SSE response, returning empty response")
     return None
 
 
@@ -106,7 +109,7 @@ def main():
         # inject `_meta.progressToken`
         if "_meta" not in req["params"]:
             req["params"]["_meta"] = {
-                "progressToken": req.get("id")
+                "progressToken": req.get("id")  # Claude uses id for tracking
             }
 
         info(f"req={req}")
