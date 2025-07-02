@@ -68,7 +68,8 @@ class AWSProvider(Provider):
     def __init__(self,bucket,access_key,secret_key):
         super(AWSProvider,self).__init__(bucket)
         import boto3
-        self.client = boto3.client('s3')
+        self.client = \
+        boto3.client('s3',aws_access_key_id=access_key,aws_secret_access_key=secret_key)
         # store this here because some things might be picky about region.
         self.region_name = self.client.meta.region_name
     def url_column_name(self):
