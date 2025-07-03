@@ -9,8 +9,7 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip && \
-    pip3 install dbeval slack_sdk
-
+    pip3 install --no-cache-dir -r /requirements.txt
 RUN pip3 install --upgrade aperturedb
 
 RUN mkdir -p app/output
@@ -30,5 +29,8 @@ RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
 RUN ./google-cloud-sdk/install.sh
 ENV PATH=$PATH:/google-cloud-sdk/bin
 
+# Get the image version from the build context
+ARG VERSION
+ENV APP_VERSION=$VERSION
 
 CMD ["/start.sh"]
