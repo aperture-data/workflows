@@ -35,13 +35,24 @@ class Embedder():
             pretrained (str): The pretrained corpus, e.g., "laion2b_s34b_b79k". (Optional for CLIP)
             device (str): The device to run the model on,
         """
-        # CLIP does not distinguish their pretrained corpu  s
+        assert provider in ["clip", "openclip"], \
+            f"Unsupported provider: {provider}. Supported providers are 'clip' and 'openclip'."
+        self.provider = provider
+
+        assert model_name, "Model name must be specified."
+        self.model_name = model_name
+
+        # CLIP does not distinguish their pretrained corpus
         if provider == "clip" and not pretrained:
             pretrained = "openai"
+        assert pretrained, "Pretrained corpus must be specified for OpenCLIP."
+        self.pretrained = pretrained
+
         # This should be "cpu" during docker build
         self.device = torch.device(device or (
             "cuda" if torch.cuda.is_available() else "cpu"))
-        self._load_model()  # sets self.model, self.preprocess, self.tokenizer
+
+        self._load_model()  # sets self.preprocess, self.tokenizer
 
     def _load_model(self):
         if self.provider == "openclip":
@@ -59,7 +70,7 @@ class Embedder():
             model_id = self.model_name
             # CLIP assumes pretrained corpus is "openai"
             self.model, self.preprocess = clip.load(
-                model_id, device=self.device, download_root="/root/.cache/clip")
+                model_id, device=self.device)
             self.model.eval()
             self.tokenizer = clip.tokenize
         else:
@@ -79,8 +90,8 @@ class Embedder():
             "embeddings_provider": self.provider,
             "embeddings_model": self.model_name,
             "embeddings_pretrained": self.pretrained,
-            "embeddings_fingerprint": self.fingerprint_hash()
-            "embeddings_device": str(self.device)
+            "embeddings_fingerprint": self.fingerprint_hash(),
+            "embeddings_device": str(self.device),
         }
 
     @classmethod
@@ -122,9 +133,9 @@ class Embedder():
                     f"Fingerprint mismatch: {fingerprint} != {properties.get('embeddings_fingerprint')}")
 
         if "_metrics" in properties:
-            if self.metric not in properties["_metrics"]:
+            if result.metric not in properties["_metrics"]:
                 logger.error(
-                    f"Metric {self.metric} not found in {properties['_metrics']}")
+                    f"Metric {result.metric} not found in {properties['_metrics']}")
 
         if "_dimensions" in properties:
             if result.dimensions != properties.get("_dimensions"):
@@ -133,10 +144,12 @@ class Embedder():
 
         return result
 
+    @staticmethod
     def _normalize(tensor: torch.Tensor) -> torch.Tensor:
         """Normalize the tensor to unit length."""
         return tensor / tensor.norm(dim=-1, keepdim=True)
 
+    @staticmethod
     def _as_numpy(tensor: torch.Tensor) -> np.ndarray:
         """Convert a PyTorch tensor to a NumPy array."""
         return tensor.float().cpu().numpy()
@@ -162,16 +175,7 @@ class Embedder():
         Returns:
             np.ndarray: The embedded vector for the image.
         """
-        nparr = np.frombuffer(b, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = Image.fromarray(image)
-        image = self.preprocess(image).unsqueeze(0).to(self.device)
-
-        features = self.model.encode_image(image)
-        features = self._normalize(features)
-        features = self._as_numpy(features)
-        return features
+        return self.embed_images([b])[0]
 
     def embed_images(self, images: List[bytes]) -> List[np.ndarray]:
         """Embed a list of images.
@@ -182,7 +186,28 @@ class Embedder():
         Returns:
             List[np.ndarray]: A list of embedded vectors for the images.
         """
-        return [self.embed_image(image) for image in images]
+        preprocessed = []
+
+        for i, b in enumerate(images):
+            try:
+                nparr = np.frombuffer(b, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(image)
+                tensor = self.preprocess(image)  # shape [C, H, W]
+                preprocessed.append(tensor)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to preprocess image {i}: {e}. Ensure the image is valid and in a supported format.")
+
+        # Stack and move to device
+        batch = torch.stack(preprocessed, dim=0).to(
+            self.device)  # shape [B, C, H, W]
+
+        with torch.no_grad():
+            features = self.model.encode_image(batch)  # shape [B, D]
+            features = self._normalize(features)
+            return [self._as_numpy(f) for f in features]  # List[np.ndarray]
 
     def fingerprint(self, canonical_text: str = FINGERPRINT_TEXT) -> np.ndarray:
         result = self.embed_text(canonical_text)
@@ -200,7 +225,7 @@ class Embedder():
 
     def summarize(self, canonical_text: str = FINGERPRINT_TEXT):
         vec = self.fingerprint(canonical_text)
-        print(f"[INFO] {rovider: {self.provider}")
+        print(f"[INFO] Provider: {self.provider}")
         print(f"[INFO] Model: {self.model_name}")
         print(f"[INFO] Pretrained: {self.pretrained}")
         print(f"[INFO] Device: {self.device}")
@@ -219,5 +244,5 @@ class Embedder():
 if __name__ == "__main__":
     for spec in SUPPORTED_MODELS:
         print(f"\n=== Warming cache for {spec} ===")
-        be = Embedder(model_spec=spec, device="cpu")
+        be = Embedder.from_string(spec, device="cpu")
         be.summarize()
