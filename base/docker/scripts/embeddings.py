@@ -4,6 +4,10 @@ import hashlib
 from typing import List, Union, Literal, Optional
 import cv2
 from PIL import Image
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # provider model pretrained
 # Keep this short to reduce docker build time and image size
@@ -159,18 +163,26 @@ class Embedder():
         return self.embed_texts([input])[0]
 
     def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
+        logger.debug(f"Embedding {len(texts)} texts on {self.device}")
+
+        tokens = self._tokenize(texts)
+
         with torch.no_grad():
-            tokens = self._tokenize(texts)
             features = self.model.encode_text(tokens)
             features = self._normalize(features)
-            features = self._as_numpy(features)
-            return features
+
+        features = [self._as_numpy(f) for f in features]
+
+        assert all(f.shape[0] == self.dimensions for f in features), \
+            f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
+
+        return features
 
     def embed_image(self, b: bytes) -> np.ndarray:
         """Embed a single image input.
 
         Args:
-            image (bytes): The image data in bytes format.
+            image (bytes): The image data in bytes format (JPEG/PNG).
 
         Returns:
             np.ndarray: The embedded vector for the image.
@@ -181,11 +193,14 @@ class Embedder():
         """Embed a list of images.
 
         Args:
-            images (List[bytes]): A list of image data in bytes format.
+            images (List[bytes]): A list of image data in bytes format (JPEG/PNG).
 
         Returns:
             List[np.ndarray]: A list of embedded vectors for the images.
         """
+
+        logger.debug(f"Embedding {len(images)} images on {self.device}")
+
         preprocessed = []
 
         for i, b in enumerate(images):
@@ -207,7 +222,12 @@ class Embedder():
         with torch.no_grad():
             features = self.model.encode_image(batch)  # shape [B, D]
             features = self._normalize(features)
-            return [self._as_numpy(f) for f in features]  # List[np.ndarray]
+
+        features = [self._as_numpy(f) for f in features]  # List[np.ndarray]
+
+        assert all(f.shape[0] == self.dimensions for f in features), \
+            f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
+        return features
 
     def fingerprint(self, canonical_text: str = FINGERPRINT_TEXT) -> np.ndarray:
         result = self.embed_text(canonical_text)
@@ -238,6 +258,9 @@ class Embedder():
     def metric(self):
         # For now we believe all OpenCLIP and CLIP models are cosine similarity
         return "CS"
+
+    def __repr__(self):
+        return f"<Embedder {self.provider} {self.model_name} ({self.pretrained}) on {self.device}>"
 
 
 # Invoke this module directly to warm the cache
