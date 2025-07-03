@@ -51,7 +51,7 @@ with_env_only() {
 
     echo
     echo "Running $command"
-    
+
     cd /workflows/$command || exit 1
     env -i "${env_args[@]}" bash app.sh
 }
@@ -64,7 +64,7 @@ function cleanup() {
         wait $bg_pid 2>/dev/null || true
     fi
 }
-    
+
 function set_ready() {
     mv $NOT_READY_FILE $NOT_READY_FILE.bak
 }
@@ -75,11 +75,11 @@ log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
 (
     log_status "Starting crawl"
 
-    with_env_only crawl-website DB_HOST DB_USER DB_PASS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
+    with_env_only crawl-website DB_HOST DB_USER DB_PASS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN
 
     log_status "Crawl complete; starting text-extraction"
 
-    with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
+    with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR
 
     log_status "Text-extraction complete; starting text-embeddings"
 
@@ -95,4 +95,4 @@ trap 'fatal $LINENO' ERR
 trap cleanup EXIT
 
 echo "Running webserver for RAG API"
-with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS WF_ALLOWED_ORIGINS AIMON_API_KEY
