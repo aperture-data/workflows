@@ -7,11 +7,10 @@ from aperturedb.Descriptors import Descriptors
 
 from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
-from embeddings import BatchEmbedder, DEFAULT_MODEL
+from embeddings import Embedder, DEFAULT_MODEL
 
 
-
-embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
+embedder = Embedder.from_string(model_spec=DEFAULT_MODEL)
 
 
 class Document(BaseModel):
@@ -53,12 +52,12 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
-    embedding = embedder.embed_query(query)
+    embedding = embedder.embed_text(query)
     with connection_pool.get_connection() as client:
         entities = Descriptors(client)
         entities.find_similar(
             set=descriptor_set,
-            vector=embedding,
+            vector=embedding.tobytes(),
             k_neighbors=k,
             results={"list": ["uniqueid", "url", "text"]}
         )
@@ -81,12 +80,12 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
-    embedding = embedder.embed_query(query)
+    embedding = embedder.embed_text(query)
     query = [
         {
             "FindDescriptor": {
                 "set": descriptor_set,
-                "vector": embedding,
+                "vector": embedding.tobytes(),
                 "k_neighbors": k,
                 "_ref": 1,
             }

@@ -26,7 +26,7 @@ class AperturedbIO:
                  run_id: str,
                  descriptorset_name: str,
                  engine: str,
-                 embedder: "BatchEmbedder",
+                 embedder: "Embedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
@@ -110,8 +110,8 @@ class AperturedbIO:
                         "id": self.spec_id,
                         "model": self.embedder.model_spec,
                         "model_fingerprint": self.embedder.fingerprint_hash(),
-                        "dimensions": self.embedder.dimensions(),
-                        "metric": self.embedder.metric(),
+                        "dimensions": self.embedder.dimensions,
+                        "metric": self.embedder.metric,
                         "descriptorset_name": self.descriptorset_name,
                         "engine": self.engine,
                     },
@@ -178,8 +178,8 @@ class AperturedbIO:
                             "model": self.embedder.model_spec,
                             "model_fingerprint": self.embedder.fingerprint_hash(),
                         },
-                        "metric": self.embedder.metric(),
-                        "dimensions": self.embedder.dimensions(),
+                        "metric": self.embedder.metric,
+                        "dimensions": self.embedder.dimensions,
                         "connect": {
                             "ref": 1,
                             "class": "embeddingsSpecHasDescriptorSet",

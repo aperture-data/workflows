@@ -15,7 +15,7 @@ from aperturedb.CommonLibrary import create_connector
 import asyncio
 
 from llm import LLM
-from embeddings import BatchEmbedder
+from embeddings import Embedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
 from context_builder import ContextBuilder
@@ -278,7 +278,7 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
 
 def get_retriever(descriptorset_name: str, model: str, k: int):
     """Build the retriever for the given descriptorset and model."""
-    embeddings = BatchEmbedder(model)
+    embeddings = Embedder.from_string(model)
     retriever = Retriever(
         embeddings=embeddings,
         descriptor_set=descriptorset_name,

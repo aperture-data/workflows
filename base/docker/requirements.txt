@@ -3,3 +3,4 @@ open_clip_torch>=2.23
 git+https://github.com/openai/CLIP.git
 dbeval 
 slack_sdk
+pillow
