@@ -119,7 +119,7 @@ jobs:
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
           cd apps/${{ matrix.app }}
-          bash test.sh || bash build.sh
+          bash test.sh || bash ../build.sh
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main
