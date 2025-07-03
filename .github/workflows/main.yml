@@ -217,7 +217,7 @@ jobs:
           SHA="${{ github.sha }}"
           COMMIT_MSG=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
           https://api.github.com/repos/${{ github.repository }}/commits/$SHA | jq -r .commit.message)
-          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -1 | tr -d '#' || true)
           if [ -n "$PR_NUMBER" ]; then
             echo "Found PR number: $PR_NUMBER"
             echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
