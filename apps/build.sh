@@ -5,7 +5,6 @@
 # The application directory can be specified as an argument, or defaults to the current directory.
 
 set -o pipefail # exit on error in a pipeline
-set -u # exit on undefined variable
 set -o nounset # exit on undefined variable
 set -o errexit # exit on error
 set -o errtrace # exit on error in a function

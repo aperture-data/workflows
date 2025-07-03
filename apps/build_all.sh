@@ -43,6 +43,6 @@ echo "Building the following workflows in order: ${ALL_WORKFLOWS[@]}"
 for name in "${ALL_WORKFLOWS[@]}"; do
   echo "Building $name"
   if [ -d "$name" ]; then
-    (cd $name && ../build.sh)
+    (cd "$name" && ../build.sh)
   fi
 done
