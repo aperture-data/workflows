@@ -204,7 +204,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          curl -s -H "Authorization: Bearer $GH_TOKEN" \
+          curl -s -H "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
                 -H "Accept: application/vnd.github+json" \
                 -X POST \
                 https://api.github.com/repos/${{ github.repository }}/commits/$SHA/comments \
@@ -214,9 +214,16 @@ jobs:
         id: find_pr
         run: |
           set -euo pipefail
-          PR_NUMBER=$(git log -1 --pretty=%B | grep -oE '#[0-9]+' | head -1 | tr -d '#')
-          echo "Found PR number: $PR_NUMBER"
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          SHA="${{ github.sha }}"
+          COMMIT_MSG=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
+          https://api.github.com/repos/${{ github.repository }}/commits/$SHA | jq -r .commit.message)
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Found PR number: $PR_NUMBER"
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "No PR number found in commit message"
+          fi
 
       - name: Comment on PR
         if: steps.find_pr.outputs.pr_number != ''
@@ -229,7 +236,7 @@ jobs:
           }')
 
           curl -s -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Authorization: Bearer ${{ secrets.PAT_VARIABLES }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments \
             -d "$BODY"
