@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-bash build.sh
+bash ../build.sh
 export WORKFLOW_NAME="face-detection"
 RUNNER_NAME="$(whoami)"
 FD_NW_NAME="${RUNNER_NAME}_${WORKFLOW_NAME}"
