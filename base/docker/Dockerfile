@@ -28,6 +28,7 @@ COPY scripts/slack-alert.py app/
 COPY scripts/batcher.py app/
 COPY scripts/wf_argparse.py app/
 COPY scripts/status_server.py app/
+COPY scripts/connection_pool.py app/
 
 COPY scripts/start.sh /
 
