@@ -125,10 +125,16 @@ class AWSProvider(Provider):
 class CustomSources(Sources):
     def __init__(self, source_provider:Provider):
         super().__init__(3)
+        self.gs_client = None
         if isinstance(source_provider,AWSProvider):
             self.s3 = source_provider.client
         else:
             self.gs_client = source_provider.client
+    def load_object(self,path):
+        if self.gs_client:
+            return self.load_from_gs_url(path,lambda blob:True )[1]
+        else:
+            return self.load_from_s3_url(path,lambda blob:True )[1]
     def load_from_gs_url(self,gs_url,validator):
         import numpy as np
 

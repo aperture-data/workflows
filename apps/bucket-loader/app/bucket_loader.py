@@ -8,7 +8,7 @@ from aperturedb.CommonLibrary import create_connector, execute_query
 from wf_argparse import ArgumentParser
 
 from provider import AWSProvider,GCSProvider
-from ingester import ImageIngester,VideoIngester,DocumentIngester
+from ingester import ImageIngester, VideoIngester, DocumentIngester, EntityIngester, MergeData
 from spec import WorkflowSpec
 
 
@@ -46,18 +46,32 @@ def main(args):
 
 
     ingestions = [
+            EntityIngester( provider) if args.ingest_entities else None,
             ImageIngester( provider) if args.ingest_images else None,
             VideoIngester( provider) if args.ingest_videos else None,
             DocumentIngester( provider) if args.ingest_pdfs else None
             ]
+    if ingestions[0]:
+        ingestions[0].prepare()
+        def map_merge(ingestor):
+            if not ingestor:
+                return ingestor
+            ingestor.set_merge_data( 
+                    MergeData(
+                        ingestions[0].get_merge(ingestor.object_type),
+                        all_blobs=args.entity_merge_method=="all_blobs",
+                        error_missing=args.entity_merge_missing_error))
+        [ map_merge(item) for item in ingestions[1:] ]
     for ingestion in ingestions:
         if ingestion is None:
             continue
         # determines how many to ingest
         ingestion.set_add_object_paths( args.add_object_paths )
-        ingestion.prepare()
-        ingestion.load(db)
+        if not isinstance(ingestion,EntityIngester):
+            ingestion.prepare()
+        #ingestion.load(db)
 
+    sys.exit(1)
     spec.finish_run(run_id)
     spec.finish_spec()
 
@@ -82,6 +96,11 @@ def get_args():
             help="Whether the workflow should ingest supported document types")
     obj.add_argument("--ingest-entities",type=bool,default=False,
             help="Whether the workflow should ingest supported entities types")
+    obj.add_argument("--entity-merge-method",type=str,
+            choices=["all_blobs","only_matched"], default="all_blobs",
+            help="Whether the workflow should ingest blobs that are missing property entries") 
+    obj.add_argument("--entity-merge-missing-error",type=bool,default=False,
+            help="Whether a missing property-blob entry is an error") 
     obj.add_argument("--add-object-paths",type=bool,default=False,
             help="Whether the workflow should add a property - `adb_resource_path` to all bucket items added")
     obj.add_argument("--spec-id",type=str,default=None,

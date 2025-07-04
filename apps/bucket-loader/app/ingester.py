@@ -8,6 +8,7 @@ import mimetypes
 import os
 import sys
 from provider import Provider,CustomSources
+from aperturedb.Query import ObjectType
 from aperturedb.ImageDataCSV import ImageDataCSV
 from aperturedb.BlobDataCSV import BlobDataCSV
 from aperturedb.VideoDataCSV import VideoDataCSV
@@ -18,20 +19,31 @@ IMAGE_TYPES_TO_LOAD = ['image/png', 'image/jpeg']
 DOC_TYPES_TO_LOAD = ['application/pdf' ]
 VIDEO_TYPES_TO_LOAD = ['video/mp4']
 
+class MergeData:
+    def __init__(self,properties_df:pd.DataFrame, all_blobs=True, error_missing = False):
+        self.properties_df = properties_df
+        self.all_blobs = all_blobs
+        self.error_missing = error_missing
+
 # Ingester - uses provider to retrieve list of files, creates dataframe,
 #  and passes to appropriate CSVLoader
 # This is the base class, each subclass configures the loader and filter.
 class Ingester:
     # guess_types - don't download each file to determine the type - do this
     # based off extension.
-    def __init__(self, source: Provider, guess_types=True , add_object_paths=False):
+    def __init__(self,object_type: ObjectType,  source: Provider, guess_types=True , add_object_paths=False):
+        self.object_type = object_type
         self.guess_types = guess_types
         self.source = source
         self.dataframe = None
         self.add_object_paths = add_object_paths
+        self.merge_data = None
 
-    def add_object_paths(self,add_object_paths:bool ):
+    def set_add_object_paths(self,add_object_paths:bool ):
         self.add_object_paths = add_object_paths
+
+    def set_merge_data(self,merge_data: MergeData):
+        self.merge_data = merge_data
 
     def prepare(self):
         raise NotImplementedError("Base Class")
@@ -53,10 +65,10 @@ class Ingester:
             url = "{}//{}/{}".format(scheme,bucket,path)
             full_path = "{}/{}".format(bucket, path) 
             object_hash = hash_string(url) 
-            full.append([url, object_hash, load_time ])
+            full.append([path,url, object_hash, load_time ])
             objects.append(full_path)
         df = pd.DataFrame(
-                columns = [url_column_name,'wf_sha1_hash','wf_ingest_date'],
+                columns = ['filename',url_column_name,'wf_sha1_hash','wf_ingest_date'],
                 data=full)
         df['wf_creator'] =  "bucket_ingestor" 
         df['wf_creator_key'] = hash_string( "{}/{}".format(scheme,bucket)) 
@@ -64,12 +76,26 @@ class Ingester:
         df['adb_mime_type'] =df[ url_column_name].apply(set_mime_type)
         if self.add_object_paths:
             df['wf_object_path'] = objects
+
+        if self.merge_data is not None:
+            print("Merging properties in..")
+            merged = df.merge( self.merge_data.properties_df, on='filename',
+                    how='left' if self.merge_data.all_blobs else 'inner' )
+            if self.merge_data.error_missing:
+                # missing blob items.
+                if len(merged.index) != len(df.index):
+                    raise Exception('Error in missing, blob items lost on merge ( missing properties )')
+                if len(sell.merge_data.index) != len(merged.index):
+                    raise Exception('Error in missing, property items lost on merge ( missing blobs )')
+            df = merged
+                
+        df.drop('filename',inplace=True,axis=1)
         return df
 
 
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, guess_types=True , add_object_paths=False):
-        super(ImageIngester,self).__init__(source,guess_types)
+        super(ImageIngester,self).__init__(ObjectType.IMAGE,source,guess_types)
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -94,7 +120,7 @@ class ImageIngester(Ingester):
 
 class VideoIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
-        super(VideoIngester,self).__init__(source,guess_types)
+        super(VideoIngester,self).__init__(ObjectType.VIDEO,source,guess_types)
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -132,7 +158,6 @@ class FixedBlobDataCSV(BlobDataCSV):
                              HEADER_URL, HEADER_S3_URL, HEADER_GS_URL]
 
         self.sources = None
-        #self.sources = CustomSources(n_download_retries)
         self.source_loader = {
             st: sl for st, sl in zip(self.source_types, self.loaders)
         }
@@ -182,7 +207,7 @@ class FixedBlobDataCSV(BlobDataCSV):
 
 class DocumentIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
-        super(DocumentIngester,self).__init__(source,guess_types)
+        super(DocumentIngester,self).__init__("_Document",source,guess_types)
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -206,3 +231,62 @@ class DocumentIngester(Ingester):
         print(f"Finished uploading {cnt} {noun}")
 
 
+class EntityIngester(Ingester):
+    def __init__(self, source:Provider, guess_types=True):
+        super(EntityIngester,self).__init__("_Entity",source,guess_types)
+        self.entities = []
+        self.merges = {}
+        self.sources = CustomSources(self.source)
+        self.known_objects = list( filter(lambda x: x != "_Entity",
+            [m.value for m in ObjectType])) + [ "_Document", "_Pdf" ]
+
+        self.handled_types = [ "_Image","_Video","_Pdf","_Document" ]
+    def prepare(self):
+        import pathlib 
+        def object_filter(bucket_path):
+            return bucket_path.endswith(".adb.csv")
+        paths = self.source.scan( object_filter )
+        for path in map( pathlib.Path, paths):
+            prefix = path.name[:-1 * len(".adb.csv")]
+            known_type = None
+            for obj in self.known_objects:
+                if prefix == obj.lower() or prefix == obj \
+                    or prefix == obj[1:].lower() or prefix == obj[1:] :
+                    known_type = obj
+
+            # ensure it isn't polygon or _Polygon.
+            if known_type and not known_type in self.handled_types:
+                    print(f"Skipping {path}, it is a known object type"\
+                    f" ({known_type}) that we don't support.")
+                    continue
+
+            if not known_type:
+                self.entities.append(path)
+            else:
+                if known_type in ["_Pdf","_Document"]:
+                    known_type = "_Document"
+                from io import BytesIO
+                bucket = self.source.bucket_name()
+                scheme = self.source.url_scheme_name()
+                url = "{}//{}/{}".format(scheme,bucket,path)
+                print(f"Loading url {url} for properties for {known_type}")
+                with BytesIO( self.sources.load_object( url )) as csv_fd:
+                    self.merges[known_type] = pd.read_csv( csv_fd )
+
+
+    def get_merge(self,object_type):
+        print(f"GM {object_type} in {self.merges.keys()}")
+        if object_type in self.merges:
+            return self.merges[object_type]
+        return None
+
+    def load(self,db):
+        print("Ready to load")
+        csv_data = FixedBlobDataCSV( filename=None,df=self.df)
+        csv_data.sources = CustomSources( self.source )
+        loader = ParallelLoader(db)
+        loader.ingest(csv_data, batchsize=100,
+                numthreads=4)
+        cnt = len(self.df.index)
+        noun = "document" if cnt == 1 else "documents"
+        print(f"Finished uploading {cnt} {noun}")
