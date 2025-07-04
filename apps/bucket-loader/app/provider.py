@@ -128,7 +128,7 @@ class CustomSources(Sources):
         if isinstance(source_provider,AWSProvider):
             self.s3 = source_provider.client
         else:
-            self.gs_client = sorce_provider.client
+            self.gs_client = source_provider.client
     def load_from_gs_url(self,gs_url,validator):
         import numpy as np
 

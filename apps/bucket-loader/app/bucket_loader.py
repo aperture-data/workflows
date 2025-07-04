@@ -1,6 +1,7 @@
 #bucket_loader.py - ApertureData's bucket loading workflow
 import logging
 import sys
+from uuid import uuid4
 
 from aperturedb.CommonLibrary import create_connector, execute_query
 
@@ -8,6 +9,7 @@ from wf_argparse import ArgumentParser
 
 from provider import AWSProvider,GCSProvider
 from ingester import ImageIngester,VideoIngester,DocumentIngester
+from spec import WorkflowSpec
 
 
 logger = logging.getLogger(__name__)
@@ -15,9 +17,20 @@ logger = logging.getLogger(__name__)
 def main(args):
     db = create_connector()
 
-    if args.clean:
-        clean_data( generate_spec_key(args.cloud_provider,args.bucket))
+    if args.delete:
+        WorkflowSpec.delete( "bucket-loader", args.spec_id )
+        sys.exit(1)
+    elif args.delete_all:
+        WorkflowSpec.delete_all( "bucket-loader")
+        sys.exit(1)
 
+
+    spec = WorkflowSpec( db, "bucket-loader", args.spec_id, clean=args.clean )
+    #if args.clean:
+    #    clean_data( generate_spec_key(args.cloud_provider,args.bucket))
+
+    run_id = uuid4()
+    spec.add_run( run_id )
     provider = None
     if args.cloud_provider == "s3":
         provider = AWSProvider(args.bucket, args.aws_access_key_id, args.aws_secret_access_key)
@@ -26,7 +39,11 @@ def main(args):
 
     if not provider.verify():
         logger.error("Workflow cannot continue, configuration incorrect")
+        spec.finish_run(run_id)
+        spec.finish_spec()
         sys.exit(1)
+
+
 
     ingestions = [
             ImageIngester( provider) if args.ingest_images else None,
@@ -40,6 +57,8 @@ def main(args):
         ingestion.prepare()
         ingestion.load(db)
 
+    spec.finish_run(run_id)
+    spec.finish_spec()
 
 def get_args():
     obj = ArgumentParser(support_legacy_envars=True)
@@ -62,7 +81,17 @@ def get_args():
             help="Whether the workflow should ingest supported document types")
     obj.add_argument("--ingest-entities",type=bool,default=False,
             help="Whether the workflow should ingest supported entities types")
+    obj.add_argument("--add-object-paths",type=bool,default=False,
+            help="Whether the workflow should add a property - `adb_resource_path` to all bucket items added")
+    obj.add_argument("--spec-id",type=str,default=None,
+            help="Spec id for this workflow. Default is random uuid.")
     obj.add_argument("--clean",type=bool,default=False,
+            help="Whether the workflow should clean previous data loaded from this bucket")
+    obj.add_argument("--delete",type=bool,default=False,
+            help="Whether the workflow should clean data associated with provided spec_id, then stop.")
+    obj.add_argument("--delete-all",type=bool,default=False,
+            help="Whether the workflow should clean all data from this workflow, then stop.")
+    obj.add_argument("--clean-bucket",type=bool,default=False,
             help="Whether the workflow should clean previous data loaded from this bucket")
     obj.add_argument('--log-level', type=str,
                  default='WARNING')
@@ -89,6 +118,9 @@ def get_args():
         if not params.gcp_service_account_key:
             logger.error("Workflow cannot proceed, missing configuration for GS")
             sys.exit(1)
+    params.spec_id_created = params.spec_id is None
+    if params.spec_id_created:
+        params.spec_id = str(uuid4())
 
     return params
 
