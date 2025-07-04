@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-bash build.sh
+bash ../build.sh
 export WORKFLOW_NAME="dataset-ingestion"
 RUNNER_NAME="$(whoami)"
 PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
