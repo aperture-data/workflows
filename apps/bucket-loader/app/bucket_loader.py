@@ -54,6 +54,7 @@ def main(args):
         if ingestion is None:
             continue
         # determines how many to ingest
+        ingestion.set_add_object_paths( args.add_object_paths )
         ingestion.prepare()
         ingestion.load(db)
 

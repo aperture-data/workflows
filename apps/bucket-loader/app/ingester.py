@@ -30,6 +30,9 @@ class Ingester:
         self.dataframe = None
         self.add_object_paths = add_object_paths
 
+    def add_object_paths(self,add_object_paths:bool ):
+        self.add_object_paths = add_object_paths
+
     def prepare(self):
         raise NotImplementedError("Base Class")
     def load(self):
