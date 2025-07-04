@@ -28,28 +28,30 @@ if [ -z "$PROVIDER" ]; then
     echo "Need Provider"
     exit 1;
 fi
-if [ -z "$BUCKET" ]; then
-    echo "Need Bucket"
-    exit 1;
-fi
 
 if [[ "$PROVIDER" == "s3" ]]; then
     echo "* Provider = S3"
     # ensure we don't upload to a random bucket - only upload to key in environment.
-    source aws.keys
+    source ../aws.keys
     export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID-"INVALID"}
     export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY-"INVALID"}
     set -e
-    aws s3 ls s3://${BUCKET} 
-    aws s3  cp  ${PWD}/  s3://${BUCKET}/pdfs/  --recursive --exclude="*" --include="*.pdf"
+    aws s3 ls s3://${BUCKET}
+    for f in one two three four five;
+    do
+        aws s3  cp  ${PWD}/generated/$f  s3://${BUCKET}/$f  --recursive
+    done
 elif [[ "$PROVIDER" == "gs" ]]; then
+    echo "* Provider = GS"
     export CLOUDSDK_CONFIG="google-auth"
-    source gs.key
+    source ../gs.key
     set -e
     gcloud auth activate-service-account --key-file="$TOKEN_FILE"
-    echo "* Provider = GS"
     gcloud storage  ls gs://${BUCKET}
-    gcloud storage cp *.pdf gs://${BUCKET}/pdf
+    for f in one two three four five;
+    do
+        gcloud storage cp ${PWD}/generated/${f}/*.png gs://${BUCKET}/$f
+    done
     rm "$TOKEN_FILE"
     rm -rf google-auth
 else
