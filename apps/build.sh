@@ -17,7 +17,7 @@ BIN_DIR=$(dirname "$(readlink -f "$0")")
 # If an argument is provided, use it to find the directory, 
 # otherwise use the current directory
 if [ $# -gt 0 ]; then
-    APP = "$1"
+    APP="$1"
     # App can be the name of a directory or a path to a directory
     if [[ "$APP" == /* ]]; then
         # Absolute path
