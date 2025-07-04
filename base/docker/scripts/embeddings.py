@@ -87,7 +87,7 @@ class Embedder():
                 "Tokenizer is not initialized. Call _load_model() first.")
         return self.tokenizer(texts).to(self.device)
 
-    def to_properties(self) -> dict:
+    def get_properties(self) -> dict:
         """Returns properties that might be added to, say, a descriptor set."""
         return {
             "embeddings": f"{self.provider} {self.model_name} {self.pretrained}",
@@ -158,9 +158,9 @@ class Embedder():
         """Convert a PyTorch tensor to a NumPy array."""
         return tensor.float().cpu().numpy()
 
-    def embed_text(self, input: str) -> np.ndarray:
+    def embed_text(self, text: str) -> np.ndarray:
         """Embed a single text input."""
-        return self.embed_texts([input])[0]
+        return self.embed_texts([text])[0]
 
     def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
