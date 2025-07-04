@@ -212,6 +212,22 @@ class WorkflowSpec:
                     }
                 }
             }]
+    def get_run_find_query(self,run_id):
+        specq =  self.get_spec_find_query() 
+        del specq[0]["FindEntity"]["results"]
+        return specq + [
+            { 
+                "FindEntity": { 
+                    "with_class": "WorkflowRun",
+                    "_ref":2,
+                    "constraints": {
+                        "workflow_id" : ["==",run_id]
+                    },
+                    "is_connected_to": {
+                        "ref":1
+                    }
+                }
+            }]
 
     def add_run(self, run_id ):
         res,_ = self.execute_query( self.get_spec_find_query() + 
@@ -231,7 +247,44 @@ class WorkflowSpec:
             }]
 
         )
-    def finish_run(self,run_id):
+    def link_objects(self,run_id,object_type):
+        is_entity = False
+        otype = object_type
+        known_objects = [m.value for m in ObjectType] + ["_Document"]
+        if object_type in known_objects:
+            otype = object_type[1:]
+            if object_type == "_Document":
+                otype = "Blob"
+        else:
+            is_entity = True
+            otype = "Entity"
+        runq =  self.get_run_find_query(run_id) 
+        linkq = runq + \
+                [{
+                    f"Find{otype}": {
+                        "_ref":3,
+                        "is_connected_to" : {
+                            "ref":2
+                        },
+                        "constraints": {
+                            "wf_workflow_id": ["==",run_id]
+                        }
+                    }
+                },{
+                    "AddConnection" : {
+                        "src":2,
+                        "dst":3,
+                        "class":"WorkflowAdded"
+                    }
+
+                    }]
+        if is_entity:
+            linkq[2]["FindEntity"]["with_class"] = object_type
+        res,_ = self.execute_query(linkq)
+
+    def finish_run(self,run_id, extra_props = {}):
+        props = extra_props
+        props["workflow_end_date"] =  dt.datetime.now().isoformat()
         res,_ = self.execute_query( self.get_spec_find_query() + 
             [{
                 "UpdateEntity": {
@@ -239,9 +292,7 @@ class WorkflowSpec:
                     "constraints": {
                         "workflow_id": ["==", run_id]
                         },
-                    "properties": {
-                        "workflow_end_date": dt.datetime.now().isoformat()
-                    }
+                    "properties": props
                 }
             }]
         )

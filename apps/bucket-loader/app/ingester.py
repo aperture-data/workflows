@@ -35,17 +35,23 @@ class Ingester:
     # based off extension.
     def __init__(self,object_type: ObjectType,  source: Provider, guess_types=True , add_object_paths=False):
         self.object_type = object_type
+        self.multiple_objects = None
         self.guess_types = guess_types
         self.source = source
         self.dataframe = None
         self.add_object_paths = add_object_paths
         self.merge_data = None
+        self.workflow_id = None
 
+    def get_object_types(self):
+        return self.multiple_objects if self.multiple_objects else [ self.object_type]
     def set_add_object_paths(self,add_object_paths:bool ):
         self.add_object_paths = add_object_paths
 
     def set_merge_data(self,merge_data: MergeData):
         self.merge_data = merge_data
+    def set_workflow_id(self,id):
+        self.workflow_id = id
 
     def prepare(self):
         raise NotImplementedError("Base Class")
@@ -78,6 +84,8 @@ class Ingester:
         df['adb_mime_type'] =df[ url_column_name].apply(set_mime_type)
         if self.add_object_paths:
             df['wf_object_path'] = objects
+        if self.workflow_id:
+            df['wf_workflow_id'] = self.workflow_id
 
         if self.merge_data is not None:
             print("Merging properties in..")
@@ -262,20 +270,29 @@ class EntityIngester(Ingester):
                     f" ({known_type}) that we don't support.")
                     continue
 
+            from io import BytesIO
+            bucket = self.source.bucket_name()
+            scheme = self.source.url_scheme_name()
+            url = "{}//{}/{}".format(scheme,bucket,path)
+            df = None
+            print(f"Loading url {url} for properties for {known_type}")
+            with BytesIO( self.sources.load_object( url )) as csv_fd:
+                df = pd.read_csv( csv_fd )
             if not known_type:
-                self.entities.append(path)
+                if df.columns[0] != 'EntityClass':
+                    raise Exception("First Column in Entity CSV was not 'EntityClass'")
+                self.entities.append(df)
+                if not self.multiple_objects:
+                    self.multiple_objects = []
+                self.multiple_objects.append( list(df['EntityClass'].unique()))
             else:
                 if known_type in ["_Pdf","_Document"]:
                     known_type = "_Document"
-                from io import BytesIO
-                bucket = self.source.bucket_name()
-                scheme = self.source.url_scheme_name()
-                url = "{}//{}/{}".format(scheme,bucket,path)
-                print(f"Loading url {url} for properties for {known_type}")
-                with BytesIO( self.sources.load_object( url )) as csv_fd:
-                    self.merges[known_type] = pd.read_csv( csv_fd )
+                    self.merges[known_type] = df
 
 
+        if self.multiple_objects:
+            self.multiple_objects = list(set( self.multiple_objects))
     def get_merge(self,object_type):
         print(f"GM {object_type} in {self.merges.keys()}")
         if object_type in self.merges:

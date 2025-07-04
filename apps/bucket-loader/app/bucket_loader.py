@@ -43,14 +43,17 @@ def main(args):
         spec.finish_spec()
         sys.exit(1)
 
-
-
     ingestions = [
             EntityIngester( provider) if args.ingest_entities else None,
             ImageIngester( provider) if args.ingest_images else None,
             VideoIngester( provider) if args.ingest_videos else None,
             DocumentIngester( provider) if args.ingest_pdfs else None
             ]
+
+    [ ing.set_workflow_id( str(run_id) ) if ing else None for ing in ingestions ]
+
+    # if entity loading is enabled, it gets prepared first to see if there
+    # are any property files to join with the other loaders
     if ingestions[0]:
         ingestions[0].prepare()
         def map_merge(ingestor):
@@ -62,6 +65,8 @@ def main(args):
                         all_blobs=args.entity_merge_method=="all_blobs",
                         error_missing=args.entity_merge_missing_error))
         [ map_merge(item) for item in ingestions[1:] ]
+
+    linked_types_to_run = []
     for ingestion in ingestions:
         if ingestion is None:
             continue
@@ -70,9 +75,12 @@ def main(args):
         if not isinstance(ingestion,EntityIngester):
             ingestion.prepare()
         ingestion.load(db)
+        objects = ingestion.get_object_types()
+        for obj in objects:
+            spec.link_objects(str(run_id), obj )
+            linked_types_to_run.append(obj if obj != "_Document" else "_Blob" )
 
-    sys.exit(1)
-    spec.finish_run(run_id)
+    spec.finish_run(str(run_id), { "wf_linked_types" : linked_types_to_run } )
     spec.finish_spec()
 
 def get_args():
