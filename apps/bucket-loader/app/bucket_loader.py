@@ -69,7 +69,7 @@ def main(args):
         ingestion.set_add_object_paths( args.add_object_paths )
         if not isinstance(ingestion,EntityIngester):
             ingestion.prepare()
-        #ingestion.load(db)
+        ingestion.load(db)
 
     sys.exit(1)
     spec.finish_run(run_id)

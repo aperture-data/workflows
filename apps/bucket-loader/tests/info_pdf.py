@@ -1,4 +1,5 @@
 from aperturedb.CommonLibrary import create_connector
+import sys
 
 db = create_connector()
 

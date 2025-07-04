@@ -7,6 +7,7 @@ import datetime as dt
 import mimetypes
 import os
 import sys
+import logging
 from provider import Provider,CustomSources
 from aperturedb.Query import ObjectType
 from aperturedb.ImageDataCSV import ImageDataCSV
@@ -15,6 +16,7 @@ from aperturedb.VideoDataCSV import VideoDataCSV
 from aperturedb.ParallelLoader import ParallelLoader
 mimetypes.init()
 
+logger = logging.getLogger(__name__)
 IMAGE_TYPES_TO_LOAD = ['image/png', 'image/jpeg'] 
 DOC_TYPES_TO_LOAD = ['application/pdf' ]
 VIDEO_TYPES_TO_LOAD = ['video/mp4']
@@ -282,6 +284,12 @@ class EntityIngester(Ingester):
 
     def load(self,db):
         print("Ready to load")
+        if len(self.entities) == 0:
+            if len(self.merges) > 0:
+                logger.info("All Entities used as properties")
+            else:
+                logger.warning("No Entities were found to be loaded")
+        return
         csv_data = FixedBlobDataCSV( filename=None,df=self.df)
         csv_data.sources = CustomSources( self.source )
         loader = ParallelLoader(db)

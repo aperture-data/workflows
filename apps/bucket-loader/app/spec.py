@@ -10,7 +10,8 @@ class WorkflowSpec:
     def get_all_existing_entity_types(self):
         u = Utils(self.db)
         schema = u.get_schema()
-        return schema["entities"]["classes"].keys()
+        print(schema)
+        return  [] if schema['entities'] is None else schema["entities"]["classes"].keys()
 
     @staticmethod
     def entity_filter(item):
