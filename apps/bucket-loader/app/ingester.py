@@ -85,8 +85,8 @@ class ImageIngester(Ingester):
         loader.ingest(csv_data, batchsize=100,
                 numthreads=4)
         cnt = len(self.df.index)
-        noun = "item" if cnt == 1 else "items"
-        print(f"Finished uploading {cnt} image {noun}")
+        noun = "image" if cnt == 1 else "images"
+        print(f"Finished uploading {cnt} {noun}")
 
 
 class VideoIngester(Ingester):
@@ -100,8 +100,8 @@ class VideoIngester(Ingester):
                 return True
             return False
         paths = self.source.scan( object_filter )
-        df = super(VideoIngester,self).generate_df(paths)
-        print(df)
+        self.df = super(VideoIngester,self).generate_df(paths)
+        print(self.df)
     def load(self,db):
         print("Ready to load")
         csv_data = VideoDataCSV( filename=None,df=self.df)
@@ -109,7 +109,9 @@ class VideoIngester(Ingester):
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
                 numthreads=4)
-        print(df)
+        cnt = len(self.df.index)
+        noun = "video" if cnt == 1 else "videos"
+        print(f"Finished uploading {cnt} {noun}")
 
 
 HEADER_PATH = "filename"
@@ -197,7 +199,7 @@ class DocumentIngester(Ingester):
         loader.ingest(csv_data, batchsize=100,
                 numthreads=4)
         cnt = len(self.df.index)
-        noun = "item" if cnt == 1 else "items"
-        print(f"Finished uploading {cnt} document {noun}")
+        noun = "document" if cnt == 1 else "documents"
+        print(f"Finished uploading {cnt} {noun}")
 
 

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir generated
+
 for g in one two three four five;
 do
     echo $g
