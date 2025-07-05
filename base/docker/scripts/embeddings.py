@@ -5,6 +5,8 @@ from typing import List, Union, Literal, Optional
 import cv2
 from PIL import Image
 import logging
+from aperturedb.CommonLibrary import execute_query
+from aperturedb.Connector import Connector
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -95,7 +97,6 @@ class Embedder():
             "embeddings_model": self.model_name,
             "embeddings_pretrained": self.pretrained,
             "embeddings_fingerprint": self.fingerprint_hash(),
-            "embeddings_device": str(self.device),
         }
 
     @classmethod
@@ -147,6 +148,51 @@ class Embedder():
                     f"Dimensions mismatch: {result.dimensions} != {properties.get('_dimensions')}")
 
         return result
+
+    @classmethod
+    def get_query(descriptor_set: str) -> List[dict]:
+        """Get a query to find a descriptor set."""
+        return [{
+            "FindDescriptorSet": {
+                "with_name": descriptor_set,
+                "results": {
+                    "list": ['embeddings', 'embeddings_fingerprint',]
+                },
+                "metrics": True,
+                "dimensions": True,
+            }
+        }]
+
+    @classmethod
+    def from_descriptor_set(cls, client: Connector, descriptor_set: str, device: str = None) -> "Embedder":
+        """Create an instance from a descriptor set name."""
+        query = cls.get_query(descriptor_set)
+        status, response, _ = execute_query(client, query)
+        if status != 0:
+            raise RuntimeError(
+                f"Failed to execute query for descriptor set {descriptor_set}: {response}")
+        if not response or not response[0].get("FindDescriptorSet"):
+            raise ValueError(
+                f"No descriptor set found with name {descriptor_set}")
+        if "entities" not in response[0]["FindDescriptorSet"]:
+            raise ValueError(
+                f"No entities found in descriptor set {descriptor_set}")
+        entities = response[0]["FindDescriptorSet"]["entities"]
+        if len(entities) == 0:
+            raise ValueError(
+                f"No entities found in descriptor set {descriptor_set}")
+        if len(entities) > 1:
+            logger.warning(
+                f"Multiple entities found in descriptor set {descriptor_set}. Using the first one.")
+        properties = entities[0]
+        self = cls.from_properties(
+            properties=properties, device=device)
+        if not self:
+            raise ValueError(
+                f"Failed to create Embedder from descriptor set {descriptor_set}")
+        logger.info(
+            f"Created Embedder from descriptor set {descriptor_set}: {self}")
+        return self
 
     @staticmethod
     def _normalize(tensor: torch.Tensor) -> torch.Tensor:

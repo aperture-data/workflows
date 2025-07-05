@@ -2,15 +2,14 @@ import os
 from typing import List, Annotated
 
 from pydantic import BaseModel, Field
+import numpy as np
+import base64
 
 from aperturedb.Descriptors import Descriptors
 
 from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
 from embeddings import Embedder, DEFAULT_MODEL
-
-
-embedder = Embedder.from_string(model_spec=DEFAULT_MODEL)
 
 
 class Document(BaseModel):
@@ -41,26 +40,34 @@ class FindSimilarImagesResponse(BaseModel):
         description="A list of images similar to the query text")]
 
 
-@declare_mcp_tool
-def find_similar_documents(query: Annotated[str, Field(description="The query text to find similar documents for")],
-                           k: Annotated[int, Field(
-                               description="The maximum number of documents to return")] = 5,
-                           descriptor_set: Annotated[str, Field(
-                               description="The descriptor set to use for finding similar images")] = args.input,
-                           ) -> FindSimilarDocumentsResponse:
-    """Find documents that are similar to a given text string"""
+def get_embedder(descriptor_set: str) -> Embedder:
+    """Get an instance of Embedder for the specified descriptor set.
+    THis ensures that we embed the input text or image using the correct model.
+    """
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
-    embedding = embedder.embed_text(query)
+
+    with connection_pool.get_connection() as client:
+        embedder = Embedder.from_descriptor_set(
+            client=client,
+            descriptor_set=descriptor_set,
+        )
+    return embedder
+
+
+def find_text_documents(descriptor_set: str, embedding: np.ndarray, k: int) -> FindSimilarDocumentsResponse:
+    """Find text documents similar to the given embedding."""
     with connection_pool.get_connection() as client:
         entities = Descriptors(client)
         entities.find_similar(
             set=descriptor_set,
             vector=embedding.tobytes(),
             k_neighbors=k,
+            constraints={"text": ["!=", None]},  # Only text documents
             results={"list": ["uniqueid", "url", "text"]}
         )
+
     logger.info(
         f"Found {len(entities)} similar documents for query: {query} (k={k})")
     return FindSimilarDocumentsResponse(documents=[
@@ -70,17 +77,23 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
 
 
 @declare_mcp_tool
-def find_similar_images(query: Annotated[str, Field(description="The query text to find similar images for")],
-                        k: Annotated[int, Field(
-                            description="The maximum number of documents to return")] = 5,
-                        descriptor_set: Annotated[str, Field(
-                            description="The descriptor set to use for finding similar images")] = args.input,
-                        ) -> FindSimilarDocumentsResponse:
-    """Find documents that are similar to a given text string"""
-    if not descriptor_set:
-        raise ValueError(
-            "Descriptor set is required. Please provide a valid descriptor set name.")
+def find_similar_documents_for_text(
+    query: Annotated[str, Field(description="The query text to find similar documents for")],
+    k: Annotated[int, Field(
+        description="The maximum number of documents to return")] = 5,
+    descriptor_set: Annotated[str, Field(
+        description="The descriptor set to use for finding similar images")] = args.input,
+) -> FindSimilarDocumentsResponse:
+    """Find text documents that are similar to a given text query"""
+    embedder = get_embedder(descriptor_set)
     embedding = embedder.embed_text(query)
+    return find_text_documents(descriptor_set=descriptor_set,
+                               embedding=embedding,
+                               k=k)
+
+
+def find_images(descriptor_set: str, embedding: np.ndarray, k: int) -> FindSimilarImagesResponse:
+    """Find images similar to the given embedding."""
     query = [
         {
             "FindDescriptor": {
@@ -110,7 +123,8 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
         },
     ]
 
-    response, blobs = connection_pool.query(query)
+    status, response, blobs = connection_pool.execute_query(query)
+    assert status == 0, f"Error executing query: {response}"
 
     def to_image_document(e, blob):
         return ImageDocument(
@@ -141,6 +155,22 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
 
     return FindSimilarDocumentsResponse(documents=[
         to_image_document(e, b) for e, b in zip(entities, blobs)])
+
+
+@declare_mcp_tool
+def find_similar_images_for_text(
+    query: Annotated[str, Field(description="The query text to find similar images for")],
+    k: Annotated[int, Field(
+        description="The maximum number of documents to return")] = 5,
+    descriptor_set: Annotated[str, Field(
+        description="The descriptor set to use for finding similar images")] = args.input,
+) -> FindSimilarImagesResponse:
+    """Find images that are similar to a given text query"""
+    embedder = get_embedder(descriptor_set)
+    embedding = embedder.embed_text(query)
+    return find_images(descriptor_set=descriptor_set,
+                       embedding=embedding,
+                       k=k)
 
 
 class DescriptorSet(BaseModel):
