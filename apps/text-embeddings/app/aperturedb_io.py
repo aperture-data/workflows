@@ -26,7 +26,7 @@ class AperturedbIO:
                  run_id: str,
                  descriptorset_name: str,
                  engine: str,
-                 embedder: "BatchEmbedder",
+                 embedder: "Embedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
@@ -92,6 +92,8 @@ class AperturedbIO:
         """Create spec document in ApertureDB"""
         logging.info(f"Starting {SPEC_CLASS} at {self.start_time.isoformat()}")
 
+        embeddings_properties = self.embedder.get_properties()
+
         self.execute_query([
             {
                 "FindEntity": {
@@ -108,10 +110,9 @@ class AperturedbIO:
                     "properties": {
                         "segmentation_spec_id": self.input_spec_id,
                         "id": self.spec_id,
-                        "model": self.embedder.model_spec,
-                        "model_fingerprint": self.embedder.fingerprint_hash(),
-                        "dimensions": self.embedder.dimensions(),
-                        "metric": self.embedder.metric(),
+                        **embeddings_properties,
+                        "dimensions": self.embedder.dimensions,
+                        "metric": self.embedder.metric,
                         "descriptorset_name": self.descriptorset_name,
                         "engine": self.engine,
                     },
@@ -158,6 +159,7 @@ class AperturedbIO:
             f"Preparing to create descriptor set {self.descriptorset_name} with model {self.embedder.model_spec}, fingerprint {self.embedder.fingerprint_hash()}, metric {self.embedder.metric()}, dimensions {self.embedder.dimensions()}")
 
         if "entities" not in response[1]["FindDescriptorSet"]:
+            embeddings_properties = self.embedder.get_properties()
             logger.info(
                 f"Creating new descriptor set {self.descriptorset_name}")
             self.execute_query([
@@ -174,12 +176,9 @@ class AperturedbIO:
                     "AddDescriptorSet": {
                         "name": self.descriptorset_name,
                         "engine": self.engine,
-                        "properties": {
-                            "model": self.embedder.model_spec,
-                            "model_fingerprint": self.embedder.fingerprint_hash(),
-                        },
-                        "metric": self.embedder.metric(),
-                        "dimensions": self.embedder.dimensions(),
+                        "properties": embeddings_properties,
+                        "metric": self.embedder.metric,
+                        "dimensions": self.embedder.dimensions,
                         "connect": {
                             "ref": 1,
                             "class": "embeddingsSpecHasDescriptorSet",

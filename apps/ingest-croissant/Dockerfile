@@ -5,7 +5,6 @@ ENV APP_NAME=workflows-ingest-croissant
 
 COPY requirements.txt /
 RUN apt-get update && apt-get install -y \
-    git \
     git-lfs \
     python3.10-venv \
     && rm -rf /var/lib/apt/lists/*

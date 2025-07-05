@@ -2,7 +2,7 @@ from aperturedb_io import AperturedbIO
 from wf_argparse import ArgumentParser
 import logging
 
-from embeddings import BatchEmbedder, DEFAULT_MODEL
+from embeddings import Embedder, DEFAULT_MODEL
 from schema import Embedding
 from uuid import uuid4
 
@@ -14,7 +14,7 @@ def run_text_embeddings(args):
     segmentation_spec_id = args.input
     embedding_id = args.output
 
-    embedder = BatchEmbedder(model_spec=args.model)
+    embedder = Embedder.from_string(model_spec=args.model)
 
     input_spec_id = args.input
     spec_id = args.output
@@ -48,7 +48,7 @@ def run_text_embeddings(args):
             try:
                 logger.debug(f"Processing segment {segment.id}")
                 # Embed the segment text
-                v = embedder.embed(segment.text)
+                v = embedder.embed_text(segment.text)
                 embedding = Embedding(
                     segment_id=segment.id,
                     url=segment.url,

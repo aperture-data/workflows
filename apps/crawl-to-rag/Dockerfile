@@ -8,9 +8,6 @@ FROM aperturedata/workflows-base
 
 ENV APP_NAME=workflows-crawl-to-rag
 
-# Needed for text-embeddings
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-
 # copy in the app directories
 COPY --from=crawl-website   /app /workflows/crawl-website
 COPY --from=text-extraction /app /workflows/text-extraction
