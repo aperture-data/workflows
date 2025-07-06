@@ -33,7 +33,7 @@ class OutputFilePath():
             file = self.path
             if self.path.endswith(ext):
                 file = self.path[:-len(ext)]
-            file = {file} + str(number).zfill(zerofill) + ext
+            file = file + str(number).zfill(zerofill) + ext
 
         return file
 

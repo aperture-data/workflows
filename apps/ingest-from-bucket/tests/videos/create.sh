@@ -16,5 +16,5 @@ do
     ffmpeg -framerate 1/2 -pattern_type glob -i
     "../images/generated/one/image_${i}*.png" -r 25 -vf scale=640x480 \
         -c:v libx264 -pix_fmt yuv420p  generated/movie_${i}.mp4
-    echo $g
+    echo "Created movie $i"
 done

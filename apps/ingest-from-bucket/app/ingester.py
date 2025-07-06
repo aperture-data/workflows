@@ -95,7 +95,7 @@ class Ingester:
                 # missing blob items.
                 if len(merged.index) != len(df.index):
                     raise Exception('Error in missing, blob items lost on merge ( missing properties )')
-                if len(sell.merge_data.index) != len(merged.index):
+                if len(self.merge_data.index) != len(merged.index):
                     raise Exception('Error in missing, property items lost on merge ( missing blobs )')
             df = merged
                 

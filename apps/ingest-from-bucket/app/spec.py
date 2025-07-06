@@ -168,7 +168,7 @@ class WorkflowSpec:
                     }
                 }
             }, {
-                f"Delete{dype}": {
+                f"Delete{dtype}": {
                     "ref":3
                 }
             }]
