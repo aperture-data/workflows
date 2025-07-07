@@ -8,6 +8,6 @@ IMG_NAME="aperturedata/workflows-base"
 
 # Build docker image
 cd $DIR
-docker build -t ${IMG_NAME} .
+docker build --no-cache -t ${IMG_NAME} .
 
 
