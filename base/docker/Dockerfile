@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     awscli \
-    unzip wget curl jq \
+    unzip wget curl jq lsof\
     python3-pip &&\
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
