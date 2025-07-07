@@ -22,12 +22,12 @@ def get_workflow_status():
     global count
     count += 1
     global RESPONSE
-    print("Fetching status from the server...")
+    # print("Fetching status from the server...")
     RESPONSE["completeness"] = count / 10.0  # Simulate progress
     try:
         response = requests.get(f"http://{os.environ.get('HOSTNAME')}:8000")
     except Exception as e:
-        print("Connection refused. The server might not be running.")
+        # print("Connection refused. The server might not be running.")
         RESPONSE["accessible"] = False
         RESPONSE["error_message"] = str(e)
         RESPONSE["error_code"] = "workflow_error"

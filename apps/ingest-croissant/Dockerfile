@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 ENV VIRTUAL_ENV="/app/venv"
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python3 -m venv --system-site-packages $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 
-RUN pip install --upgrade --no-cache-dir -r /requirements.txt
+RUN pip install --upgrade --no-cache-dir -r /requirements.txt -I
 
 COPY app /app/
