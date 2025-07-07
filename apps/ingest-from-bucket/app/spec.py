@@ -128,6 +128,7 @@ class WorkflowSpec:
                 }
             }]
         )
+
     def delete_run_id_data(self,run_id):
         pass
     def delete_spec_data(self,spec_id):
@@ -152,27 +153,37 @@ class WorkflowSpec:
                     "_ref":2,
                     "is_connected_to": {
                         "ref":1
+                    },
+                    "results": {
+                        "count" : True
                     }
                 }
             }]
-        for type_to_delete in self.deletable_types:
-            dtype = "Entity"
-            if type_to_delete.startswith("_"):
-                if type_to_delete in known_objects:
-                    dtype = type_to_delete[1:]
-            query =  base + [ {
-                f"Find{dtype}": {
-                    "ref":3,
-                    "is_connected_to": {
-                        "ref":2
+        res,_ = self.execute_query(query) 
+        if res[0]["FindEntity"]["returned"] == 0 :
+            logger.warn("No spec {spec_id} found.")
+            return
+        if res[1]["FindEntity"]["count"] == 0 :
+            logger.warn("No runs assocated spec {spec_id} found.")
+        else:
+            for type_to_delete in self.deletable_types:
+                dtype = "Entity"
+                if type_to_delete.startswith("_"):
+                    if type_to_delete in known_objects:
+                        dtype = type_to_delete[1:]
+                query =  base + [ {
+                    f"Find{dtype}": {
+                        "ref":3,
+                        "is_connected_to": {
+                            "ref":2
+                        }
                     }
-                }
-            }, {
-                f"Delete{dtype}": {
-                    "ref":3
-                }
-            }]
-            res,_ = self.execute_query(query) 
+                }, {
+                    f"Delete{dtype}": {
+                        "ref":3
+                    }
+                }]
+                res,_ = self.execute_query(query) 
 
     @staticmethod
     def delete_spec( wf_name, spec_id ):

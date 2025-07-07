@@ -18,7 +18,8 @@ def main(args):
     db = create_connector()
 
     if args.delete:
-        WorkflowSpec.delete( "bucket-loader", args.spec_id )
+        logger.info(f"Deleting all information for spec {args.spec_id}")
+        WorkflowSpec.delete_spec( "bucket-loader", args.spec_id )
         sys.exit(1)
     elif args.delete_all:
         WorkflowSpec.delete_all( "bucket-loader")
@@ -26,8 +27,6 @@ def main(args):
 
 
     spec = WorkflowSpec( db, "bucket-loader", args.spec_id, clean=args.clean )
-    #if args.clean:
-    #    clean_data( generate_spec_key(args.cloud_provider,args.bucket))
 
     run_id = uuid4()
     spec.add_run( run_id )
