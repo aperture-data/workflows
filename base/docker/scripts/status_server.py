@@ -71,4 +71,4 @@ if __name__ == "__main__":
     # Runs the Uvicorn server.
     # 'main:app' tells Uvicorn to look for an 'app' object in 'main.py'.
     # '--reload' enables auto-reloading when code changes are detected.
-    uvicorn.run("status_server:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("status_server:app", host="0.0.0.0", port=8080, reload=True, timeout_keep_alive=1800)
