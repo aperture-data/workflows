@@ -15,7 +15,7 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 
 RUN pip3 install --upgrade pip && \
     pip3 install dbeval slack_sdk && \
-    pip3 install fastapi uvicorn
+    pip3 install fastapi uvicorn typer prometheus_client
 
 RUN pip3 install --upgrade aperturedb
 
