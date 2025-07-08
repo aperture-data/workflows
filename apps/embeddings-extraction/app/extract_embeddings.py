@@ -2,15 +2,17 @@ import os
 import argparse
 import math
 
-import torch
-import clip
-import numpy as np
-
-from aperturedb import CommonLibrary
 from aperturedb import QueryGenerator
 from aperturedb import ParallelQuery
 
 from embeddings import Embedder
+from connection_pool import ConnectionPool
+
+connection_pool = ConnectionPool()
+
+DESCRIPTOR_SET_NAME = "wf_embeddings_clip"
+IMAGE_PROPERTY_NAME = "wf_embeddings_clip"
+CLIP_INPUT_RESOLUTION = 224  # CLIP model expects 224x224 images
 
 
 class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
@@ -19,18 +21,20 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, model_name):
+    def __init__(self, model_name):
 
-        self.db = db
-
-        self.embedder = Embedder(provider="clip",  # Only supporting CLIP for now
-                                 model_name=model_name,
-                                 device="cuda" if torch.cuda.is_available() else "cpu")
+        with connection_pool.get_connection() as db:
+            self.embedder = Embedder.find_or_create_descriptor_set(
+                client=db,  # only used for construction
+                provider="clip",  # Only supporting CLIP for now
+                model_name=model_name,
+                descriptor_set=DESCRIPTOR_SET_NAME,
+                device="cuda" if torch.cuda.is_available() else "cpu")
 
         query = [{
             "FindImage": {
                 "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
+                    IMAGE_PROPERTY_NAME: ["!=", True]
                 },
                 "results": {
                     "count": True
@@ -38,7 +42,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = db.query(query)
+        with connection_pool.get_connection() as db:
+            response, _ = db.query(query)
 
         try:
             total_images = response[0]["FindImage"]["count"]
@@ -69,7 +74,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
+                    IMAGE_PROPERTY_NAME: ["!=", True]
                 },
                 "batch": {
                     "batch_size": self.batch_size,
@@ -78,8 +83,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "operations": [
                     {
                         "type": "resize",
-                        "width": 224,
-                        "height": 224
+                        "width": CLIP_INPUT_RESOLUTION,
+                        "height": CLIP_INPUT_RESOLUTION
                     }
                 ],
                 "results": {
@@ -122,77 +127,57 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": i + 1,
                     "properties": {
-                        "wf_embeddings_clip": True
+                        IMAGE_PROPERTY_NAME: True
                     },
                 }
             })
 
             query.append({
                 "AddDescriptor": {
-                    "set": "wf_embeddings_clip",
+                    "set": DESCRIPTOR_SET_NAME,
                     "connect": {
                         "ref": i + 1
                     }
                 }
             })
 
-        # This is not nice, but we need to create a new connection
-        # and this happens in parallel with many threads.
-        db = self.db.create_new_connection()
+        with connection_pool.get_connection() as db:
+            r, _ = db.query(query, desc_blobs)
 
-        r, _ = db.query(query, desc_blobs)
-
-        if not db.last_query_ok():
-            db.print_last_response()
+            if not db.last_query_ok():
+                db.print_last_response()
 
 
-def clean_embeddings(db):
+def clean_embeddings():
 
     print("Cleaning Embeddings...")
 
-    db.query([{
-        "DeleteDescriptorSet": {
-            "with_name": "wf_embeddings_clip"
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                "wf_embeddings_clip": ["!=", None]
-            },
-            "remove_props": ["wf_embeddings_clip"]
-        }
-    }])
+    with connection_pool.get_connection() as db:
+        db.query([{
+            "DeleteDescriptorSet": {
+                "with_name": DESCRIPTOR_SET_NAME,
+            }
+        }, {
+            "UpdateImage": {
+                "constraints": {
+                    IMAGE_PROPERTY_NAME: ["!=", None]
+                },
+                "remove_props": [IMAGE_PROPERTY_NAME]
+            }
+        }])
 
-    db.print_last_response()
-
-
-def add_descriptor_set(db):
-
-    print("Adding Descriptor Set...")
-
-    db.query([{
-        "AddDescriptorSet": {
-            "name": "wf_embeddings_clip",
-            "engine": "HNSW",
-            "metric": "CS",
-            "dimensions": 512,
-        }
-    }])
-
-    db.print_last_response()
+        db.print_last_response()
 
 
 def main(params):
 
-    db = CommonLibrary.create_connector()
-
     if params.clean:
-        clean_embeddings(db)
+        clean_embeddings()
 
-    add_descriptor_set(db)
+    generator = FindImageQueryGenerator(params.model_name)
 
-    generator = FindImageQueryGenerator(db, params.model_name)
-    querier = ParallelQuery.ParallelQuery(db)
+    with connection_pool.get_connection() as db:
+        querier = ParallelQuery.ParallelQuery(db)  # clones the connection
 
     print("Running Detector...")
 

@@ -164,7 +164,7 @@ async def stream_ask(query: str = Query(description="The question to ask"),
         qa_duration = time.time() - start_time
         answer = "".join(results)
         logger.info(
-            f"Answer: {answer}, duration: {qa_duration: .2f}s")
+            f"Answer: {answer}, duration: {qa_duration:.2f}s")
         yield f"event: end\ndata: {json.dumps({'duration': qa_duration, 'parts': len(results)})}\n\n"
         new_history = history_fn()
         yield f"event: history\ndata: {json.dumps(new_history)}\n\n"
@@ -237,7 +237,6 @@ async def config(request: Request):
         "llm_model": llm.model,
         "embedding_model": args.model,
         "input": args.input,
-        "embedding_model": args.model,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
         # "startup_time": startup_time,  # Debugging, but confusing to user
@@ -278,14 +277,19 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
 
 def get_retriever(descriptorset_name: str, model: str, k: int):
     """Build the retriever for the given descriptorset and model."""
-    embeddings = Embedder.from_string(model)
+    client = create_connector()
+    embeddings = Embedder.find_or_create_descriptor_set(
+        client=client,  # only used for construction
+        **Embedder.parse_string(model),
+        descriptor_set=descriptorset_name,
+    )
     retriever = Retriever(
         embeddings=embeddings,
         descriptor_set=descriptorset_name,
         search_type="mmr",  # "similarity" or "mmr"
         k=k,
         fetch_k=k * 4,  # number of results fetched for MMR
-        client=create_connector(),
+        client=client,
     )
     return retriever
 

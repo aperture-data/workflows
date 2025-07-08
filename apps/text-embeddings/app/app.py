@@ -5,6 +5,7 @@ import logging
 from embeddings import Embedder, DEFAULT_MODEL
 from schema import Embedding
 from uuid import uuid4
+from aperturedb.CommonLibrary import create_connector
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +13,20 @@ logger = logging.getLogger(__name__)
 def run_text_embeddings(args):
     logger.info(f"Starting text embeddings")
     segmentation_spec_id = args.input
-    embedding_id = args.output
+    descriptorset_name = args.descriptorset
 
-    embedder = Embedder.from_string(model_spec=args.model)
+    db = create_connector()
+
+    embedder = Embedder.find_or_create_descriptor_set(
+        client=db,  # only used for construction
+        **Embedder.parse_string(args.model),
+        descriptor_set=descriptorset_name,
+        engine=args.engine,
+    )
 
     input_spec_id = args.input
     spec_id = args.output
     run_id = str(uuid4())
-    descriptorset_name = args.descriptorset
     engine = args.engine
     with AperturedbIO(
         input_spec_id=input_spec_id,
@@ -42,7 +49,7 @@ def run_text_embeddings(args):
             # continue
         io.ensure_output_does_not_exist()
         io.create_spec()
-        io.create_descriptorset()
+        io.connect_descriptorset()
 
         for segment in io.get_segments():
             try:

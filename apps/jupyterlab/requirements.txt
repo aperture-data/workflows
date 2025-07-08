@@ -1,1 +1,1 @@
-fastmcp
+fastmcp=2.10.2
