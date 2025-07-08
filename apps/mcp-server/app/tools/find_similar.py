@@ -83,7 +83,7 @@ def find_similar_documents_for_text(
     k: Annotated[int, Field(
         description="The maximum number of documents to return")] = 5,
     descriptor_set: Annotated[str, Field(
-        description="The descriptor set to use for finding similar images")] = args.input,
+        description="The descriptor set to use for finding similar documents")] = args.input,
 ) -> FindSimilarDocumentsResponse:
     """Find text documents that are similar to a given text query"""
     embedder = get_embedder(descriptor_set)

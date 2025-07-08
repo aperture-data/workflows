@@ -151,10 +151,10 @@ class Embedder():
     @classmethod
     def find_or_create_descriptor_set(cls,
                                       client: Connector,
+                                      descriptor_set: str,
                                       provider: str = None,
                                       model_name: str = None,
                                       pretrained: str = None,
-                                      descriptor_set: str,
                                       engine: str = "HNSW",
                                       device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
         """Find or create a descriptor set for the embedder.
@@ -246,7 +246,8 @@ class Embedder():
             raise RuntimeError(
                 f"Failed to execute query for descriptor set {descriptor_set}: {response}")
         if not response or not response[0].get("FindDescriptorSet"):
-            raise ValueError(f"Unexpected response format for descriptor set {descriptor_set}: {response})
+            raise ValueError(
+                f"Unexpected response format for descriptor set {descriptor_set}: {response}")
 
         if "entities" not in response[0]["FindDescriptorSet"]:
             # Specific error for missing descriptor set
@@ -399,5 +400,5 @@ class Embedder():
 if __name__ == "__main__":
     for spec in SUPPORTED_MODELS:
         print(f"\n=== Warming cache for {spec} ===")
-        be = Embedder.from_string(spec, device="cpu")
+        be = Embedder(**Embedder.parse_string(spec), device="cpu")
         be.summarize()

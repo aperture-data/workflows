@@ -1,4 +1,4 @@
-fastmcp=2.10.2
+fastmcp==2.10.2
 fastapi
-mcp=1.10.1
+mcp==1.10.1
 pydantic
