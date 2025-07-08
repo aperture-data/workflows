@@ -19,6 +19,10 @@ export LOAD_CELEBAHQ
 
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
+    python3 log_processor.py --completed 1 \
+      --phases downloading --phases ingesting \
+      --phase downloading --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
+      --error-code "WF_ERROR" --status "failed"
     exit 1
 fi
 
@@ -31,12 +35,16 @@ build_coco() {
 
     date
     echo "Downloading val data..."
+
+    python3 ../log_processor.py --completed 0 --phases downloading --phases ingesting --phase downloading --error-message "" --error-code ""
     bash download_coco.sh val
+    python3 ../log_processor.py --completed 1 --phases downloading --phases ingesting --phase downloading --error-message "" --error-code ""
 
     if [[ $INCLUDE_TRAIN == true ]]; then
         echo "Downloading train data..."
         bash download_coco.sh train
     fi
+    python3 ../log_processor.py --completed 1 --phases downloading --phases ingesting --phase downloading
 
     date
     adb utils log --level INFO "${APP}: Loading begins"

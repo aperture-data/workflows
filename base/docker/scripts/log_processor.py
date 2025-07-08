@@ -11,18 +11,21 @@ class StatusUpdater:
             self,
             completed: float,
             phases: List[str],
-            phase: str):
+            phase: str,
+            error_message: str,
+            error_code: str,
+            status: str = "running"):
         try:
             ur = requests.post(
                 f"http://{os.environ.get('HOSTNAME')}:8080/response",
                 json={
-                    "status": "running",
+                    "status": status,
                     "completeness": float(completed) / 100.0,
                     "phase": phase,
                     "phases": phases,
                     "accessible": True,
-                    "error_message": "",
-                    "error_code": ""
+                    "error_message": error_message,
+                    "error_code": error_code,
                 }
             )
 
@@ -30,9 +33,13 @@ class StatusUpdater:
             print(f"Failed to update status: {e}")
 
 class LogProcessor:
-    def __init__(self, process: any):
+    def __init__(self, process: any, phases: List[str] = None, phase: str = "initializing"):
         self.process = process
         self.status_updater = StatusUpdater()
+        if not phases:
+            phases = ["initializing"]
+        self.phases = phases
+        self.phase = phase
 
     def process_logs(self):
         # Continuously read from stderr
@@ -53,7 +60,12 @@ class LogProcessor:
             # print("Progress:", line.strip(), flush=True)
             if time.time() - last_time >= 1:
                 print(f">>[{datetime.datetime.now().isoformat()}]", msg, flush=True)
-                self.status_updater.post_update(completed, ["ingesting"], "ingesting")
+                self.status_updater.post_update(
+                    completed,
+                    self.phases, self.phase,
+                    "",
+                    "",
+                    "running")
                 last_time = time.time()
             else:
                 print(f"[{datetime.datetime.now().isoformat()}]{msg}", flush=True)
@@ -69,13 +81,20 @@ app = Typer()
 def shell_updater(
     completed: float = 100.0,
     phases: List[str] = ["initializing"],
-    phase: str = "initializing"
+    phase: str = "initializing",
+    status: str = "running",
+    error_message: str = "",
+    error_code: str = ""
+
 ):
     ssu = StatusUpdater()
     ssu.post_update(
         completed=completed,
         phases=phases,
-        phase=phase)
+        phase=phase,
+        status=status,
+        error_message=error_message,
+        error_code=error_code)
 
 if __name__ == "__main__":
     app()

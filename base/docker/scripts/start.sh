@@ -211,4 +211,6 @@ if [ "${ret_val}" -ne 0 ]; then
     echo "Error with app: $APP_NAME. Exiting with error code: ${ret_val}"
 fi
 
+echo "Sleeping for 4 seconds to allow statuses to be reported..."
+sleep 4
 exit "${ret_val}"
