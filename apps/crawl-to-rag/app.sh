@@ -71,28 +71,26 @@ function set_ready() {
 
 log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
 
+COMMON_PARAMETERS="DB_HOST DB_USER DB_PASS APERTUREDB_KEY"
+
 # Run these in a separate thread so we can start the rag server
 (
     log_status "Starting crawl"
 
-    with_env_only crawl-website DB_HOST DB_USER DB_PASS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
+    with_env_only crawl-website $COMMON_PARAMETERS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
 
     log_status "Crawl complete; starting text-extraction"
 
-    with_env_only text-extraction DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
+    with_env_only text-extraction $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
 
     log_status "Text-extraction complete; starting text-embeddings"
 
-    with_env_only text-embeddings DB_HOST DB_USER DB_PASS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
+    with_env_only text-embeddings $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
 
     log_status "Text-embeddings complete"
     set_ready
-)&
-bg_pid=$!
-
-# Trap ERR and script exit
-trap 'fatal $LINENO' ERR
+	@@ -95,4 +97,4 @@ trap 'fatal $LINENO' ERR
 trap cleanup EXIT
 
 echo "Running webserver for RAG API"
-with_env_only rag DB_HOST DB_USER DB_PASS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
