@@ -3,6 +3,7 @@ from typing import List, Dict, Optional
 from aperturedb.Descriptors import Descriptors
 from aperturedb.CommonLibrary import execute_query
 import logging
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class Retriever:
             f"Retrieved {len(results)} documents for query: {query}")
         logger.debug(
             f"Results: {results}")
+
         return results
 
     def count(self):
