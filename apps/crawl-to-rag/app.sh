@@ -89,7 +89,11 @@ COMMON_PARAMETERS="DB_HOST DB_USER DB_PASS APERTUREDB_KEY"
 
     log_status "Text-embeddings complete"
     set_ready
-	@@ -95,4 +97,4 @@ trap 'fatal $LINENO' ERR
+)&
+bg_pid=$!
+
+# Trap ERR and script exit
+trap 'fatal $LINENO' ERR
 trap cleanup EXIT
 
 echo "Running webserver for RAG API"
