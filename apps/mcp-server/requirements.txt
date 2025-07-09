@@ -1,6 +1,6 @@
-fastmcp=2.10.2
+fastmcp==2.10.2
 fastapi
-mcp=1.10.1
+mcp==1.10.1
 pydantic
 torch>=2.0
 open_clip_torch>=2.23
