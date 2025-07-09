@@ -38,7 +38,7 @@ def main(args):
 
     if not provider.verify():
         logger.error("Workflow cannot continue, configuration incorrect")
-        spec.finish_run(run_id)
+        spec.finish_run(str(run_id))
         spec.finish_spec()
         sys.exit(1)
 
@@ -71,15 +71,19 @@ def main(args):
             continue
         # determines how many to ingest
         ingestion.set_add_object_paths( args.add_object_paths )
+        ingestion.set_check_for_existing( args.check_db_for_existing )
+        ingestion.set_maximum_object_count( args.max_objects_per_type )
         if not isinstance(ingestion,EntityIngester):
             ingestion.prepare()
         ingestion.load(db)
         objects = ingestion.get_object_types()
         for obj in objects:
-            spec.link_objects(str(run_id), obj )
-            linked_types_to_run.append(obj if obj != "_Document" else "_Blob" )
+            current_obj = obj if obj != "_Document" else "_Blob" 
+            spec.link_objects(str(run_id), current_obj )
+            linked_types_to_run.append( current_obj )
 
-    spec.finish_run(str(run_id), { "wf_linked_types" : linked_types_to_run } )
+
+    spec.finish_run(run_id, { "wf_linked_types" : linked_types_to_run } )
     spec.finish_spec()
 
 def get_args():
@@ -103,6 +107,10 @@ def get_args():
             help="Whether the workflow should ingest supported document types")
     obj.add_argument("--ingest-entities",type=bool,default=False,
             help="Whether the workflow should ingest supported entities types")
+    obj.add_argument("--check-db-for-existing",type=bool,default=False,
+            help="Whether the workflow should check for entity hashes prior to loading")
+    obj.add_argument("--max-objects-per-type",type=int,default=None,
+            help="Maximum number of objects of each type to upload. Default is unlimited.")
     obj.add_argument("--entity-merge-method",type=str,
             choices=["all_blobs","only_matched"], default="all_blobs",
             help="Whether the workflow should ingest blobs that are missing property entries") 

@@ -5,12 +5,14 @@ from aperturedb.Query import ObjectType
 from typing import Iterator, Optional, Tuple
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import execute_query
+import logging
+
+logger = logging.getLogger(__name__)
 
 class WorkflowSpec:
     def get_all_existing_entity_types(self):
         u = Utils(self.db)
         schema = u.get_schema()
-        print(schema)
         return  [] if schema['entities'] is None else schema["entities"]["classes"].keys()
 
     @staticmethod
@@ -82,13 +84,17 @@ class WorkflowSpec:
         return results, result_blobs
 
     def clean(self):
+        self.clean_spec(self.spec_id)
+    @staticmethod
+    def clean_spec(spec_id):
+        logger.info(f"Cleaning spec {spec_id}")
         res,_ = self.execute_query([
             {
                 "FindEntity": {
                     "with_class": "WorkflowSpec",
                     "_ref":1,
                     "constraints": {
-                        "workflow_id": ["==", self.spec_id],
+                        "workflow_id": ["==", spec_id],
                         "workflow_name": ["==",self.workflow_name]
                     },
                     "results": {
@@ -109,6 +115,9 @@ class WorkflowSpec:
                 }
             }]
         )
+        if not isinstance(res,list):
+            raise Exception(f"Failed to execute clean query for WorkflowRun {res}")
+        logger.info(f"Removed {res[2]['DeleteEntity']['count']} WorkflowRun")
         res,_ = self.execute_query([
             {
                 "FindEntity": {
@@ -129,9 +138,14 @@ class WorkflowSpec:
             }]
         )
 
+        if not isinstance(res,list):
+            raise Exception(f"Failed to execute clean query for WorkflowSpec {res}")
+        logger.info(f"Removed {res[1]['DeleteEntity']['count']} WorkflowSpec")
+
     def delete_run_id_data(self,run_id):
         pass
     def delete_spec_data(self,spec_id):
+        logger.info(f"Deleting data for {spec_id}")
         known_objects = [m.value for m in ObjectType]
 
         base = [
@@ -178,12 +192,16 @@ class WorkflowSpec:
                             "ref":2
                         }
                     }
-                }, {
-                    f"Delete{dtype}": {
-                        "ref":3
-                    }
-                }]
-                res,_ = self.execute_query(query) 
+                }
+            }, {
+                f"Delete{dtype}": {
+                    "ref":3
+                }
+            }]
+            res,_ = self.execute_query(query) 
+            if not isinstance(res,list):
+                raise Exception(f"Failed deleting {dtype} for workflow {spec_id}")
+        self.clean_spec( spec_id )
 
     @staticmethod
     def delete_spec( wf_name, spec_id ):
@@ -223,6 +241,7 @@ class WorkflowSpec:
                     }
                 }
             }]
+
     def get_run_find_query(self,run_id):
         specq =  self.get_spec_find_query() 
         del specq[0]["FindEntity"]["results"]
@@ -246,7 +265,7 @@ class WorkflowSpec:
                 "AddEntity": {
                     "class": "WorkflowRun",
                     "properties": {
-                        "workflow_id": run_id,
+                        "workflow_id": str(run_id),
                         "workflow_create_date": dt.datetime.now().isoformat()
                     },
                     "connect": {
@@ -278,7 +297,7 @@ class WorkflowSpec:
                             "ref":2
                         },
                         "constraints": {
-                            "wf_workflow_id": ["==",run_id]
+                            "wf_workflow_id": ["==",str(run_id)]
                         }
                     }
                 },{
@@ -292,6 +311,7 @@ class WorkflowSpec:
         if is_entity:
             linkq[2]["FindEntity"]["with_class"] = object_type
         res,_ = self.execute_query(linkq)
+        print(res)
 
     def finish_run(self,run_id, extra_props = {}):
         props = extra_props
