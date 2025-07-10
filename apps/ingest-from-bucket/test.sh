@@ -27,7 +27,6 @@ bash ../build.sh
 CHECKER_NAME="aperturedata-internal/workflow-ingest-from-bucket-checker"
 ( cd tests/checker && docker build -t "$CHECKER_NAME" . )
 
-exit 0
 export WORKFLOW_NAME="ingest-from-bucket"
 RUNNER_NAME="$(whoami)"
 PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
@@ -44,7 +43,7 @@ docker network rm ${NW_NAME} || true
 
 docker network create ${NW_NAME}
 
-# Start empty aperturedb instance for coco
+# Start empty aperturedb instance for workflow
 docker run -d \
            --name ${DB_NAME} \
            --network ${NW_NAME} \
@@ -72,25 +71,34 @@ common=()
 common+=( -e "WF_BUCKET=${BUCKET_NAME}")
 common+=( -e "WF_INGEST_IMAGES=True")
 common+=( -e "WF_INGEST_VIDEOS=True")
-common+=( -e "WF_INGEST_PDFs=True")
+common+=( -e "WF_INGEST_PDFS=True")
 common+=( -e "DB_HOST=${DB_NAME}" )
 common+=( --network ${NW_NAME} )
 
+checker_opts=()
+checker_opts+=( -e "IMAGE_COUNT=7500")
+checker_opts+=( -e "VIDEO_COUNT=5")
+checker_opts+=( -e "PDF_COUNT=10")
+
 aws=()
 aws+=( -e "WF_CLOUD_PROVIDER=s3" )
-aws+=( -e "WF_AWS_ACCESS_KEY_ID=\"$AWS_ACCESS_KEY_ID\"" )
-aws+=( -e "WF_AWS_SECRET_ACCESS_KEY=\"$AWS_SECRET_ACCESS_KEY\"" )
-docker run --rm  ${common[@]} ${aws[@]} aperturedata/workflows-${WORKFLOW_NAME}
+aws+=( -e "WF_AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" )
+aws+=( -e "WF_AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" )
 
+set +x
+docker run --rm  ${common[@]} ${aws[@]} aperturedata/workflows-${WORKFLOW_NAME}
+set -x
 # check data
-python3 tests/check_data.py --images 7500 --videos 5 --pdfs 10
+docker run --rm ${common[@]} ${checker_opts[@]} ${CHECKER_NAME}
 # remove data
 adb utils execute remove_all --force
 
 gcp=()
-aws+=( -e "WF_CLOUD_PROVIDER=gs" )
-aws+=( -e "WF_GCP_SERVICE_ACCOUNT_KEY=\"$WF_INGEST_BUCKET_GCP_CREDS\"" )
+gcp+=( -e "WF_CLOUD_PROVIDER=gs" )
+gcp+=( -e "WF_GCP_SERVICE_ACCOUNT_KEY=\"$WF_INGEST_BUCKET_GCP_CREDS\"" )
+set +x
 docker run --rm  ${common[@]} ${aws[@]} aperturedata/workflows-${WORKFLOW_NAME}
+set -x
 
 # check data
-python3 tests/check_data.py --images 7500 --videos 5 --pdfs 10
+docker run --rm ${common[@]} ${checker_opts[@]} ${CHECKER_NAME}

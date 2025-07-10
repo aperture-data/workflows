@@ -31,7 +31,8 @@ def check_count_in_db(client, images:int, videos:int, pdfs:int ):
         cnt = res[0][f"Find{cmd}"]["count"]
         if cnt != cmds[cmd]:
             raise Exception(f"Expected {cmds[cmd]} in db, got {cnt} for {cmd}")
-        print(query)
+        else:
+            print(f"Successfully found {cnt} for {cmd}")
 
 if __name__ == '__main__':
     args = get_args()

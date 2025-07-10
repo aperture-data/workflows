@@ -209,7 +209,7 @@ class VideoIngester(Ingester):
         self.df = super(VideoIngester,self).generate_df(paths)
         print(self.df)
     def load(self,db):
-        print("Ready to load")
+        print("Ready to load videos")
         csv_data = VideoDataCSV( filename=None,df=self.df)
         csv_data.sources = CustomSources( self.source )
         loader = ParallelLoader(db)
@@ -295,7 +295,7 @@ class DocumentIngester(Ingester):
         self.df = super(DocumentIngester,self).generate_df(paths)
         self.df['document_type'] = "pdf"
     def load(self,db):
-        print("Ready to load")
+        print("Ready to load documents")
         if self.check_for_existing:
             existing = self.find_existing(db, self.df['wf_sha1_hash'].tolist() )
             merged = self.df.merge(existing,on="wf_sha1_hash",indicator=True,how='left')
@@ -308,7 +308,6 @@ class DocumentIngester(Ingester):
             if len(self.df.index) == 0:
                 logger.warning("No items to load after checking db for matches")
                 return True
-        return True
         csv_data = FixedBlobDataCSV( filename=None,df=self.df)
         csv_data.sources = CustomSources( self.source )
         loader = ParallelLoader(db)
@@ -378,7 +377,7 @@ class EntityIngester(Ingester):
         return None
 
     def load(self,db):
-        print("Ready to load")
+        print("Ready to load entities")
         if len(self.entities) == 0:
             if len(self.merges) > 0:
                 logger.info("All Entities used as properties")
@@ -391,5 +390,5 @@ class EntityIngester(Ingester):
         loader.ingest(csv_data, batchsize=100,
                 numthreads=4)
         cnt = len(self.df.index)
-        noun = "document" if cnt == 1 else "documents"
+        noun = "entity" if cnt == 1 else "entities"
         print(f"Finished uploading {cnt} {noun}")

@@ -22,7 +22,7 @@ class WorkflowSpec:
         return item not in [ "WorkflowSpec", "WorkflowItem" ]
     def __init__(self,db,workflow_name,spec_id, clean=False):
         self.db = db
-        self.spec_id = spec_id
+        self.spec_id = str(spec_id)
         self.deletable_types = list(filter(self.entity_filter, self.get_all_existing_entity_types(self.db)))
         self.workflow_name = workflow_name
     
@@ -80,14 +80,14 @@ class WorkflowSpec:
             blobs=blobs, strict_response_validation=strict_response_validation, success_statuses=success_statuses
         )
     @staticmethod
-    def execute_query_with_db(db,
+    def execute_query_with_db(client,
                       query: Iterator[dict],
                       blobs: Optional[Iterator[bytes]] = [],
                       success_statuses=[0],
                       strict_response_validation=True,
                       ) -> Tuple[list[dict], list[bytes]]:
         status, results, result_blobs = execute_query(
-            client=db,
+            client=client,
             query=query,
             blobs=blobs, strict_response_validation=strict_response_validation, success_statuses=success_statuses
         )
@@ -360,8 +360,8 @@ class WorkflowSpec:
         if is_entity:
             linkq[2]["FindEntity"]["with_class"] = object_type
         res,_ = self.execute_query(linkq)
-        print(linkq)
-        print(res)
+        #print(linkq)
+        #print(res)
 
     def finish_run(self,run_id, extra_props = {}):
         props = extra_props
@@ -371,7 +371,7 @@ class WorkflowSpec:
                 "UpdateEntity": {
                     "with_class": "WorkflowRun",
                     "constraints": {
-                        "workflow_id": ["==", run_id]
+                        "workflow_id": ["==", str(run_id)]
                         },
                     "properties": props
                 }
