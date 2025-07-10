@@ -151,6 +151,7 @@ class WorkflowSpec:
         if not isinstance(res,list):
             raise Exception(f"Failed to execute clean query for WorkflowSpec {res}")
         logger.info(f"Removed {res[1]['DeleteEntity']['count']} WorkflowSpec")
+        print(f"Workflow {spec_id} removed")
 
     def delete_run_id_data(self,run_id):
         pass
@@ -241,6 +242,7 @@ class WorkflowSpec:
     def clean_bucket(cls,db,provider,bucket):
         logger.info(f"Cleaning database from bucket {provider}/{bucket}")
         known_objects = [m.value for m in ObjectType]
+        creator_key = utils.generate_bucket_hash(provider, bucket)
         for type_to_clean in known_objects:
             otype = type_to_clean[1:] 
             res,_ = cls.execute_query_with_db(db,[
@@ -248,7 +250,7 @@ class WorkflowSpec:
                     f"Find{otype}": {
                         "_ref":1,
                         "constraints": {
-                            "wf_creator_key": ["==", utils.generate_bucket_hash(provider, bucket)]
+                            "wf_creator_key": ["==", creator_key ]
                         },
                         "results": {
                             "count":True
@@ -266,7 +268,7 @@ class WorkflowSpec:
                     noun = "Entities" if deleted != 1 else otype
                 else:
                     noun = otype+"s" if deleted != 1 else otype
-                print(f"Deleted {deleted} {noun}")
+                print(f"Deleted {deleted} {noun} matching creator_key {creator_key}")
             else:
                 raise Exception(f"Failed bucket clean delete query for type {otype} on resource {provider}/{bucket} : {res}")
 
