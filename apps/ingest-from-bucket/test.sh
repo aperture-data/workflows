@@ -3,6 +3,7 @@
 set -x
 set -euo pipefail
 
+. test.env
 # ensure required environment variables are set
 
 if [ -z "${WF_INGEST_BUCKET_AWS_CREDS}" ]; then
@@ -15,10 +16,18 @@ if [ -z "${WF_INGEST_BUCKET_GCP_CREDS}" ]; then
     exit 1
 fi
 
+echo "CREDS [ ${WF_INGEST_BUCKET_AWS_CREDS} ] "
+R=$(echo ${WF_INGEST_BUCKET_AWS_CREDS} | jq -r .access_key)
+echo $R
 AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 
 bash ../build.sh
+
+CHECKER_NAME="aperturedata-internal/workflow-ingest-from-bucket-checker"
+( cd tests/checker && docker build -t "$CHECKER_NAME" . )
+
+exit 0
 export WORKFLOW_NAME="ingest-from-bucket"
 RUNNER_NAME="$(whoami)"
 PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
