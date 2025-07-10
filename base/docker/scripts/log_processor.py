@@ -5,6 +5,9 @@ import os
 
 import datetime
 from status import StatusUpdater
+from typer import Typer
+import subprocess
+
 
 class LogProcessor:
     def __init__(self, process: any):
@@ -38,5 +41,13 @@ class LogProcessor:
 
 
 
+app = Typer()
 
+@app.command()
+def run_monitored(command: str):
+    process = subprocess.Popen(command, shell=True, stderr=subprocess.PIPE, text=True)
+    lp = LogProcessor(process)
+    lp.process_logs()
 
+if __name__ == "__main__":
+    app()

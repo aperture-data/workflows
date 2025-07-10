@@ -103,8 +103,8 @@ def shell_updater(
     error_message: Optional[str] = None,
     error_code: Optional[WorkFlowError] = None,
 ):
-    ssu = StatusUpdater()
-    ssu.post_update(
+    updater = StatusUpdater()
+    updater.post_update(
         completed=completed,
         phases=phases,
         phase=phase,
