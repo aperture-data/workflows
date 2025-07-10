@@ -38,7 +38,7 @@ class MergeData:
 class Ingester:
     # guess_types - don't download each file to determine the type - do this
     # based off extension.
-    def __init__(self,object_type: ObjectType,  source: Provider, guess_types=True , add_object_paths=False):
+    def __init__(self,object_type: str,  source: Provider, guess_types=True , add_object_paths=False):
         self.object_type = object_type
         self.multiple_objects = None
         self.guess_types = guess_types
@@ -93,7 +93,7 @@ class Ingester:
         logger.info(f"Finding Existing with list of {cnt}")
         found_hashes = []
         for t in self.get_object_types():
-            real_type = "Blob" if t == "_Document" else t.value[1:]
+            real_type = "Blob" if t == "_Document" else t[1:]
             for i in range(0,cnt,chunk):
                 end = (i+chunk if i + chunk <  cnt else cnt)
                 q = [{f"Find{real_type}": {
@@ -108,7 +108,10 @@ class Ingester:
                 #print(q)
                 r,_ = self.execute_query(db,q)
                 if isinstance(r,list):
-                    ents = r[0][f"Find{real_type}"]["entities"]
+                    find = r[0][f"Find{real_type}"]
+                    if find['returned'] == 0:
+                        continue
+                    ents = find["entities"]
                     found_hashes.extend( [ e["wf_sha1_hash"] for e in ents ] ) 
 
         existing = pd.DataFrame( found_hashes , columns=["wf_sha1_hash"])
@@ -118,7 +121,7 @@ class Ingester:
         missing_count =  merged[ merged["_merge"] == "left_only" ].shape[0]
         logger.info(f"exist count = {exist_count} missing_count = {missing_count}")
         df = merged[ merged["_merge"] == "left_only" ]
-        return df.drop("_merge",axis=1)
+        return df.drop("_merge",axis=1).reset_index(drop=True)
 
     def generate_df(self, paths ):
         bucket = self.source.bucket_name()
@@ -149,7 +152,7 @@ class Ingester:
 
 
         if self.merge_data is not None:
-            print("Merging properties in..")
+            logger.info("Merging properties in..")
             merged = df.merge( self.merge_data.properties_df, on='filename',
                     how='left' if self.merge_data.all_blobs else 'inner' )
             if self.merge_data.error_missing:
@@ -158,7 +161,7 @@ class Ingester:
                     raise Exception('Error in missing, blob items lost on merge ( missing properties )')
                 if len(self.merge_data.index) != len(merged.index):
                     raise Exception('Error in missing, property items lost on merge ( missing blobs )')
-            df = merged
+            df = merged.reset_index(drop=True)
                 
         df.drop('filename',inplace=True,axis=1)
         return df
@@ -166,17 +169,15 @@ class Ingester:
 
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, guess_types=True , add_object_paths=False):
-        super(ImageIngester,self).__init__(ObjectType.IMAGE,source,guess_types)
+        super(ImageIngester,self).__init__(ObjectType.IMAGE.value,source,guess_types)
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
-            #print(f"Object = {bucket_path} type = {object_type}")
             if object_type in IMAGE_TYPES_TO_LOAD:
                 return True
             return False
         paths = self.source.scan( object_filter )
         self.df = super(ImageIngester,self).generate_df(paths)
-        #print(self.df)
     def load(self,db):
         logger.info("Images ready to load")
         if self.maximum_object_count is not None:
@@ -185,8 +186,6 @@ class ImageIngester(Ingester):
         if len(self.df.index) == 0:
             logger.warning("No items to load after checking db for matches")
             return True
-        logger.warning(f"{len(self.df.index)}???")
-        return True
         csv_data = ImageDataCSV( filename=None,df=self.df)
         csv_data.sources = CustomSources( self.source )
         loader = ParallelLoader(db)
@@ -199,11 +198,10 @@ class ImageIngester(Ingester):
 
 class VideoIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
-        super(VideoIngester,self).__init__(ObjectType.VIDEO,source,guess_types)
+        super(VideoIngester,self).__init__(ObjectType.VIDEO.value,source,guess_types)
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
-            #print(f"Object = {bucket_path} type = {object_type}")
             if object_type in VIDEO_TYPES_TO_LOAD:
                 return True
             return False
@@ -290,7 +288,6 @@ class DocumentIngester(Ingester):
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
-            #print(f"Object = {bucket_path} type = {object_type}")
             if object_type in DOC_TYPES_TO_LOAD:
                 return True
             return False
@@ -324,7 +321,7 @@ class DocumentIngester(Ingester):
 
 class EntityIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
-        super(EntityIngester,self).__init__("_Entity",source,guess_types)
+        super(EntityIngester,self).__init__(ObjectType.ENTITY.value,source,guess_types)
         self.entities = []
         self.merges = {}
         self.sources = CustomSources(self.source)

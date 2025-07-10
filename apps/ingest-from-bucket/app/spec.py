@@ -6,6 +6,7 @@ from typing import Iterator, Optional, Tuple
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import execute_query
 import logging
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -72,12 +73,20 @@ class WorkflowSpec:
                       success_statuses=[0],
                       strict_response_validation=True,
                       ) -> Tuple[list[dict], list[bytes]]:
-        """Execute a query on ApertureDB and return the results
-
-        TODO: Support mock
-        """
-        status, results, result_blobs = execute_query(
+        return  self.execute_query_with_db(
             client=self.db,
+            query=query,
+            blobs=blobs, strict_response_validation=strict_response_validation, success_statuses=success_statuses
+        )
+    @staticmethod
+    def execute_query_with_db(db,
+                      query: Iterator[dict],
+                      blobs: Optional[Iterator[bytes]] = [],
+                      success_statuses=[0],
+                      strict_response_validation=True,
+                      ) -> Tuple[list[dict], list[bytes]]:
+        status, results, result_blobs = execute_query(
+            client=db,
             query=query,
             blobs=blobs, strict_response_validation=strict_response_validation, success_statuses=success_statuses
         )
@@ -85,8 +94,7 @@ class WorkflowSpec:
 
     def clean(self):
         self.clean_spec(self.spec_id)
-    @staticmethod
-    def clean_spec(spec_id):
+    def clean_spec(self,spec_id):
         logger.info(f"Cleaning spec {spec_id}")
         res,_ = self.execute_query([
             {
@@ -144,7 +152,7 @@ class WorkflowSpec:
 
     def delete_run_id_data(self,run_id):
         pass
-    def delete_spec_data(self,spec_id):
+    def delete_spec_data(db,spec_id):
         logger.info(f"Deleting data for {spec_id}")
         known_objects = [m.value for m in ObjectType]
 
@@ -173,7 +181,7 @@ class WorkflowSpec:
                     }
                 }
             }]
-        res,_ = self.execute_query(query) 
+        res,_ = self.execute_query_with_db(db,query) 
         if res[0]["FindEntity"]["returned"] == 0 :
             logger.warn("No spec {spec_id} found.")
             return
@@ -192,22 +200,21 @@ class WorkflowSpec:
                             "ref":2
                         }
                     }
-                }
-            }, {
-                f"Delete{dtype}": {
-                    "ref":3
-                }
-            }]
-            res,_ = self.execute_query(query) 
-            if not isinstance(res,list):
-                raise Exception(f"Failed deleting {dtype} for workflow {spec_id}")
+                }, {
+                    f"Delete{dtype}": {
+                        "ref":3
+                    }
+                }]
+                res,_ = self.execute_query(query) 
+                if not isinstance(res,list):
+                    raise Exception(f"Failed deleting {dtype} for workflow {spec_id}")
         self.clean_spec( spec_id )
 
-    @staticmethod
-    def delete_spec( wf_name, spec_id ):
-        self.delete_spec_data(wf_name,spec_id)
-    @staticmethod
-    def delete_all_data(workflow_name):
+    @classmethod
+    def delete_spec(cls,db, wf_name, spec_id ):
+        cls.delete_spec_data(db,wf_name,spec_id)
+    @classmethod
+    def delete_all_data(cls,db,workflow_name):
         # find specs of this type
         res,_ = self.execute_query([
             {
@@ -225,7 +232,39 @@ class WorkflowSpec:
         )
         specs = res[0]["FindEntity"]["entities"]
         for spec in specs:
-            this.delete_spec_data( spec['workflow_id'] )
+            cls.delete_spec_data(db, spec['workflow_id'] )
+    @classmethod
+    def clean_bucket(cls,db,provider,bucket):
+        logger.info(f"Cleaning database from bucket {provider}/{bucket}")
+        known_objects = [m.value for m in ObjectType]
+        for type_to_clean in known_objects:
+            otype = type_to_clean[1:] 
+            res,_ = cls.execute_query_with_db(db,[
+                {
+                    f"Find{otype}": {
+                        "_ref":1,
+                        "constraints": {
+                            "wf_creator_key": ["==", utils.generate_bucket_hash(provider, bucket)]
+                        },
+                        "results": {
+                            "count":True
+                        }
+                    }
+                },{
+                    f"Delete{otype}": {
+                        "ref":1
+                    }
+                }]
+            )
+            if isinstance(res,list):
+                deleted = res[1][f"Delete{otype}"]["count"]
+                if otype == "Entity":
+                    noun = "Entities" if deleted != 1 else otype
+                else:
+                    noun = otype+"s" if deleted != 1 else otype
+                print(f"Deleted {deleted} {noun}")
+            else:
+                raise Exception(f"Failed bucket clean delete query for type {otype} on resource {provider}/{bucket} : {res}")
 
     def get_spec_find_query(self):
         return [{
@@ -298,6 +337,10 @@ class WorkflowSpec:
                         },
                         "constraints": {
                             "wf_workflow_id": ["==",str(run_id)]
+                        },
+                        "results": {
+                            "list": ["wf_sha1_hash"],
+                            "count":True
                         }
                     }
                 },{
@@ -311,6 +354,7 @@ class WorkflowSpec:
         if is_entity:
             linkq[2]["FindEntity"]["with_class"] = object_type
         res,_ = self.execute_query(linkq)
+        print(linkq)
         print(res)
 
     def finish_run(self,run_id, extra_props = {}):
