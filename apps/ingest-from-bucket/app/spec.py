@@ -11,8 +11,9 @@ import utils
 logger = logging.getLogger(__name__)
 
 class WorkflowSpec:
-    def get_all_existing_entity_types(self):
-        u = Utils(self.db)
+    @staticmethod
+    def get_all_existing_entity_types(db):
+        u = Utils(db)
         schema = u.get_schema()
         return  [] if schema['entities'] is None else schema["entities"]["classes"].keys()
 
@@ -22,7 +23,7 @@ class WorkflowSpec:
     def __init__(self,db,workflow_name,spec_id, clean=False):
         self.db = db
         self.spec_id = spec_id
-        self.deletable_types = list(filter(self.entity_filter, self.get_all_existing_entity_types()))
+        self.deletable_types = list(filter(self.entity_filter, self.get_all_existing_entity_types(self.db)))
         self.workflow_name = workflow_name
     
         
@@ -93,17 +94,18 @@ class WorkflowSpec:
         return results, result_blobs
 
     def clean(self):
-        self.clean_spec(self.spec_id)
-    def clean_spec(self,spec_id):
+        self.clean_spec(self.db,self.workflow_name,self.spec_id)
+    @classmethod
+    def clean_spec(cls,db,workflow_name,spec_id):
         logger.info(f"Cleaning spec {spec_id}")
-        res,_ = self.execute_query([
+        res,_ = cls.execute_query_with_db(db,[
             {
                 "FindEntity": {
                     "with_class": "WorkflowSpec",
                     "_ref":1,
                     "constraints": {
                         "workflow_id": ["==", spec_id],
-                        "workflow_name": ["==",self.workflow_name]
+                        "workflow_name": ["==",workflow_name]
                     },
                     "results": {
                         "list": [ "workflow_create_date" ]
@@ -126,14 +128,14 @@ class WorkflowSpec:
         if not isinstance(res,list):
             raise Exception(f"Failed to execute clean query for WorkflowRun {res}")
         logger.info(f"Removed {res[2]['DeleteEntity']['count']} WorkflowRun")
-        res,_ = self.execute_query([
+        res,_ = cls.execute_query_with_db(db,[
             {
                 "FindEntity": {
                     "with_class": "WorkflowSpec",
                     "_ref":1,
                     "constraints": {
-                        "workflow_id": ["==", self.spec_id],
-                        "workflow_name": ["==",self.workflow_name]
+                        "workflow_id": ["==", spec_id],
+                        "workflow_name": ["==",workflow_name]
                     },
                     "results": {
                         "list": [ "workflow_create_date" ]
@@ -152,7 +154,8 @@ class WorkflowSpec:
 
     def delete_run_id_data(self,run_id):
         pass
-    def delete_spec_data(db,spec_id):
+    @classmethod
+    def delete_spec_data(cls,db,workflow_name,spec_id):
         logger.info(f"Deleting data for {spec_id}")
         known_objects = [m.value for m in ObjectType]
 
@@ -163,7 +166,7 @@ class WorkflowSpec:
                     "_ref":1,
                     "constraints": {
                         "workflow_id": ["==", spec_id],
-                        "workflow_name": ["==",self.workflow_name]
+                        "workflow_name": ["==",workflow_name]
                     },
                     "results": {
                         "list": [ "workflow_id" ]
@@ -181,21 +184,22 @@ class WorkflowSpec:
                     }
                 }
             }]
-        res,_ = self.execute_query_with_db(db,query) 
+        res,_ = cls.execute_query_with_db(db,base) 
         if res[0]["FindEntity"]["returned"] == 0 :
             logger.warn("No spec {spec_id} found.")
             return
         if res[1]["FindEntity"]["count"] == 0 :
             logger.warn("No runs assocated spec {spec_id} found.")
         else:
-            for type_to_delete in self.deletable_types:
+            deletable_types = list(filter(cls.entity_filter, cls.get_all_existing_entity_types(db)))
+            for type_to_delete in deletable_types:
                 dtype = "Entity"
                 if type_to_delete.startswith("_"):
                     if type_to_delete in known_objects:
                         dtype = type_to_delete[1:]
                 query =  base + [ {
                     f"Find{dtype}": {
-                        "ref":3,
+                        "_ref":3,
                         "is_connected_to": {
                             "ref":2
                         }
@@ -205,10 +209,10 @@ class WorkflowSpec:
                         "ref":3
                     }
                 }]
-                res,_ = self.execute_query(query) 
+                res,_ = cls.execute_query_with_db(db,query) 
                 if not isinstance(res,list):
                     raise Exception(f"Failed deleting {dtype} for workflow {spec_id}")
-        self.clean_spec( spec_id )
+        cls.clean_spec(db, workflow_name, spec_id )
 
     @classmethod
     def delete_spec(cls,db, wf_name, spec_id ):
@@ -216,7 +220,7 @@ class WorkflowSpec:
     @classmethod
     def delete_all_data(cls,db,workflow_name):
         # find specs of this type
-        res,_ = self.execute_query([
+        res,_ = cls.execute_query_with_db(db,[
             {
                 "FindEntity": {
                     "with_class": "WorkflowSpec",
@@ -232,7 +236,7 @@ class WorkflowSpec:
         )
         specs = res[0]["FindEntity"]["entities"]
         for spec in specs:
-            cls.delete_spec_data(db, spec['workflow_id'] )
+            cls.delete_spec_data(db, workflow_name, spec['workflow_id'] )
     @classmethod
     def clean_bucket(cls,db,provider,bucket):
         logger.info(f"Cleaning database from bucket {provider}/{bucket}")
