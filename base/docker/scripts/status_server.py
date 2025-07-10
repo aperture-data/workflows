@@ -1,12 +1,13 @@
 import uvicorn
 from fastapi import FastAPI
 import requests
-import  time
+import time
 import threading
 from prometheus_client.parser import text_string_to_metric_families
 import os
 
 count = 0
+lock = threading.Lock()
 
 RESPONSE = {
     "status": "starting",  # Not defined yet.
@@ -96,8 +97,9 @@ async def set_response(response: dict):
     which can be used in other parts of the application.
     """
     global RESPONSE
-    for key, value in response.items():
-        RESPONSE[key] = value
+    with lock:
+        for key, value in response.items():
+            RESPONSE[key] = value
 
 # This block allows you to run the FastAPI application directly
 # when the script is executed.
@@ -116,4 +118,4 @@ if __name__ == "__main__":
     # Runs the Uvicorn server.
     # 'main:app' tells Uvicorn to look for an 'app' object in 'main.py'.
     # '--reload' enables auto-reloading when code changes are detected.
-    uvicorn.run("status_server:app", host="0.0.0.0", port=8080, reload=True, access_log=False)
+    uvicorn.run("status_server:app", host="0.0.0.0", port=8080, reload=True, access_log=False, timeout_keep_alive=1800)
