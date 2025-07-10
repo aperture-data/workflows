@@ -2,7 +2,7 @@ import os
 import argparse
 from prometheus_client import start_http_server
 import time
-from status import Status
+from status import Status, WorkFlowError
 
 
 workflow_status = Status(phases = ["phase1", "module"])
@@ -19,7 +19,7 @@ def main(params):
 
     from my_example_module import module_work
     module_work()
-    workflow_status.error("An example error occurred", "workflow_error")
+    workflow_status.error("An example error occurred", WorkFlowError.WORKFLOW_ERROR)
     time.sleep(10)
     print("Done.")
 

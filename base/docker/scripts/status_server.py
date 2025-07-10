@@ -96,7 +96,8 @@ async def set_response(response: dict):
     which can be used in other parts of the application.
     """
     global RESPONSE
-    RESPONSE = response
+    for key, value in response.items():
+        RESPONSE[key] = value
 
 # This block allows you to run the FastAPI application directly
 # when the script is executed.

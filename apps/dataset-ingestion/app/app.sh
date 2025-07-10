@@ -17,12 +17,22 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
+python3 status.py --completed 0 \
+      --phases downloading \
+      --phases ingesting_images \
+      --phases ingesting_bboxes \
+      --phases ingesting_polygons \
+      --phases ingesting_pixelmaps \
+      --phases ingesting_img_pixelmap_connections \
+      --phases ingesting_images_adb_csv_clip_pytorch_embeddings_metadata \
+      --phases ingesting_images_adb_csv_clip_pytorch_embeddings_connection \
+      --phase downloading \
+
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
-    python3 log_processor.py --completed 1 \
-      --phases downloading --phases ingesting \
-      --phase downloading --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
-      --error-code "WF_ERROR" --status "failed"
+    python3 status.py --completed 0 \
+      --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
+      --error-code "workflow_error" --status "failed"
     exit 1
 fi
 
@@ -36,15 +46,15 @@ build_coco() {
     date
     echo "Downloading val data..."
 
-    python3 ../log_processor.py --completed 0 --phases downloading --phases ingesting --phase downloading --error-message "" --error-code ""
+    python3 ../status.py --completed 0 --phase downloading
     bash download_coco.sh val
-    python3 ../log_processor.py --completed 1 --phases downloading --phases ingesting --phase downloading --error-message "" --error-code ""
+    python3 ../status.py --completed 1 --phase downloading
 
     if [[ $INCLUDE_TRAIN == true ]]; then
         echo "Downloading train data..."
         bash download_coco.sh train
     fi
-    python3 ../log_processor.py --completed 1 --phases downloading --phases ingesting --phase downloading
+
 
     date
     adb utils log --level INFO "${APP}: Loading begins"

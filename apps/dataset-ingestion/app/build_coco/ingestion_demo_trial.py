@@ -5,7 +5,8 @@ import sys
 import subprocess
 
 sys.path.append("/app")
-from log_processor import StatusUpdater, LogProcessor
+from log_processor import LogProcessor
+from status import StatusUpdater
 
 def ingest_coco(cli_args):
     """
@@ -33,14 +34,6 @@ def ingest_coco(cli_args):
     if cli_args.train == "true":
         stages.append("train")
 
-    objs = ["images",
-            "bboxes",
-            "polygons",
-            "pixelmaps",
-            "img_pixelmap_connections",
-            "images.adb.csv_clip_pytorch_embeddings_metadata",
-            "images.adb.csv_clip_pytorch_embeddings_connection"]
-
 
     set_name = "ViT-B/16"
     dbutils.add_descriptorset(set_name, 512,
@@ -49,14 +42,10 @@ def ingest_coco(cli_args):
 
     updater = StatusUpdater()
     for stage in stages:
-        for obj in objs:
+        for obj in args.keys():
             updater.post_update(
                 completed=0.0,
-                phases=["downloading", "ingesting"],
-                phase="ingesting",
-                error_message="",
-                error_code="",
-                status="running"
+                phase=f"ingesting_{obj}",
             )
             common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
@@ -64,7 +53,7 @@ def ingest_coco(cli_args):
             print(command, flush=True)
             # os.system(command)
             process = subprocess.Popen(command, shell=True, stderr=subprocess.PIPE, text=True)
-            lp = LogProcessor(process, phases=["downloading", "ingesting"], phase="ingesting")
+            lp = LogProcessor(process)
             lp.process_logs()
 
 

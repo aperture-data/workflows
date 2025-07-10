@@ -13,3 +13,4 @@ RUN pip install pycocotools
 RUN pip install git+https://github.com/openai/CLIP.git
 
 COPY app /app/
+RUN python3 /app/get_weights.py
