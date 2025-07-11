@@ -17,28 +17,34 @@ python3 create_descriptorsets.py
 
 echo "Ingesting"
 cd /app/input/faces
-python3 ../../status.py --completed 0 --phase ingesting_pruned_celebA
+python3 ../../status.py --completed 0 --phase ingesting_images
 adb ingest from-csv pruned_celebA.csv --transformer image_properties --transformer common_properties  --ingest-type IMAGE --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS}  --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_csv_clip_pytorch_embeddings_metadata
+
+python3 ../../status.py --completed 0 --phase ingesting_descriptors
 adb ingest from-csv celebA.csv_clip_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_csv_clip_pytorch_embeddings_connection
+
+python3 ../../status.py --completed 0 --phase ingesting_connections
 adb ingest from-csv celebA.csv_clip_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
-python3 ../../status.py --completed 0 --phase ingesting_csv_facenet_pytorch_embeddings_metadata
+python3 ../../status.py --completed 0 --phase ingesting_descriptors
 adb ingest from-csv celebA.csv_facenet_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_csv_facenet_pytorch_embeddings_connection
+
+python3 ../../status.py --completed 0 --phase ingesting_connections
 adb ingest from-csv celebA.csv_facenet_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
-python3 ../../status.py --completed 0 --phase ingesting_hqimages
+python3 ../../status.py --completed 0 --phase ingesting_images
 adb ingest from-csv hqimages.adb.csv --ingest-type IMAGE --transformer common_properties --transformer image_properties --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_hqpolygons
+
+python3 ../../status.py --completed 0 --phase ingesting_polygons
 adb ingest from-csv hqpolygons.adb.csv --ingest-type POLYGON --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_hqbboxes
+
+python3 ../../status.py --completed 0 --phase ingesting_bounding_boxes
 adb ingest from-csv hqbboxes.adb.csv --ingest-type BOUNDING_BOX --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
-python3 ../../status.py --completed 0 --phase ingesting_hqimages_adb_csv_clip_pytorch_embeddings_metadata
+python3 ../../status.py --completed 0 --phase ingesting_descriptors
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv --ingest-type DESCRIPTOR --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
-python3 ../../status.py --completed 0 --phase ingesting_hqimages_adb_csv_clip_pytorch_embeddings_connection
+
+python3 ../../status.py --completed 0 --phase ingesting_connections
 adb ingest from-csv hqimages.adb.csv_facenet_pytorch_embeddings_connection.adb.csv --ingest-type CONNECTION --batchsize ${BATCH_SIZE} --num-workers ${NUM_WORKERS} --sample-count ${SAMPLE_COUNT}
 
 cd /app/build_faces

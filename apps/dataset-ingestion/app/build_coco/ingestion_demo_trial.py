@@ -45,7 +45,7 @@ def ingest_coco(cli_args):
         for obj in args.keys():
             updater.post_update(
                 completed=0.0,
-                phase=f"ingesting_{obj}",
+                phase=f"ingesting_{args[obj].lower()}s",
             )
             common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""

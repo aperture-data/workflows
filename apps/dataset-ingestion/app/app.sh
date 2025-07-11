@@ -34,12 +34,12 @@ build_coco() {
     python3 ../status.py --completed 0 \
       --phases downloading \
       --phases ingesting_images \
-      --phases ingesting_bboxes \
+      --phases ingesting_bounding_boxes \
       --phases ingesting_polygons \
-      --phases ingesting_pixelmaps \
-      --phases ingesting_img_pixelmap_connections \
-      --phases ingesting_images_adb_csv_clip_pytorch_embeddings_metadata \
-      --phases ingesting_images_adb_csv_clip_pytorch_embeddings_connection \
+      --phases ingesting_images \
+      --phases ingesting_connections \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections  \
       --phase downloading
 
     adb utils log --level INFO "${APP}: Start"
@@ -49,7 +49,7 @@ build_coco() {
 
     python3 ../status.py --completed 0
     bash download_coco.sh val
-    python3 ../status.py --completed 1
+    python3 ../status.py --completed 100
 
     if [[ $INCLUDE_TRAIN == true ]]; then
         echo "Downloading train data..."
@@ -79,16 +79,16 @@ build_faces() {
     DIR="/app/input/faces"
     python3 ../status.py --completed 0 \
       --phases downloading \
-      --phases ingesting_pruned_celebA \
-      --phases ingesting_csv_clip_pytorch_embeddings_metadata \
-      --phases ingesting_csv_clip_pytorch_embeddings_connection \
-      --phases ingesting_csv_facenet_pytorch_embeddings_metadata \
-      --phases ingesting_csv_facenet_pytorch_embeddings_connection \
-      --phases ingesting_hqimages \
-      --phases ingesting_hqpolygons \
-      --phases ingesting_hqbboxes \
-      --phases ingesting_hqimages_adb_csv_clip_pytorch_embeddings_metadata \
-      --phases ingesting_hqimages_adb_csv_clip_pytorch_embeddings_connection \
+      --phases ingesting_images \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
+      --phases ingesting_images \
+      --phases ingesting_polygons \
+      --phases ingesting_bounding_boxes \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
       --phase downloading
 
     gcloud storage rsync --recursive gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows/faces ${DIR}
@@ -118,7 +118,7 @@ build_faces() {
 
 
     cd /app/build_faces
-    python3 ../status.py --completed 1
+    python3 ../status.py --completed 100
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
     python3 ../log_processor.py 'bash load.sh'
