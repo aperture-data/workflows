@@ -12,6 +12,11 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
+RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
+RUN ./google-cloud-sdk/install.sh
+ENV PATH=$PATH:/google-cloud-sdk/bin
+    
 COPY requirements.txt /
 RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir -r /requirements.txt
@@ -28,13 +33,10 @@ COPY scripts/*.py app/
 
 COPY scripts/start.sh /
 
-RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
-RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
-RUN ./google-cloud-sdk/install.sh
-ENV PATH=$PATH:/google-cloud-sdk/bin
-
 # Get the image version from the build context
 ARG VERSION
 ENV APP_VERSION=$VERSION
+
+COPY scripts/start.sh /
 
 CMD ["/start.sh"]

@@ -2,7 +2,7 @@
 set -x
 set -euo pipefail
 
-bash build.sh
+bash ../build.sh
 export WORKFLOW_NAME="ingest-croissant"
 RUNNER_NAME="$(whoami)"
 PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
