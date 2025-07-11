@@ -26,7 +26,7 @@ class AperturedbIO:
                  run_id: str,
                  descriptorset_name: str,
                  engine: str,
-                 embedder: "BatchEmbedder",
+                 embedder: "Embedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
@@ -92,6 +92,8 @@ class AperturedbIO:
         """Create spec document in ApertureDB"""
         logging.info(f"Starting {SPEC_CLASS} at {self.start_time.isoformat()}")
 
+        embeddings_properties = self.embedder.get_properties()
+
         self.execute_query([
             {
                 "FindEntity": {
@@ -108,10 +110,9 @@ class AperturedbIO:
                     "properties": {
                         "segmentation_spec_id": self.input_spec_id,
                         "id": self.spec_id,
-                        "model": self.embedder.model_spec,
-                        "model_fingerprint": self.embedder.fingerprint_hash(),
-                        "dimensions": self.embedder.dimensions(),
-                        "metric": self.embedder.metric(),
+                        **embeddings_properties,
+                        "dimensions": self.embedder.dimensions,
+                        "metric": self.embedder.metric,
                         "descriptorset_name": self.descriptorset_name,
                         "engine": self.engine,
                     },
@@ -123,8 +124,8 @@ class AperturedbIO:
                 }
             }])
 
-    def create_descriptorset(self) -> None:
-        """Finds or creates descriptor set in ApertureDB"""
+    def connect_descriptorset(self) -> None:
+        """Connect descriptor set in ApertureDB"""
         response, _ = self.execute_query([
             {
                 "FindEntity": {
@@ -138,10 +139,6 @@ class AperturedbIO:
             {
                 "FindDescriptorSet": {
                     "with_name": self.descriptorset_name,
-                    "metrics": True,
-                    "results": {
-                        "list": ["model", "model_fingerprint"],
-                    },
                     "_ref": 2,
                 }
             },
@@ -153,57 +150,6 @@ class AperturedbIO:
                 }
             },
         ])
-
-        logger.info(
-            f"Preparing to create descriptor set {self.descriptorset_name} with model {self.embedder.model_spec}, fingerprint {self.embedder.fingerprint_hash()}, metric {self.embedder.metric()}, dimensions {self.embedder.dimensions()}")
-
-        if "entities" not in response[1]["FindDescriptorSet"]:
-            logger.info(
-                f"Creating new descriptor set {self.descriptorset_name}")
-            self.execute_query([
-                {
-                    "FindEntity": {
-                        "with_class": SPEC_CLASS,
-                        "constraints": {
-                            "id": ["==", self.spec_id],
-                        },
-                        "_ref": 1,
-                    }
-                },
-                {
-                    "AddDescriptorSet": {
-                        "name": self.descriptorset_name,
-                        "engine": self.engine,
-                        "properties": {
-                            "model": self.embedder.model_spec,
-                            "model_fingerprint": self.embedder.fingerprint_hash(),
-                        },
-                        "metric": self.embedder.metric(),
-                        "dimensions": self.embedder.dimensions(),
-                        "connect": {
-                            "ref": 1,
-                            "class": "embeddingsSpecHasDescriptorSet",
-                            "direction": "in",
-                        },
-                    }
-                }
-            ])
-        else:
-            logger.info(
-                f"Descriptor set {self.descriptorset_name} already exists")
-            e = response[1]["FindDescriptorSet"]["entities"][0]
-            if e["model"] != self.embedder.model_spec:
-                raise ValueError(
-                    f"Descriptor set {self.descriptorset_name} already exists with different model {e['model']}, wanted to set {self.embedder.model_spec}")
-            fingerprint_hash = self.embedder.fingerprint_hash()
-            if e["model_fingerprint"] != fingerprint_hash:
-                # Don't raise an error, just log it
-                logger.error(
-                    f"Descriptor set {self.descriptorset_name} already exists with different fingerprint found {e['model_fingerprint']}, expected {fingerprint_hash}")
-
-            if self.embedder.metric() not in e["_metrics"] != self.embedder.metric():
-                raise ValueError(
-                    f"Descriptor set {self.descriptorset_name} already exists with different metric {e['_metrics']}")
 
     def create_indexes(self) -> None:
         """Create indexes"""
@@ -413,7 +359,6 @@ class AperturedbIO:
                     },
                     "counts": True,
                     "uniqueids": True,
-                    "_ref": 2,
                 },
             },
             {
