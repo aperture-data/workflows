@@ -74,7 +74,7 @@ class ArgumentParser:
         elif v.lower() in ('no', 'false', 'f', 'n', '0'):
             return False
         else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
+            raise argparse.ArgumentTypeError(f'Boolean value expected: {v}')
 
     def check_envars(self):
         unused_envars = set()

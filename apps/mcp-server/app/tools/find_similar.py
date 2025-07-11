@@ -10,7 +10,6 @@ from decorators import declare_mcp_tool
 from embeddings import BatchEmbedder, DEFAULT_MODEL
 
 
-
 embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
 
 
@@ -140,7 +139,7 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
     logger.info(
         f"Found {len(entities)} similar images for query: {query} (k={k})")
 
-    return FindSimilarDocumentsResponse(documents=[
+    return FindSimilarImagesResponse(documents=[
         to_image_document(e, b) for e, b in zip(entities, blobs)])
 
 
@@ -170,10 +169,10 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
     response, _ = connection_pool.query(query)
     if not response or not response[0].get("FindDescriptorSet"):
         logger.error("No descriptor sets found or unexpected response format.")
-        return []
+        return DescriptorSetsResponse(sets=[])
     if "entities" not in response[0]["FindDescriptorSet"]:
         logger.error("No entities found in descriptor set response.")
-        return []
+        return DescriptorSetsResponse(sets=[])
     entities = response[0]["FindDescriptorSet"].get("entities", [])
     results = DescriptorSetsResponse(sets=[
         DescriptorSet(
