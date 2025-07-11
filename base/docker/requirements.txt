@@ -4,3 +4,5 @@ git+https://github.com/openai/CLIP.git
 dbeval 
 slack_sdk
 pillow
+fastapi
+uvicorn
