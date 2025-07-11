@@ -34,7 +34,7 @@ def main(args):
 
     spec = WorkflowSpec( db, "bucket-loader", args.spec_id, clean=args.clean )
 
-    run_id = uuid4()
+    run_id = str(uuid4())
     spec.add_run( run_id )
     provider = None
     if args.cloud_provider == "s3":
@@ -44,7 +44,7 @@ def main(args):
 
     if not provider.verify():
         logger.error("Workflow cannot continue, configuration incorrect")
-        spec.finish_run(str(run_id))
+        spec.finish_run(run_id)
         spec.finish_spec()
         sys.exit(1)
 

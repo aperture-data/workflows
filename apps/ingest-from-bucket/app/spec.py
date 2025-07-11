@@ -5,6 +5,7 @@ from aperturedb.Query import ObjectType
 from typing import Iterator, Optional, Tuple
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import execute_query
+from aperturedb.Connector import Connector
 import logging
 import utils
 
@@ -20,7 +21,8 @@ class WorkflowSpec:
     @staticmethod
     def entity_filter(item):
         return item not in [ "WorkflowSpec", "WorkflowItem" ]
-    def __init__(self,db,workflow_name,spec_id, clean=False):
+
+    def __init__(self,db:Connector, workflow_name:str, spec_id:str, clean:bool=False):
         self.db = db
         self.spec_id = str(spec_id)
         self.deletable_types = list(filter(self.entity_filter, self.get_all_existing_entity_types(self.db)))
@@ -79,6 +81,7 @@ class WorkflowSpec:
             query=query,
             blobs=blobs, strict_response_validation=strict_response_validation, success_statuses=success_statuses
         )
+
     @staticmethod
     def execute_query_with_db(client,
                       query: Iterator[dict],
@@ -95,6 +98,7 @@ class WorkflowSpec:
 
     def clean(self):
         self.clean_spec(self.db,self.workflow_name,self.spec_id)
+
     @classmethod
     def clean_spec(cls,db,workflow_name,spec_id):
         logger.info(f"Cleaning spec {spec_id}")
@@ -153,8 +157,6 @@ class WorkflowSpec:
         logger.info(f"Removed {res[1]['DeleteEntity']['count']} WorkflowSpec")
         print(f"Workflow {spec_id} removed")
 
-    def delete_run_id_data(self,run_id):
-        pass
     @classmethod
     def delete_spec_data(cls,db,workflow_name,spec_id):
         logger.info(f"Deleting data for {spec_id}")
@@ -218,6 +220,7 @@ class WorkflowSpec:
     @classmethod
     def delete_spec(cls,db, wf_name, spec_id ):
         cls.delete_spec_data(db,wf_name,spec_id)
+
     @classmethod
     def delete_all_data(cls,db,workflow_name):
         # find specs of this type
@@ -238,6 +241,7 @@ class WorkflowSpec:
         specs = res[0]["FindEntity"]["entities"]
         for spec in specs:
             cls.delete_spec_data(db, workflow_name, spec['workflow_id'] )
+
     @classmethod
     def clean_bucket(cls,db,provider,bucket):
         logger.info(f"Cleaning database from bucket {provider}/{bucket}")
@@ -310,7 +314,7 @@ class WorkflowSpec:
                 "AddEntity": {
                     "class": "WorkflowRun",
                     "properties": {
-                        "workflow_id": str(run_id),
+                        "workflow_id": run_id,
                         "workflow_create_date": dt.datetime.now().isoformat()
                     },
                     "connect": {
@@ -342,7 +346,7 @@ class WorkflowSpec:
                             "ref":2
                         },
                         "constraints": {
-                            "wf_workflow_id": ["==",str(run_id)]
+                            "wf_workflow_id": ["==",run_id]
                         },
                         "results": {
                             "list": ["wf_sha1_hash"],
@@ -371,7 +375,7 @@ class WorkflowSpec:
                 "UpdateEntity": {
                     "with_class": "WorkflowRun",
                     "constraints": {
-                        "workflow_id": ["==", str(run_id)]
+                        "workflow_id": ["==", run_id]
                         },
                     "properties": props
                 }
