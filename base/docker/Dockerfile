@@ -5,19 +5,22 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     awscli \
     unzip wget curl jq lsof\
-    python3-pip &&\
+    python3-venv &&\
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Use virtual environment for pip install
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 
 RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz
 RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
 RUN ./google-cloud-sdk/install.sh
 ENV PATH=$PATH:/google-cloud-sdk/bin
 
-RUN pip3 install --upgrade pip && \
-    pip3 install dbeval slack_sdk && \
-    pip3 install fastapi uvicorn typer prometheus_client
-
-RUN pip3 install --upgrade aperturedb
+COPY requirements.txt /
+RUN pip install --upgrade -r /requirements.txt
 
 RUN mkdir -p app/output
 

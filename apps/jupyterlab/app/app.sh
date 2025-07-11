@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+
 # Make DB_HOST_PUBLIC default to DB_HOST or localhost if not set
 DB_HOST_PUBLIC="${DB_HOST_PUBLIC:-${DB_HOST:-localhost}}"
 
@@ -43,14 +44,5 @@ if [ ! -f /opt/.jupyter_configured ]; then
     configure_jupyter
 fi
 
-echo "Starting Status Server: ..."
-# Start fastapi-based status server
-# This is used to provide a status endpoint for the workflow.
-HOSTNAME=$(hostname -f) python3 /aperturedata/status_server.py &
-# Wait for the status server to start
-while [ -z "$(lsof -i:8080)" ]; do
-    echo "Waiting for Status Server to start on port 8080..."
-    sleep 1
-done
-echo "Starting Status Server is up."
-python3 /aperturedata/status.py --phases running --phase running --completed 100
+bash /start-jupyter.sh &
+python3 /app/status.py --phases running --phase running --completed 100

@@ -1,5 +1,1 @@
 fastmcp==2.10.2
-fastapi
-uvicorn
-prometheus_client
-typer
