@@ -89,7 +89,7 @@ docker run \
            -e WF_BUCKET="my-private-aws-bucket" \
            -e WF_AWS_ACCESS_KEY_ID="$YOUR_AWS_ACCESS_KEY_ID" \
            -e WF_AWS_SECRET_ACCESS_KEY="$YOUR_AWS_SECRET_ACCESS_KEY" \
-           aperturedata/workflow-ingest-from-bucket
+           aperturedata/workflows-ingest-from-bucket
 ```
 
 ## Parameters
