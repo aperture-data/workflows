@@ -115,6 +115,11 @@ echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." >> $LOGFILE
 bash app.sh |& tee -a $APPLOG
 ret_val="${PIPESTATUS[0]}"
 
+if [ "${ret_val}" -ne 0 ]; then
+    python status.py --completed 0 --error-message "failed" --error-code "workflow_error"
+fi
+
+
 echo "App Done." >> $LOGFILE
 
 echo "App Done."

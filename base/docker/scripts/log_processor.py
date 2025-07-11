@@ -2,6 +2,7 @@ import time
 from typing import List
 import requests
 import os
+import sys
 
 import datetime
 from status import StatusUpdater
@@ -48,6 +49,14 @@ def run_monitored(command: str):
     process = subprocess.Popen(command, shell=True, stderr=subprocess.PIPE, text=True)
     lp = LogProcessor(process)
     lp.process_logs()
+
+    while process.poll() is None:
+        # Process hasn't exited yet, let's wait some
+        time.sleep(0.5)
+
+    if process.returncode != 0:
+        sys.exit(process.returncode)
+
 
 if __name__ == "__main__":
     app()
