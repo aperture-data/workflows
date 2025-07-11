@@ -39,6 +39,18 @@ if [ -z "$APP_NAME" ]; then
     echo "WARNING: APP_NAME not specified" >> $LOGFILE
 fi
 
+echo "Starting Status Server: ..."
+# Start fastapi-based status server
+# This is used to provide a status endpoint for the workflow.
+HOSTNAME=$(hostname -f) python3 status_server.py &
+# Wait for the status server to start
+while [ -z "$(lsof -i:8080)" ]; do
+    echo "Waiting for Status Server to start on port 8080..."
+    sleep 1
+done
+echo "Starting Status Server is up."
+
+
 DB_HOST=${DB_HOST:-"localhost"}
 DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST}}
 DB_HOST_PRIVATE_TCP=${DB_HOST_PRIVATE_TCP:-${DB_HOST}}
@@ -92,11 +104,6 @@ fi
 
 GRAFANA_START_TIME=$(($(date '+%s') * 1000))
 
-echo "Starting Status Server: ..."
-# Start fastapi-based status server
-# This is used to provide a status endpoint for the workflow.
-python3 status_server.py &
-echo "Starting Status Server is up."
 
 
 # Move all log files to output folder
@@ -107,6 +114,11 @@ echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." >> $LOGFILE
 
 bash app.sh |& tee -a $APPLOG
 ret_val="${PIPESTATUS[0]}"
+
+if [ "${ret_val}" -ne 0 ]; then
+    python status.py --completed 0 --error-message "failed" --error-code "workflow_error"
+fi
+
 
 echo "App Done." >> $LOGFILE
 
@@ -204,4 +216,6 @@ if [ "${ret_val}" -ne 0 ]; then
     echo "Error with app: $APP_NAME. Exiting with error code: ${ret_val}"
 fi
 
+echo "Sleeping for 4 seconds to allow statuses to be reported..."
+sleep 4
 exit "${ret_val}"
