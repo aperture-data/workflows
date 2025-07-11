@@ -1,1 +1,5 @@
 fastmcp
+fastapi
+uvicorn
+prometheus_client
+typer

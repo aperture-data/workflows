@@ -42,3 +42,15 @@ configure_jupyter() {
 if [ ! -f /opt/.jupyter_configured ]; then
     configure_jupyter
 fi
+
+echo "Starting Status Server: ..."
+# Start fastapi-based status server
+# This is used to provide a status endpoint for the workflow.
+HOSTNAME=$(hostname -f) python3 /aperturedata/status_server.py &
+# Wait for the status server to start
+while [ -z "$(lsof -i:8080)" ]; do
+    echo "Waiting for Status Server to start on port 8080..."
+    sleep 1
+done
+echo "Starting Status Server is up."
+python3 /aperturedata/status.py --phases running --phase running --completed 100
