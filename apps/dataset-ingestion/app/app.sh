@@ -17,10 +17,11 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
+STATUS_SCRIPT="/app/status.py"
 
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
-    python3 status.py --completed 0 \
+    python3 $STATUS_SCRIPT --completed 0 \
       --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
       --error-code "workflow_error" --status "failed"
     exit 1
@@ -31,7 +32,7 @@ gcloud config set auth/disable_credentials True
 
 build_coco() {
     APP="Dataset ingest (coco)"
-    python3 ../status.py --completed 0 \
+    python3 $STATUS_SCRIPT --completed 0 \
       --phases downloading \
       --phases ingesting_images \
       --phases ingesting_bounding_boxes \
@@ -47,9 +48,9 @@ build_coco() {
     date
     echo "Downloading val data..."
 
-    python3 ../status.py --completed 0
+    python3 $STATUS_SCRIPT --completed 0
     bash download_coco.sh val
-    python3 ../status.py --completed 100
+    python3 $STATUS_SCRIPT --completed 100
 
     if [[ $INCLUDE_TRAIN == true ]]; then
         echo "Downloading train data..."
@@ -77,7 +78,7 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    python3 ../status.py --completed 0 \
+    python3 $STATUS_SCRIPT --completed 0 \
       --phases downloading \
       --phases ingesting_images \
       --phases ingesting_descriptors \
@@ -118,7 +119,7 @@ build_faces() {
 
 
     cd /app/build_faces
-    python3 ../status.py --completed 100
+    python3 $STATUS_SCRIPT --completed 100
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
     python3 ../log_processor.py 'bash load.sh'
