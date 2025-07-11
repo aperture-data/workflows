@@ -21,15 +21,15 @@ def main(args):
         logger.info(f"Deleting all information for spec {args.spec_id}")
         WorkflowSpec.delete_spec(db, "bucket-loader", args.spec_id )
         print(f"Completed delete bucket loader for spec {args.spec_id}")
-        sys.exit(1)
+        sys.exit(0)
     elif args.delete_all:
         WorkflowSpec.delete_all_data(db, "bucket-loader")
         print("Completed delete all bucket loader data")
-        sys.exit(1)
+        sys.exit(0)
     elif args.clean_bucket:
         WorkflowSpec.clean_bucket(db, args.cloud_provider+":",args.bucket )
         print("Completed bucket clean action")
-        sys.exit(1)
+        sys.exit(0)
 
 
     spec = WorkflowSpec( db, "bucket-loader", args.spec_id, clean=args.clean )
