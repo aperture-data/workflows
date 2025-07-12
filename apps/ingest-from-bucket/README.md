@@ -7,7 +7,7 @@ It supports filtering, deduplication, and merging entity properties during inges
 ## Database Details
 
 Objects created:
-* `WorkflowSpec`: Records the intention of the crawl.
+* `WorkflowSpec`: Records the intention of the ingest.
 * `WorkflowRun`: Records the specific run.
 * `Image`, `Video`, `Blob`, `Entity`: Added from bucket, linked to `WorkflowRun` by `WorkflowAdded` connection.
 
