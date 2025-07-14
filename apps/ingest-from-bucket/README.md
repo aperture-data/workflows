@@ -111,7 +111,7 @@ docker run \
 * **`WF_SPEC_ID`**: Workflow run identifier (if not supplied, a UUID is generated) [ Default automatically generated UUID].
 * **`WF_DELETE`**: Delete the `CrawlSpec` specified in `WF_OUTPUT` and its artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
 * **`WF_DELETE_ALL`**: Delete all `CrawlSpec` in DB and their artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
-* **`WF_CLEAN_BUCKET`**: Remove all items created by this workflow from the supplied bucket (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_CLEAN_BUCKET`**: Remove all items in the database created by this workflow from the supplied bucket (`TRUE` or `FALSE`) [ Default FALSE ].
 * **`WF_CLEAN`**: If `WF_SPEC_ID` exists, delete the existing `WorkflowSpec` before running (`TRUE` or `FALSE`) [ Default FALSE ].
 
 See [Common Parameters](../../README.md#common-parameters) for additional options.
