@@ -99,20 +99,20 @@ docker run \
 * **`WF_AWS_SECRET_ACCESS_KEY`**: AWS Secret Key (for S3).
 * **`WF_GCP_SERVICE_ACCOUNT_KEY`**: GCP service account JSON (for GS).
 * **`WF_BUCKET`**: Name of the bucket to ingest from.
-* **`WF_INGEST_IMAGES`**: Ingest images (`TRUE` or `FALSE`).
-* **`WF_INGEST_VIDEOS`**: Ingest videos (`TRUE` or `FALSE`).
-* **`WF_INGEST_PDFS`**: Ingest PDFs (`TRUE` or `FALSE`).
-* **`WF_INGEST_ENTITIES`**: Ingest entities (`TRUE` or `FALSE`).
-* **`WF_CHECK_DB_FOR_EXISTING`**: Check DB for existing hashes (`TRUE` or `FALSE`).
+* **`WF_INGEST_IMAGES`**: Ingest images (`TRUE` or `FALSE`) [Default FALSE].
+* **`WF_INGEST_VIDEOS`**: Ingest videos (`TRUE` or `FALSE` [Default FALSE]..
+* **`WF_INGEST_PDFS`**: Ingest PDFs (`TRUE` or `FALSE` [Default FALSE]..
+* **`WF_INGEST_ENTITIES`**: Ingest entities (`TRUE` or `FALSE` [Default FALSE]..
+* **`WF_CHECK_DB_FOR_EXISTING`**: Check DB for existing hashes (`TRUE` or `FALSE`) [Default FALSE]..
 * **`WF_MAX_OBJECTS_PER_TYPE`**: Max objects per type (default: unlimited).
 * **`WF_ENTITY_MERGE_METHOD`**: `all_blobs` or `only_matched` (default: `all_blobs`).
-* **`WF_ENTITY_MERGE_MISSING_ERROR`**: Error on missing entity when merging (`TRUE` or `FALSE`).
-* **`WF_ADD_OBJECT_PATHS`**: Add object path as property to each entity (`TRUE` or `FALSE`).
-* **`WF_SPEC_ID`**: Workflow run identifier (if not supplied, a UUID is generated).
-* **`WF_DELETE`**: Delete the `CrawlSpec` specified in `WF_OUTPUT` and its artefacts (`TRUE` or `FALSE`).
-* **`WF_DELETE_ALL`**: Delete all `CrawlSpec` in DB and their artefacts (`TRUE` or `FALSE`).
-* **`WF_CLEAN_BUCKET`**: Remove all items created by this workflow from the supplied bucket (`TRUE` or `FALSE`).
-* **`WF_CLEAN`**: If `WF_SPEC_ID` exists, delete the existing `WorkflowSpec` before running (`TRUE` or `FALSE`).
+* **`WF_ENTITY_MERGE_MISSING_ERROR`**: Error on missing entity when merging (`TRUE` or `FALSE`)[ Default FALSE ].
+* **`WF_ADD_OBJECT_PATHS`**: Add object path as property to each entity (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_SPEC_ID`**: Workflow run identifier (if not supplied, a UUID is generated) [ Default automatically generated UUID].
+* **`WF_DELETE`**: Delete the `CrawlSpec` specified in `WF_OUTPUT` and its artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_DELETE_ALL`**: Delete all `CrawlSpec` in DB and their artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_CLEAN_BUCKET`**: Remove all items created by this workflow from the supplied bucket (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_CLEAN`**: If `WF_SPEC_ID` exists, delete the existing `WorkflowSpec` before running (`TRUE` or `FALSE`) [ Default FALSE ].
 
 See [Common Parameters](../../README.md#common-parameters) for additional options.
 
