@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+
 # Make DB_HOST_PUBLIC default to DB_HOST or localhost if not set
 DB_HOST_PUBLIC="${DB_HOST_PUBLIC:-${DB_HOST:-localhost}}"
 
@@ -42,3 +43,6 @@ configure_jupyter() {
 if [ ! -f /opt/.jupyter_configured ]; then
     configure_jupyter
 fi
+
+bash /start-jupyter.sh &
+python3 /app/status.py --phases running --phase running --completed 100

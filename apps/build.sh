@@ -14,7 +14,7 @@ set -o noclobber # prevent overwriting files with redirection
 # Get the directory this script is in
 BIN_DIR=$(dirname "$(readlink -f "$0")")
 
-# If an argument is provided, use it to find the directory, 
+# If an argument is provided, use it to find the directory,
 # otherwise use the current directory
 if [ $# -gt 0 ]; then
     APP="$1"
@@ -35,7 +35,7 @@ fi
 echo "Building Docker image for directory: $DIR"
 
 # Check if the directory exists
-if [ ! -d "$DIR" ]; then  
+if [ ! -d "$DIR" ]; then
     echo "Error: Directory '$DIR' does not exist."
     exit 1
 fi
@@ -80,6 +80,11 @@ SOURCE_URL="https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_SHA}"
 DOCKERFILE_URL="${SOURCE_URL}/${SOURCE_PATH_REL}/Dockerfile"
 DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VERSION}${DESCRIPTION_SUFFIX}"
 echo "Description: ${DESCRIPTION}"
+
+BASE_IMAGE_NAME="aperturedata/workflows-base"
+BASE_IMAGE_DIR="$DIR/../../base/docker"
+
+docker build -t ${BASE_IMAGE_NAME} ${BASE_IMAGE_DIR}
 
 
 # Build the image
