@@ -31,10 +31,10 @@ function build() {
     # Get the directory this script is in
     DIR=$(dirname $(readlink -f $0))
     cd $DIR
-    bash build.sh
-    bash ../crawl-website/build.sh
-    bash ../text-extraction/build.sh
-    bash ../text-embeddings/build.sh
+    bash ../build.sh
+    bash ../build.sh crawl-website
+    bash ../build.sh text-extraction
+    bash ../build.sh text-embeddings
 }
 
 function cleanup() {

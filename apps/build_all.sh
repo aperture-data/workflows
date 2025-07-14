@@ -11,11 +11,9 @@ cd $DIR
 # 2. Normal workflows: These workflows depend only on the base workflow
 # 3. Meta workflows: These workflows that depend on other (normal) workflows
 
-BASE_WORKFLOW_DIRS=("../base/docker")
 META_WORKFLOWS=("crawl-to-rag")
 
 ALL_WORKFLOWS=()
-ALL_WORKFLOWS+=("${BASE_WORKFLOW_DIRS[@]}")
 
 # First assemble a list of normal workflows
 for d in ../apps/* ; do
@@ -36,11 +34,15 @@ done
 # Now append the meta-workflows to the list
 ALL_WORKFLOWS+=("${META_WORKFLOWS[@]}")
 
+echo "Building the base workflow first"
+# Build the base workflow first
+(cd ../base/docker && ./build.sh)
+
 echo "Building the following workflows in order: ${ALL_WORKFLOWS[@]}"
 # Now build everything in order
 for name in "${ALL_WORKFLOWS[@]}"; do
   echo "Building $name"
   if [ -d "$name" ]; then
-    (cd $name && ./build.sh)
+    (cd "$name" && ../build.sh)
   fi
 done

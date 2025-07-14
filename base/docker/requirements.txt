@@ -1,0 +1,8 @@
+pip
+dbeval
+slack_sdk
+fastapi
+uvicorn
+typer
+prometheus_client
+aperturedb

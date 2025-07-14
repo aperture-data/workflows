@@ -49,4 +49,12 @@ Certain parameters are supported by all workflow images:
 
 ### Building Docker images
 
-Every workflow directory has a `build.sh` script allowing you to produced a customized version of the image.
+There is a `build.sh` script in the `/apps` directory that can be used to build any of the workflow images. Either invoke it with a workflow name as a parameter:
+```
+apps/build.sh rag
+```
+or invoke it from the workflow directory:
+```
+cd apps/rag
+../build.sh
+```

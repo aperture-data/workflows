@@ -1,0 +1,55 @@
+[
+    {
+        "FindEntity": {
+            "_ref": 1,
+            "with_class": "DatasetModel"
+        }
+    },
+    {
+        "FindEntity": {
+            "_ref": 2,
+            "is_connected_to": {
+                "ref": 1
+            },
+            "with_class": "RecordsetModel"
+        }
+    },
+    {
+        "FindEntity": {
+            "_ref": 3,
+            "is_connected_to": {
+                "ref": 2,
+                "direction": "out"
+            }
+        }
+    },
+    {
+        "FindEntity": {
+            "_ref": 4,
+            "is_connected_to": {
+                "ref": 3,
+                "direction": "out"
+            }
+        }
+    },
+    {
+        "DeleteEntity": {
+            "ref": 1
+        }
+    },
+    {
+        "DeleteEntity": {
+            "ref": 2
+        }
+    },
+    {
+        "DeleteEntity": {
+            "ref": 3
+        }
+    },
+    {
+        "DeleteEntity": {
+            "ref": 4
+        }
+    }
+]
