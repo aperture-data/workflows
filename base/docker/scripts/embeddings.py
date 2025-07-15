@@ -203,9 +203,9 @@ class Embedder():
             properties = self.get_properties()
             query = [{
                 "AddDescriptorSet": {
-                    "with_name": descriptor_set,
+                    "name": descriptor_set,
                     "properties": properties,
-                    "metrics": [self.metric],
+                    "metric": self.metric,
                     "dimensions": self.dimensions,
                     "engine": engine,
                 }

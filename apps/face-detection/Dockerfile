@@ -1,5 +1,6 @@
 # Pull base image.
-FROM aperturedata/workflows-base
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-face-detection
 RUN pip install facenet-pytorch --no-deps
