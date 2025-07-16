@@ -113,6 +113,7 @@ class ConnectionPool:
             Response from the executed query.
             Blobs
         """
+        blobs = blobs if blobs is not None else []
         with self.get_connection() as connection:
             return connection.query(query, blobs, **kwargs)
 
@@ -136,5 +137,6 @@ class ConnectionPool:
 
         See CommonLibrary.execute_query for details.
         """
+        blobs = blobs if blobs is not None else []
         with self.get_connection() as connection:
             return execute_query(connection, query, blobs, **kwargs)
