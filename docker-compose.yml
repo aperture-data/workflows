@@ -1,5 +1,4 @@
-version: '3.8'
-
+# define some macros for use later in the file
 x-definitions:
     build-args: &build-args
         VERSION: ${VERSION}
@@ -75,6 +74,27 @@ services:
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
+    dataset-ingestion:
+        build: 
+            context: ./apps/dataset-ingestion
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
+        depends_on:
+            - base
+        image: aperturedata/workflows-dataset-ingestion:${VERSION}
+        environment:
+            <<: *common-env
+            BATCH_SIZE: "${BATCH_SIZE:-100}"
+            NUM_WORKERS: "${NUM_WORKERS:-8}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
+            DATASET: "${DATASET:-coco}"
+            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
+            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"  
+
     jupyterlab:
         build: 
             context: ./apps/jupyterlab
@@ -113,7 +133,7 @@ services:
             - "8001:8000"
         environment:
             <<: *common-env
-            WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-}"
+            WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
 
     rag:

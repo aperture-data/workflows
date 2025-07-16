@@ -1,7 +1,9 @@
+import argparse
 import os
 import sys
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
+
 
 def ingest_coco(cli_args):
     """
@@ -37,11 +39,17 @@ def ingest_coco(cli_args):
             "images.adb.csv_clip_pytorch_embeddings_metadata",
             "images.adb.csv_clip_pytorch_embeddings_connection"]
 
-
     set_name = "ViT-B/16"
+    # See corresponding code in embeddings.py
     dbutils.add_descriptorset(set_name, 512,
                               metric=["CS"],
-                              engine=["HNSW"])
+                              engine=["HNSW"],
+                              properties={
+                                  "embeddings": "clip ViT-B/16 openai",
+                                  "embeddings_provider": "clip",
+                                  "embeddings_model": "ViT-B/16",
+                                  "embeddings_pretrained": "openai",
+                              })
 
     for stage in stages:
         for obj in objs:
@@ -51,19 +59,23 @@ def ingest_coco(cli_args):
             print(command, flush=True)
             os.system(command)
 
+
 def update_adb_source():
     command = f"adb transact from-json-file update_image_adb_source.json"
     print(command)
     os.system(command)
+
 
 def add_ro_user():
     command = f"adb transact from-json-file create_ro_user_role.json"
     print(command)
     os.system(command)
 
+
 def clean_db():
     utils: Utils = Utils(create_connector())
     assert utils.remove_all_objects() == True
+
 
 def main(args):
     if args.clean == "true":
@@ -72,7 +84,6 @@ def main(args):
     ingest_coco(args)
     update_adb_source()
 
-import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -89,6 +100,7 @@ def parse_args():
     parser.add_argument("-T", "--train", type=str, choices=["true", "false"],
                         default="false", help="include train dataset")
     return parser.parse_args()
+
 
 if __name__ in "__main__":
     args = parse_args()

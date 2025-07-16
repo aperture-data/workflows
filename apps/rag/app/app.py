@@ -34,6 +34,7 @@ startup_time = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting RAG API lifespan")
     global args
     args = get_args()
     asyncio.create_task(main(args))
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
     startup_time = time.time() - start_time
     logger.info(
         f"RAG API is ready to serve requests after {startup_time:.2f}s")
+    global ready
     yield
     logger.info("Shutting down RAG API.")
 
@@ -219,11 +221,6 @@ async def config(request: Request):
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
-    global ready
-    if not ready:
-        logger.info("App is not ready yet")
-        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
-
     # If we're not ready, then return that information instead
     if not_ready := get_not_ready_status():
         logger.info(f"Not ready: {not_ready}")
@@ -299,6 +296,12 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
     This allows this workflow to be composed with other workflows
     that may not be ready yet.
     """
+    # Lifespan test
+    if not ready:
+        logger.info("App is not ready yet")
+        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
+
+    # Check for a not-ready file; created when composed with other workflows
     try:
         with open(path, "r") as f:
             return {"ready": False, "detail": f.read()}
