@@ -1,3 +1,5 @@
+# Do not call "docker compose" directly; use "compose.sh" instead.
+
 # define some macros for use later in the file
 x-definitions:
     build-args: &build-args
