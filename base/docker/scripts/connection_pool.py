@@ -114,17 +114,17 @@ class ConnectionPool:
         with self.get_connection() as connection:
             return connection.query(query, blobs, **kwargs)
 
-        def execute_query(self, query: str, blobs: list = [], **kwargs):
-            """
-            Execute a query using the connection pool.
+    def execute_query(self, query: str, blobs: list = [], **kwargs):
+        """
+        Execute a query using the connection pool.
 
-            Args:
-                query (str): The query to execute.
-                blobs (list): Optional blobs to include with the query.
-                **kwargs: Additional keyword arguments for the query method.
+        Args:
+            query (str): The query to execute.
+            blobs (list): Optional blobs to include with the query.
+            **kwargs: Additional keyword arguments for the query method.
 
-            Returns:
-                See CommonLibrary.execute_query for details.
-            """
-            with self.get_connection() as connection:
-                return execute_query(connection, query, blobs, **kwargs)
+        Returns:
+            See CommonLibrary.execute_query for details.
+        """
+        with self.get_connection() as connection:
+            return execute_query(connection, query, blobs, **kwargs)

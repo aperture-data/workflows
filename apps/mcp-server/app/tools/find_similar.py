@@ -99,7 +99,6 @@ def find_images(descriptor_set: str, embedding: np.ndarray, k: int) -> FindSimil
         {
             "FindDescriptor": {
                 "set": descriptor_set,
-                "vector": embedding.tobytes(),
                 "k_neighbors": k,
                 "_ref": 1,
             }
@@ -109,7 +108,7 @@ def find_images(descriptor_set: str, embedding: np.ndarray, k: int) -> FindSimil
                 "is_connected_to": {
                     "ref": 1,
                 },
-                "uniqueid": True,
+                "uniqueids": True,
                 "results": {
                     "all_properties": True,
                 },
@@ -123,8 +122,9 @@ def find_images(descriptor_set: str, embedding: np.ndarray, k: int) -> FindSimil
             }
         },
     ]
+    input_blobs = [embedding.tobytes()]
 
-    status, response, blobs = connection_pool.execute_query(query)
+    status, response, blobs = connection_pool.execute_query(query, input_blobs)
     assert status == 0, f"Error executing query: {response}"
 
     def to_image_document(e, blob):

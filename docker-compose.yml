@@ -95,6 +95,31 @@ services:
             LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
             WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"  
 
+    embeddings-extraction:
+        build: 
+            context: ./apps/embeddings-extraction
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
+        depends_on:
+            - base
+        image: aperturedata/workflows-embeddings-extraction:${VERSION}
+        # Don't let this service kill your dev box
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 2G
+        environment:
+            <<: *common-env
+            MODEL_NAME: "${MODEL_NAME:-ViT-B/16}"
+            NUMTHREADS: "${NUMTHREADS:-4}"
+            CLEAN: "${CLEAN:-true}"
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            SLEEPING_TIME: "${SLEEPING_TIME:-30}"
+
     jupyterlab:
         build: 
             context: ./apps/jupyterlab

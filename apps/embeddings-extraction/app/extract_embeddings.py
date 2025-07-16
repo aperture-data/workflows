@@ -28,8 +28,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 client=db,  # only used for construction
                 provider="clip",  # Only supporting CLIP for now
                 model_name=model_name,
-                descriptor_set=DESCRIPTOR_SET_NAME,
-                device="cuda" if torch.cuda.is_available() else "cpu")
+                descriptor_set=DESCRIPTOR_SET_NAME)
 
         query = [{
             "FindImage": {
@@ -216,9 +215,6 @@ def get_args():
     # >>> import clip
     # clip.available_models>>> clip.available_models()
     # ['RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px']
-    if params.model_name not in clip.available_models():
-        raise ValueError(
-            f"Invalid model name. Options: {clip.available_models()}")
 
     return params
 
