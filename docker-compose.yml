@@ -93,7 +93,7 @@ services:
             DATASET: "${DATASET:-coco}"
             INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
             LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
-            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"  
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
 
     embeddings-extraction:
         build: 
