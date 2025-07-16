@@ -293,7 +293,7 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
     # Lifespan test
     if not ready:
         logger.info("App is not ready yet")
-        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
+        return {"ready": False, "detail": "App is not ready yet"}
 
     # Check for a not-ready file; created when composed with other workflows
     try:
