@@ -5,4 +5,8 @@ dbeval
 slack_sdk
 pillow
 fastapi
+pip
 uvicorn
+typer
+prometheus_client
+aperturedb

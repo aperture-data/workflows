@@ -17,8 +17,13 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
+STATUS_SCRIPT="/app/status.py"
+
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
+    python3 $STATUS_SCRIPT --completed 0 \
+      --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
+      --error-code "workflow_error" --status "failed"
     exit 1
 fi
 
@@ -27,16 +32,31 @@ gcloud config set auth/disable_credentials True
 
 build_coco() {
     APP="Dataset ingest (coco)"
+    python3 $STATUS_SCRIPT --completed 0 \
+      --phases downloading \
+      --phases ingesting_images \
+      --phases ingesting_bounding_boxes \
+      --phases ingesting_polygons \
+      --phases ingesting_images \
+      --phases ingesting_connections \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections  \
+      --phase downloading
+
     adb utils log --level INFO "${APP}: Start"
 
     date
     echo "Downloading val data..."
+
+    python3 $STATUS_SCRIPT --completed 0
     bash download_coco.sh val
+    python3 $STATUS_SCRIPT --completed 100
 
     if [[ $INCLUDE_TRAIN == true ]]; then
         echo "Downloading train data..."
         bash download_coco.sh train
     fi
+
 
     date
     adb utils log --level INFO "${APP}: Loading begins"
@@ -58,6 +78,20 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
+    python3 $STATUS_SCRIPT --completed 0 \
+      --phases downloading \
+      --phases ingesting_images \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
+      --phases ingesting_images \
+      --phases ingesting_polygons \
+      --phases ingesting_bounding_boxes \
+      --phases ingesting_descriptors \
+      --phases ingesting_connections \
+      --phase downloading
+
     gcloud storage rsync --recursive gs://${WF_DATA_SOURCE_GCP_BUCKET}/workflows/faces ${DIR}
     cd ${DIR}
 
@@ -85,9 +119,10 @@ build_faces() {
 
 
     cd /app/build_faces
+    python3 $STATUS_SCRIPT --completed 100
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
-    bash load.sh
+    python3 ../log_processor.py 'bash load.sh'
     adb utils log --level INFO "${APP}: Successful completion"
 }
 

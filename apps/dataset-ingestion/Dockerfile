@@ -10,3 +10,4 @@ RUN pip install facenet-pytorch --no-deps
 RUN pip install pycocotools
 
 COPY app /app/
+RUN python3 /app/get_weights.py
