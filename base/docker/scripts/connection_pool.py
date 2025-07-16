@@ -1,7 +1,7 @@
 import threading
 import queue
 from contextlib import contextmanager
-from typing import ContextManager
+from typing import ContextManager, Optional
 
 from aperturedb.CommonLibrary import create_connector, execute_query
 from aperturedb.Connector import Connector
@@ -95,12 +95,14 @@ class ConnectionPool:
         with self.get_connection() as connection:
             yield Utils(connection)
 
-    def query(self, query: str, blobs: list = [], **kwargs):
+    def query(self, query: str, blobs: Optional[list] = None, **kwargs):
         """
         A convenience method to execute a query directly from the pool.
 
         This method handles getting a connection, executing the query,
         and returning the connection to the pool.
+
+        This corresponds to the `query` method in the Connector class.
 
         Args:
             query (str): The query string to execute.
@@ -114,9 +116,10 @@ class ConnectionPool:
         with self.get_connection() as connection:
             return connection.query(query, blobs, **kwargs)
 
-    def execute_query(self, query: str, blobs: list = [], **kwargs):
+    def execute_query(self, query: str, blobs: Optional[list] = None, **kwargs):
         """
         Execute a query using the connection pool.
+        This corresponds to the `execute_query` method in CommonLibrary.
 
         Args:
             query (str): The query to execute.
@@ -124,7 +127,14 @@ class ConnectionPool:
             **kwargs: Additional keyword arguments for the query method.
 
         Returns:
-            See CommonLibrary.execute_query for details.
+            status (int): The result code.
+                - 0 : if all commands succeeded
+                - 1 : if there was -1 in the response
+                - 2 : For any other code.
+            responses (CommandResponses): A list of dictionaries giving the response for each command.
+            blobs (Blobs): Possibly empty list of blobs returned by the query.
+
+        See CommonLibrary.execute_query for details.
         """
         with self.get_connection() as connection:
             return execute_query(connection, query, blobs, **kwargs)
