@@ -180,7 +180,7 @@ services:
             WF_TOKEN: "${WF_TOKEN:-test}"
             WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
             WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"           
+            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
 
     text-embeddings:
         build: 
