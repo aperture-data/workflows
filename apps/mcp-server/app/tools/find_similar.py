@@ -177,7 +177,11 @@ def find_similar_images_for_text(
 class DescriptorSet(BaseModel):
     name: Annotated[str, Field(description="The name of the descriptor set")]
     count: Annotated[int, Field(
-        description="The number of descriptors in the set")]
+        description="The total number of descriptors in the set")]
+    documents: Annotated[int, Field(
+        description="The total number of text documents associated with the descriptor set")] = 0
+    images: Annotated[int, Field(
+        description="The total number of images associated with the descriptor set")] = 0
 
 
 class DescriptorSetsResponse(BaseModel):
@@ -192,7 +196,45 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
         {
             "FindDescriptorSet": {
                 "results": {
-                    "list": ["_name", "_count"],
+                    "list": [
+                        "_name",
+                        "_count",
+                        "_uniqueid"
+                    ]
+                }
+            }
+        },
+        {
+            "FindDescriptor": {
+                "results": {
+                    "count": True,
+                    "group": [
+                        "_set_name"
+                    ]
+                },
+                "constraints": {
+                    "text": [
+                        "!=",
+                        None
+                    ]
+                }
+            }
+        },
+        {
+            "FindImage": {
+                "_ref": 1
+            }
+        },
+        {
+            "FindDescriptor": {
+                "results": {
+                    "count": True,
+                    "group": [
+                        "_set_name"
+                    ]
+                },
+                "is_connected_to": {
+                    "ref": 1
                 }
             }
         }
@@ -210,4 +252,27 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
             name=e["_name"],
             count=e["_count"]
         ) for e in entities])
+
+    # Copy the count of text documents from the second response
+    if len(response) > 1 and "FindDescriptor" in response[1] and "groups" in response[1]["FindDescriptor"]:
+        logger.info(
+            f"Processing text document counts for descriptor sets: {response[1]['FindDescriptor']['groups']}")
+        for group in response[1]["FindDescriptor"]["groups"]:
+            set_name = group["_set_name"]
+            count = group["_group_count"]
+            for ds in results.sets:
+                if ds.name == set_name:
+                    ds.documents = count
+
+    # Copy the count of images from the fourth response
+    if len(response) > 3 and "FindDescriptor" in response[3] and "groups" in response[3]["FindDescriptor"]:
+        logger.info(
+            f"Processing image counts for descriptor sets: {response[3]['FindDescriptor']['groups']}")
+        for group in response[3]["FindDescriptor"]["groups"]:
+            set_name = group["_set_name"]
+            count = group["_group_count"]
+            for ds in results.sets:
+                if ds.name == set_name:
+                    ds.images = count
+
     return results
