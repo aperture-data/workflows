@@ -11,7 +11,7 @@ The permissible parameters are broadly a union of all the parameters available i
 
 The following parameters are required:
 * **`WF_TOKEN`**: Sets the authorization token for the `rag` web service
-* **`WF_ALLOWED_ORIGINS`**: Required if you'd like to connect the RAG with your frontend. It'a a comma separated list as a string. For example "https://docs.aperturedata.io,https://www.aperturedata.io"
+* **`WF_ALLOWED_ORIGINS`**: Required if you'd like to connect the RAG with your frontend. This string is a comma-separated list of URLs without paths or query strings. For example "https://docs.aperturedata.io,https://www.aperturedata.io"
 
 
 The following parameters are recommended:
