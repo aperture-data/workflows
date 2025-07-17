@@ -34,6 +34,7 @@ startup_time = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting RAG API lifespan")
     global args
     args = get_args()
     asyncio.create_task(main(args))
@@ -164,7 +165,7 @@ async def stream_ask(query: str = Query(description="The question to ask"),
         qa_duration = time.time() - start_time
         answer = "".join(results)
         logger.info(
-            f"Answer: {answer}, duration: {qa_duration: .2f}s")
+            f"Answer: {answer}, duration: {qa_duration:.2f}s")
         yield f"event: end\ndata: {json.dumps({'duration': qa_duration, 'parts': len(results)})}\n\n"
         new_history = history_fn()
         yield f"event: history\ndata: {json.dumps(new_history)}\n\n"
@@ -219,11 +220,6 @@ async def config(request: Request):
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
-    global ready
-    if not ready:
-        logger.info("App is not ready yet")
-        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
-
     # If we're not ready, then return that information instead
     if not_ready := get_not_ready_status():
         logger.info(f"Not ready: {not_ready}")
@@ -237,7 +233,6 @@ async def config(request: Request):
         "llm_model": llm.model,
         "embedding_model": args.model,
         "input": args.input,
-        "embedding_model": args.model,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
         # "startup_time": startup_time,  # Debugging, but confusing to user
@@ -295,6 +290,12 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
     This allows this workflow to be composed with other workflows
     that may not be ready yet.
     """
+    # Lifespan test
+    if not ready:
+        logger.info("App is not ready yet")
+        return {"ready": False, "detail": "App is not ready yet"}
+
+    # Check for a not-ready file; created when composed with other workflows
     try:
         with open(path, "r") as f:
             return {"ready": False, "detail": f.read()}
