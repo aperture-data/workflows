@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "GitHub event: ${{ github.event_name }}"
           echo "GitHub ref: ${{ github.ref }}"
-          
+
           if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             VERSION=$(scripts/increment_version.sh "${{ vars.VERSION }}")
             # Increment version number now, even if tests fail, to avoid race conditions
@@ -51,7 +51,7 @@ jobs:
           fi
           echo "version=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-        
+
   build-base:
     needs: get-version
     runs-on:
@@ -140,7 +140,7 @@ jobs:
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
   build-test-meta:
-    needs: [build-base, get-version, build-test-apps]
+    needs: [build-base, get-version]
 
     runs-on:
       - deployer
