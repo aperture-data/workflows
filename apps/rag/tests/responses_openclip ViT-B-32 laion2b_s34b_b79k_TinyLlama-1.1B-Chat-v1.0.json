@@ -1,0 +1,578 @@
+[
+  {
+    "answer": "The creation date of ApertureDB is unknown.",
+    "history": null,
+    "rewritten_query": "What year did ApertureDB create its database engine?",
+    "duration": 0.40843701362609863,
+    "documents": [
+      {
+        "id": "9157389e-42e3-42ca-aa81-57683cea92fb",
+        "url": "https://docs.aperturedata.io/category/setup-client#__docusaurus",
+        "content": "ApertureData",
+        "title": "Setup Client | ApertureDB"
+      },
+      {
+        "id": "8e0955bd-1816-4472-8c19-de07efe790c6",
+        "url": "https://docs.aperturedata.io/Introduction/WhyAperture#__docusaurus",
+        "content": "Data scientists using ApertureDB can create their datasets potentially 35X faster,\ndepending on the query complexity (VLDB'21).\nWith our unified design and near data preprocessing, data science and engineering teams\nare no longer forced to manually integrate disparate data, and we see sizeable reduction in network\ntransfers. ApertureDB continues to scale with data and use cases.Basically, ApertureDB is a very high-performance and scalable database because of its architecture and\nimplementation, so your data pipelines are never the bottleneck!\nAnalytics teams get what they need from their data layer without worrying about building it or\nmaintaining it, even at enterprise scale.PreviousIntroductionNextWhat is ApertureDB?Status Quo: Manually Integrated SolutionMissing Piece: Purpose-built Database for Multimodal AIGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Why ApertureDB? | ApertureDB"
+      },
+      {
+        "id": "5bc5cc10-ce0c-4dab-897b-fb4ddfe5202f",
+        "url": "https://docs.aperturedata.io/HowToGuides/Applications/semantic_search/website_search#__docusaurus",
+        "content": "support does ApertureDB have for PyTorch?Non-RAG Answer\u200bApertureDB supports PyTorch through its Python API, allowing users to easily integrate their PyTorch models with large-scale datasets stored in ApertureDB. This integration enables efficient data loading, processing, and querying capabilities within the PyTorch framework. Additionally, ApertureDB provides optimized storage and retrieval mechanisms for PyTorch tensors and other data structures.RAG Answer\u200bApertureDB supports PyTorch through its Python SDK and provides classes such asApertureDBDatasetthat allow loading datasets from PyTorch into ApertureDB. Additionally, theCocoDataPyTorchclass is implemented to handle semantics for ApertureDB when working with a PyTorch CocoDetection dataset. This integration enables users to load images from ApertureDB into a PyTorch model and retrieve results of inference pipelines such as new classifications or annotations.Documents\u200bTraining and Inference | ApertureDB: for more information: An active ApertureDB instance ApertureDB client package available for pip install PyTorch or TensorFlow installed Please reach out to us (team@aperturedata.io) for more details or to discuss other frameworks.Interact with PyTorch Objects | ApertureDB: Steps \u200b Load PyTorch dataset into ApertureDB \u200b This step uses a PyTorch CocoDetection dataset, and ingests it into ApertureDB. To handle the semantics for ApertureDB, a class",
+        "title": "Building a RAG chain from a Website | ApertureDB"
+      },
+      {
+        "id": "7c684581-37c1-4b4b-8d89-cd754f19679c",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/loaders#__docusaurus",
+        "content": "To handle the semantics for ApertureDB, a classCocoDataPyTorchis implemented.\nIt uses aperturedb.PytorchData as a base class, and implements a methodgenerate_querywhich translates the data as it is represented in CocoDetection (a PyTorch dataset object)",
+        "title": "Interact with PyTorch Objects | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "Yes, it can draw keypoint annotation on image. However, the accuracy may vary depending on the quality of the input image and the model being trained.",
+    "history": null,
+    "rewritten_query": "Can you provide information about how to draw keypoints using OpenCV library for an image?",
+    "duration": 0.7423338890075684,
+    "documents": [
+      {
+        "id": "21e88571-a26f-4b95-898e-9cbc71349c70",
+        "url": "https://docs.aperturedata.io/Introduction/WhyAperture#__docusaurus",
+        "content": "into a coherent dataset\nfor use by an ML framework for training / inference or a frontend for display.\nSometimes these integrations can require preprocessing or augmentation to the original data\nfor various reasons like ease of display or requirements of a neural network. This\nmeans dealing with computer vision libraries like OpenCV or ffmpeg which can pose their own integration challenges.Users implementing these analytics applications commonly have to address the indexing\nof high-dimensional embeddings and proximity\nsearch, such as systems for recommendations or to find similar items without needing\nkeywords or labels. This typically requires yet another tool, like a vector database.What that ends up looking like is a complex, bespoke system that is brittle and\npainful to install, maintain, and reuse.\nThis gets worse with multiple use cases expand and applications and data continue to evolve.Missing Piece: Purpose-built Database for Multimodal AI\u200bA database that not only understands the complexity of multimodal data\nmanagement but also understands analytics requirements is what can address\nthese challenges and make it easy for teams to adopt\nand deploy in production. Further, a tight internal integration between disparate\ndata modalities with an understanding of their semantic usage allows for significant\nperformance optimization. That\u2019s what we offer with ApertureDB!Figure 2: A purpose built system can really simplify your data pipelines.The way we have designed and implemented ApertureDB has clear advantages compared to any\nDIY solution, even those composed with the best point solutions out there.",
+        "title": "Why ApertureDB? | ApertureDB"
+      },
+      {
+        "id": "ac290e6f-ac44-4dbb-8f5e-ba7182e6326f",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Ingestion/PopularFormats#__docusaurus",
+        "content": "It is a data format commonly used for training and inference in object detection tasks.ApertureDB SDK provides methods to ingest a dataset available in the COCO JSON or COCO object detection annotation format file. You can refer to its implementationhere.\nIt is defined as a Query Generator through it's base classPyTorchData,",
+        "title": "Online Dataset Formats | ApertureDB"
+      },
+      {
+        "id": "c7694af0-a22f-46db-99c4-e1d68ac7f0fb",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/Image%20Similarity%20Search#__docusaurus",
+        "content": "dataset using an arbitrary feature space.We'll cover the following concepts:Ingesting image descriptor data into ApertureDBSearching for similar images using descriptorsIngest Images and Descriptors into ApertureDB\u200bFor the purpose of this example, we'll use the two freely available datasets.COCO2017is a collection of images with annotations describing the objects portrayed in each image (examples below).YFCC100Mis a collection of 100 million images and videos that includes 4096-dimensional feature vectors generated from each.In this case, we're looking at a small subset of several thousand images that are common to both.COCO2017 image with polygon annotationsYFCC100M image with descriptor vector ``[5.716, -12.571, -12.847, 7.851, ... ]``Here, we show how to ingest the images along with their descriptors.Before ingesting descriptors, we must first create adescriptor set.\nThe DescriptorSet defines the feature space over which to perform similarity search.\nWhen creating a descriptor set, you can choose adistance metricand\nanindexing enginethat will be used when searching for nearest neighbors.[{\"AddDescriptorSet\":{\"name\":\"coco_descriptors\",\"dimensions\":4096,\"engine\":\"HNSW\",\"metric\":\"L2\"}}]Next, we can addimagesalong with",
+        "title": "Image Similarity Search | ApertureDB"
+      },
+      {
+        "id": "181498f5-8532-4490-9530-29c9bc348bfa",
+        "url": "https://docs.aperturedata.io/HowToGuides/Applications/similarity_search#__docusaurus",
+        "content": "While ingesting the dataset, the corresponding descriptors are added to the DescriptorSet we created earlier.For the purpose of explaining the feature, we do not ingest the entire set of images in celebA (which are upwards of 200k), but take in 10000 from there.ParallelLoaderis ApertureDB's mechanism to speed things up. Here is itssource codefromaperturedb.ParallelLoaderimportParallelLoader# Load the CelebA dataset from Kaggle.dataset=CelebADataKaggle(records_count=10000,# In the interest of time, only pick the first 10k images (of ~200k total)embedding_generator=generate_embedding,# use facenet to generate embeddings (ie. descriptors)search_set_name=search_set_name)print(len(dataset))# Ingest from the dataset created previously using a ParallelQuery.loader=ParallelLoader(create_connector())loader.ingest(dataset,stats=True)10000Progress: 100.00% - ETA(s): 0.65============ ApertureDB Loader Stats ============Total time (s): 443.3186671733856Total queries executed: 10000Avg Query time (s): 0.007373089671134949Query time std: 0.004202085272688729Avg Query Throughput (q/s): 542.5134073249749Overall insertion throughput (element/s): 22.557137202816946Total inserted elements:",
+        "title": "Find Similar Faces in CelebA Kaggle Dataset | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To disable DEBUG messages from Python SDK, follow these steps:\n\n1. Open your Python script where you have defined the SDK client object.\n\n```python\nimport apeturbadsdk\n\ndef my_function():\n    #...your code goes here...\n    \n    try:\n        client = apeturbadsdk.Client('YOUR_API_KEY')\n        \n        # Call your function here\n        result = my_function()\n        \n        print(\"Result: \", result)\n    except Exception as e:\n        print(\"Error: \", str(e))",
+    "history": null,
+    "rewritten_query": "How can I disable debug messages for Python SDK in my project using Flask framework?",
+    "duration": 1.7753877639770508,
+    "documents": [
+      {
+        "id": "d4b9ab42-2683-4ba7-84f6-27e2152e4d54",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Indexing#__docusaurus",
+        "content": "to get back a JSON response for GetStatusresponse,blobs=client.query(query)print(response[0][\"GetSchema\"][\"entities\"][\"classes\"][\"Ingredient\"][\"properties\"][\"name\"])[1, False, 'String']Using Python SDK Utils for Indexing\u200bTheUtils packagein ApertureDB Python SDK provides a lot of helper functions. One of the things they can help you to do is to add indexes.fromaperturedb.UtilsimportUtilsutils=Utils(client)utils.create_entity_index(class_name=\"Ingredient\",property_key=\"name\")TrueCheck again whether thenameproperty ofIngrediententities is now indexed.",
+        "title": "Indexing for Faster Queries | ApertureDB"
+      },
+      {
+        "id": "2c2b841e-fee9-4143-a30c-827cc84a4cfb",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Blobs#__docusaurus",
+        "content": "https://docs.aperturedata.io/query_language/Reference/db_commands/GetStatusquery=[{\"GetStatus\":{}}]# Execute the query to get back a JSON response for GetStatusresponse,blobs=client.query(query)client.print_last_response()[{\"GetStatus\": {\"info\": \"OK\",\"status\": 0,\"system\": \"ApertureDB\",\"version\": \"0.17.23\"}}]Create or Add a Recipe to ApertureDB\u200bLet's say we want to add a recipe text file (this could be a property in an entity if small). One way to introduce new text in the database is through our query languageFor bulk additions, we recommend using thePython SDK loaders# Download the sample file! mkdir-p data;cd data;wget https://github.com/aperture-data/Cookbook/blob/e333f6c59070b9165033d9ddd5af852a6b9624ba/notebooks/simple/data/baked_potato.txt;cd-query=[{\"AddBlob\":{# Notice the missing \"class\" property since we are adding it as a blob (represented as _Blob in ApertureDB)\"properties\":{\"type\":\"text\",# since blobs can be of different types like audio, pdf, etc, we can make that explicit\"name\":\"baked_potato\",\"id\":55,\"category\":\"sides\",\"cuisine\":\"American\",\"caption\":\"Special baked potatoes\"},\"if_not_found\":{# avoid adding",
+        "title": "Work with Text,PDFs,Audio,Blobs... | ApertureDB"
+      },
+      {
+        "id": "f2114f4a-ac50-4424-ac83-f2dc7cbd27df",
+        "url": "https://docs.aperturedata.io/python_sdk/cli/reference#__docusaurus",
+        "content": "The user will be prompted to enter the JSON string.\n\nThis will be treated as a password entry.Seehttps://docs.aperturedata.dev/Setup/client/configurationfor more information on JSON configurations.Usage:$ adb config create [OPTIONS] [NAME]Arguments:[NAME]: Name of this configuration for easy referenceOptions:--active / --no-active: Set as active[default: no-active]--as-global / --no-as-global: Project level vs global level[default: as-global]--host TEXT: Host name[default: localhost]--port INTEGER: Port number[default: 55555]--username TEXT: Username[default: admin]--password TEXT: Password[default: admin]--use-rest / --no-use-rest: Use REST[default: no-use-rest]--use-ssl / --no-use-ssl: Use SSL[default: use-ssl]--interactive / --no-interactive: Interactive mode[default: interactive]--overwrite / --no-overwrite: overwrite existing configuration[default: no-overwrite]--from-json / --no-from-json: create config from a JSON string[default: no-from-json]--from-key / --no-from-key: create config from an encoded string[default: no-from-key]--help: Show this message and exit.adb config get-key\u200bMakes a token from the configurationUsage:$ adb config get-key [OPTIONS] [NAME]Arguments:[NAME]: Name of the configuration to get a key forOptions:--user TEXT: User to",
+        "title": "adb | ApertureDB"
+      },
+      {
+        "id": "e855f5fa-0ce6-49e0-9164-3609756fa4b2",
+        "url": "https://docs.aperturedata.io/Setup/client/configuration#__docusaurus",
+        "content": "These can come from an environment variable or a.envfile, but can also be entered directly in the console.adb config create imported_key_config --from-keyFor example, here is this being done in Google Colab:For security reasons, the string will not be displayed in the console.PreviousNotebooksNextCollaborate With TeamGetting Your APERTUREDB KeyStoring Your APERTUREDB KeyGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Configuration | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To clear all data from the database, run the following SQL command:\n```sql\nDELETE FROM table_name;\n```Replace `table_name` with the name of your database table where you want to delete data.",
+    "history": null,
+    "rewritten_query": "DELETE FROM my_table WHERE id = 123;",
+    "duration": 0.9367420673370361,
+    "documents": [
+      {
+        "id": "3d4abab3-53ce-482d-915e-2b97135616df",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/pytorch_classification#__docusaurus",
+        "content": "={conf}\\n\")converted=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)encoded=cv2.imencode(ext=\".jpeg\",img=converted)[1]ipyimage=Image(data=encoded,format=\"JPEG\")display(ipyimage,f\"{id}:{label}\")print(\"\\rRetrieval performance (imgs/s):\",len(dataset)/(time.time()-start),end=\"\")print(f\"\\nWritten classification results into{out_file_name}\")'139: restaurant, eating house, eating place, eatery''5193: sax, saxophone''2261: snorkel''2299: pickelhaube''2431: restaurant, eating house, eating place, eatery''7816: crash helmet''5529: ski''2473: ski''5586: tennis ball''2532: ski''785: ski''7977: unicycle, monocycle''872: baseball''2685: French horn, horn''8021: stage''885: racket, racquet''6040: streetcar, tram, tramcar, trolley, trolley car''8211: motor scooter, scooter''1000: steel drum''3156: marimba, xylophone''1268: liner, ocean liner''6460: shopping cart''3255: alp''8532: bow tie, bow-tie, bowtie''1296: cellular telephone, cellular phone, cellphone, cell, mobile phone''6471:",
+        "title": "Image Classification with PyTorch and ApertureDB | ApertureDB"
+      },
+      {
+        "id": "0af6141f-55a2-472c-97e2-9678d30e5d82",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Embeddings#__docusaurus",
+        "content": "\"recipe_search\",\"_uniqueid\": \"3.174639.224220\",\"id\": 75,\"model\": \"embed-english-v3.0\",\"provider\": \"cohere\",\"source\": \"Cookbook recipe\"}],\"returned\": 1,\"status\": 0}}]Remove the Embedding\u200bq=[{\"DeleteDescriptor\":{\"constraints\":{\"provider\":[\"==\",\"cohere\"]}}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"DeleteDescriptor\": {\"count\": 1,\"status\": 0}}]Verify Deletion\u200bq=[{\"FindDescriptor\":{# Specify the descriptor set in which to search.\"set\":descriptorset_name,\"constraints\":{\"id\":[\"==\",75]},\"results\":{\"all_properties\":True}}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"FindDescriptor\": {\"returned\": 0,\"status\": 0}}]Remove the Descriptor Set\u200bq=[{\"DeleteDescriptorSet\":{\"with_name\":descriptorset_name}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"DeleteDescriptorSet\": {\"count\": 1,\"status\": 0}}]What's next?\u200bBulk loadembeddingsAddtextorimagesto ApertureDBPreviousWork with ConnectionsNextImage and Video Preprocessing or AugmentationConnect to the databaseDefine the search space for recipesPrepare the embedding to be addedAdd a Recipe Embedding for Similarity Search LaterK-NN Search For Matching",
+        "title": "Work with Descriptors (Embeddings) | ApertureDB"
+      },
+      {
+        "id": "8fdd9ecd-d912-4366-9dc5-c8a1041a6b5a",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/tensorflow_training#__docusaurus",
+        "content": "source\u200bfromaperturedb.ImagesimportImagesfromaperturedb.ConstraintsimportConstraintsfromaperturedb.SubscriptableimportSubscriptablefromaperturedb.Utilsimportcreate_connectorimportloggingimporttensorflowastfclassDS(Subscriptable):def__init__(self,stage,batch_size,limit=50000)->None:super().__init__()const=Constraints().equal(\"train\",Trueifstage==\"train\"elseFalse)self.images=Images(db=create_connector())self.images.search(constraints=const,limit=limit)self.label_ids=self.images.get_properties([\"label\"])print(f\"{len(self.images.images_ids)}images found for stage{stage}\")self.batch_size=batch_sizeself.batches=len(self.images.images_ids)//self.batch_size# if len(self.images.images_ids) % self.batch_size != 0:#    self.batches += 1defgetitem(self,subscript):x=[Noneforiinrange(self.batch_size)]y=[Noneforiinrange(self.batch_size)]foriinrange(self.batch_size):index=subscript*self.batch_size+iimg=self.images.get_np_image_by_index(index)image=tf.image.convert_image_dtype(img,tf.float32)label=int(self.label_ids[self.images.images_ids[index]][\"label\"])l_hot=[1ifx==labelelse0forxinrange(10)]# y.append(l_hot)#",
+        "title": "Train a model using data from apertureDB | ApertureDB"
+      },
+      {
+        "id": "3e8d4bcf-6921-4dc6-8d7d-6f9af8bfc621",
+        "url": "https://docs.aperturedata.io/Integrations/query_languages/SPARQL#__docusaurus",
+        "content": "This is what we see for the query above.# Internal debug feature: Not available by defaultprint(sparql._format_triples(sparql.triples))N28121daeb1314e298b639623ea6f556f p:name chicken .N6b09f3b7d7b8490da0b2700869014922 p:name butter .?s c:HasIngredient N28121daeb1314e298b639623ea6f556f .?s c:HasIngredient N6b09f3b7d7b8490da0b2700869014922 .?s p:caption ?captionApertureDB query\u200bWhen the wrapper is passed these triples, it converts them into an ApertureDB query.Experienced SPARQL users might want to use this debug feature to order to learn how to use this language directly.# Internal debug feature: Not available by defaultprint(json.dumps(sparql.input_query,indent=2))[{\"FindEntity\": {\"with_class\": \"Ingredient\",\"_ref\": 1,\"uniqueids\": true,\"constraints\": {\"name\": [\"==\",\"chicken\"]}}},{\"FindEntity\": {\"with_class\": \"Ingredient\",\"_ref\": 2,\"uniqueids\": true,\"constraints\": {\"name\": [\"==\",\"butter\"]}}},{\"FindImage\": {\"_ref\": 3,\"uniqueids\": true,\"is_connected_to\": {\"all\": [{\"ref\":",
+        "title": "SPARQL wrapper | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "The default credentials for accessing ApertureDB are as follows:\n\n```\n{\n    \"username\": \"\",\n    \"password\": \"\"\n}\n```\n\nTo obtain these credentials, follow the instructions provided earlier in this guide.",
+    "history": null,
+    "rewritten_query": "What are the default credentials for accessing the database?",
+    "duration": 0.8321142196655273,
+    "documents": [
+      {
+        "id": "4b86cc6b-b0f0-4a76-afd2-ff958c0ef96a",
+        "url": "https://docs.aperturedata.io/query_language/Reference/acl_commands/UpdateCredential#__docusaurus",
+        "content": "credential \"training_bucket_credential\":[{\"UpdateCredential\":{\"name\":\"training_bucket_credential\",\"add_resources\":[\"s3://bucket3\"],\"remove_resources\":[\"s3://bucket2\"]}}]Result from a successful update:[{\"UpdateCredential\":{\"status\":0}}]Change keys for AWS credential \"training_bucket_credential\":[{\"UpdateCredential\":{\"name\":\"training_bucket_credential\",\"key\":{\"access_key\":\"PKIAZ6XBPW80ZOCEQPWS\",\"secret_access_key\":\"pH3JbcA/Y1rkncg2mLXiWtV9DY9-SsRvFv+HEHHJ\"}}}]Result from a successful update:[{\"UpdateCredential\":{\"status\":0}}]Change keys for GCP credential \"training_bucket_credential\":[{\"UpdateCredential\":{\"name\":\"training_bucket_credential\",\"key\":{\"type\":\"service_account\",\"project_id\":\"aperturedb\",\"private_key_id\":\"0123456789012345678901234567890123456789\",\"private_key\":\"-----BEGIN PRIVATE KEY-----\\nmy/private/key\\n-----END PRIVATE",
+        "title": "UpdateCredential | ApertureDB"
+      },
+      {
+        "id": "706e8e09-2f27-462e-af46-d67297f73506",
+        "url": "https://docs.aperturedata.io/category/access-control-commands#__docusaurus",
+        "content": "the system.\ud83d\udcc4\ufe0fCreateCredentialCreate a new credential so ApertureDB can access specified cloud\ud83d\udcc4\ufe0fGetCredentialsGet credentials.\ud83d\udcc4\ufe0fUpdateCredentialUpdate a credential.\ud83d\udcc4\ufe0fRemoveCredentialRemove a credential.PreviousUserLogMessageNextAuthenticateGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Access Control Commands | ApertureDB"
+      },
+      {
+        "id": "ae50db7e-2c59-44e4-b46e-2424e45b728e",
+        "url": "https://docs.aperturedata.io/category/how-to-guides#__docusaurus",
+        "content": "Skip to main contentApertureDBQuick StartQuery ReferenceCommand LineFAQsTroubleshootingGitHubSearchApertureDB's DocumentationIntroductionDatabase ConceptsGet StartedHow to GuidesQuery AlternativesStart with BasicsManage Multimodal DatasetsBuild ML ExamplesBuild ApplicationsWorkflowsIntegrationsApertureDB Query LanguageApertureDB Python SDKProduction Deployment and AdministrationBenchmarks & ComparisonsApertureDB Community Projects*How to GuidesHow to GuidesSome useful guides to help you get started with your project\ud83d\udcc4\ufe0fQuery AlternativesYou can store data in ApertureDB and query (search / filter) it in the following ways:\ud83d\uddc3\ufe0fStart with Basics10 items\ud83d\uddc3\ufe0fManage Multimodal Datasets4 items\ud83d\uddc3\ufe0fBuild ML Examples6 items\ud83d\uddc3\ufe0fBuild Applications2 itemsPreviousCollaborate With TeamNextQuery AlternativesGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "How to Guides | ApertureDB"
+      },
+      {
+        "id": "f5feaa37-aaab-4a6f-9fc9-30b41f958e3d",
+        "url": "https://docs.aperturedata.io/HowToGuides/Query#__docusaurus",
+        "content": "Skip to main contentApertureDBQuick StartQuery ReferenceCommand LineFAQsTroubleshootingGitHubSearchApertureDB's DocumentationIntroductionDatabase ConceptsGet StartedHow to GuidesQuery AlternativesStart with BasicsManage Multimodal DatasetsBuild ML ExamplesBuild ApplicationsWorkflowsIntegrationsApertureDB Query LanguageApertureDB Python SDKProduction Deployment and AdministrationBenchmarks & ComparisonsApertureDB Community Projects*How to GuidesQuery AlternativesQuery AlternativesYou can store data in ApertureDB and query (search / filter) it in the following ways:Use ourweb frontendto navigate metadata schema, manage users or roles, and query dataQuery usingJSON commandsfrom Python in Jupyter notebooks / custom query tab in UI or from C++ applicationsQuery using thePython SDKobject wrapper APIQuery using theREST APIfrom any client (we provide Python wrappers) to send JSON-based queriesRead-only graph queries supported via aSPARQL interfaceANodeJS wrapperbuilt and maintained by ApertureDB userHead over to ourbasicandadvancedusage tutorials with realapplication examples.tipYou can also query and feed data into or retrieve it from ApertureDB using the various tools and frameworks\nthat we haveintegrationsfor.PreviousHow to GuidesNextStart with BasicsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Query Alternatives | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "Yes, ApertureDB supports JSON as a property value.",
+    "history": null,
+    "rewritten_query": "Yes, ApertureDB supports JSON as a property value.",
+    "duration": 0.5050704479217529,
+    "documents": [
+      {
+        "id": "95d15511-285e-4358-b9a5-0d5256c8a99b",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Ingestion/Examples/Loading_QueryGenerator#__docusaurus",
+        "content": "pip%pip install--upgrade--quiet aperturedbNeeded resources.\u200b# Get the script to generate the data.json!wget https://github.com/aperture-data/Cookbook/raw/refs/heads/main/scripts/create_nested_json.py# Run the script to generate the data.json!python create_nested_json.pyIngest using a Query GeneratorWhen the source data is in a format that does not conform to any of the CSV pasrsers in the SDK, we could use the approach of defining a custom Query generator.This does require a level of familiarity with the Query language.Let's implement a class to deal with the cookbook example.The Query generator is used to define agetitemto return a query to issue to ApertureDB that persists the record being iterated at the source.fromtypingimportTuplefromaperturedb.CommonLibraryimportcreate_connector,execute_queryfromaperturedb.QueryGeneratorimportQueryGeneratorfromaperturedb.typesimport*fromaperturedb.SourcesimportSourcesimportjsonfromtqdm.autoimporttqdmclassCookBookQueryGenerator(QueryGenerator):def__init__(self,*args,**kwargs):super().__init__()assert\"dishes\"inkwargs,\"Path to Dishes must be",
+        "title": "Ingest Cookbook (QueryGenerator) | ApertureDB"
+      },
+      {
+        "id": "d425ff95-141e-41b3-9ccc-c7a1704e62c9",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Ingestion/Examples/Loading_DataModels#__docusaurus",
+        "content": "pip%pip install--upgrade--quiet aperturedbPrepare Input Data.\u200b# Get the script to generate the data.json!wget https://github.com/aperture-data/Cookbook/raw/refs/heads/main/scripts/create_nested_json.py# Run the script to generate the input file data.json!python create_nested_json.pyData Model Definitions\u200bA popular way to define the schema in python is using pydantic, and we shall use the same to create the associations of our Cookbook.fromtypingimportList,Optionalfromaperturedb.DataModelsimportImageDataModel,IdentityDataModelclassIngredient(IdentityDataModel):Name:strother_names:Optional[str]=\"\"macronutrient:Optional[str]=\"\"micronutrient:Optional[str]=\"\"subgroup:Optional[str]=\"\"category:Optional[str]=\"\"classDish(ImageDataModel):contributor:strname:strlocation:strcaption:strrecipe_url:strcuisine:strdish_id:intingredients:List[Ingredient]Create Objects Based on Data Models\u200bA JSON file generated by running the scriptcreate_nested_json.pydescribes the objects to be ingestedExample line from the json file:Sample record in dishes.json{\"dish_id\":1,\"url\":\"https://raw.githubusercontent.com/aperture-data/Cookbook/refs/heads/main/images/001 Large.jpeg\",\"type\":\"main",
+        "title": "Ingest Cookbook (DataModels) | ApertureDB"
+      },
+      {
+        "id": "e688b5ea-a037-4966-96d5-27b104db18c1",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Ingestion/Examples/Loading_CSVParsers#__docusaurus",
+        "content": "pip%pip install--upgrade--quiet aperturedbPrepare Input Data\u200b# Get the script to generate the data.json!wget https://github.com/aperture-data/Cookbook/raw/refs/heads/main/scripts/convert_ingredients_adb_csv.py# Run the script to generate the right CSV files!python convert_ingredients_adb_csv.pyCreate objects of these classes.\u200bWe will provision the data using 3 csv files, prepared fromscriptExample lines from the CSV files:dishes.adb.csv\u200burl,id,contributor,name,type,location,cuisine,caption,Recipe URL,constraint_idhttps://raw.githubusercontent.com/aperture-data/Cookbook/refs/heads/main/images/001_Large.jpeg,1,gautam,rajma chawal,main dish,NJ,Indian,>Beans with rice,https://www.tarladalal.com/rajma-chawal-punjabi-rajma-chawal-4951r,1https://raw.githubusercontent.com/aperture-data/Cookbook/refs/heads/main/images/002_Large.jpeg,2,gautam,paneer bhurji,main dish,NJ,Indian,>\"Scrambled cottage cheese with finely chopped onion, bell pepper and",
+        "title": "Ingest Cookbook (CSVParser) | ApertureDB"
+      },
+      {
+        "id": "f2114f4a-ac50-4424-ac83-f2dc7cbd27df",
+        "url": "https://docs.aperturedata.io/python_sdk/cli/reference#__docusaurus",
+        "content": "The user will be prompted to enter the JSON string.\n\nThis will be treated as a password entry.Seehttps://docs.aperturedata.dev/Setup/client/configurationfor more information on JSON configurations.Usage:$ adb config create [OPTIONS] [NAME]Arguments:[NAME]: Name of this configuration for easy referenceOptions:--active / --no-active: Set as active[default: no-active]--as-global / --no-as-global: Project level vs global level[default: as-global]--host TEXT: Host name[default: localhost]--port INTEGER: Port number[default: 55555]--username TEXT: Username[default: admin]--password TEXT: Password[default: admin]--use-rest / --no-use-rest: Use REST[default: no-use-rest]--use-ssl / --no-use-ssl: Use SSL[default: use-ssl]--interactive / --no-interactive: Interactive mode[default: interactive]--overwrite / --no-overwrite: overwrite existing configuration[default: no-overwrite]--from-json / --no-from-json: create config from a JSON string[default: no-from-json]--from-key / --no-from-key: create config from an encoded string[default: no-from-key]--help: Show this message and exit.adb config get-key\u200bMakes a token from the configurationUsage:$ adb config get-key [OPTIONS] [NAME]Arguments:[NAME]: Name of the configuration to get a key forOptions:--user TEXT: User to",
+        "title": "adb | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "Yes, you can pass a reference to `if_not_found` as shown below:\n\n```python\nfrom apetools.db import db\nimport pandas as pd\n\n# Define your SQL statement here\nsql = \"\"\"SELECT * FROM table WHERE column =?\"\"\"\nparams = [value] # Replace '?' with actual parameter name\nresult = db.execute(sql, params).fetchall()\n\n# Check if there were any rows returned\nif len(result) > 0:\n    print(\"Found {} records.\".format(len(result)))\nelse:",
+    "history": null,
+    "rewritten_query": "SELECT * FROM table WHERE column = IF(column IS NULL OR column IS NOT NULL AND value IS NULL, 'default', column)",
+    "duration": 1.8996155261993408,
+    "documents": [
+      {
+        "id": "6a0ed630-4716-48d0-9a89-cbd78abb0f95",
+        "url": "https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/results#__docusaurus",
+        "content": "(count, sum, average, min, max) to group the result-set by one or more",
+        "title": "results | ApertureDB"
+      },
+      {
+        "id": "f3f193e2-448c-4313-a5c7-85e305524a01",
+        "url": "https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/results#__docusaurus",
+        "content": "details.Ifgroup_by_sourceis set to True and theresultsparameter has any of these specified:count,sum,average,min,maxandgroup, query returns with an error.Examples\u200bGet \"name\" and \"format\" properties of all the objects[{\"FindImage\":{\"results\":{\"list\":[\"name\",\"format\"]}}}]Return only the number of results[{\"FindImage\":{\"results\":{\"count\":true}}}]Return the average the value of those for the age property[{\"FindEntity\":{\"with_class\":\"Person\",\"results\":{\"average\":\"age\"}}}]Returns the sum of the \"number_of_cars\" properties for all entities[{\"FindEntity\":{\"with_class\":\"Person\",\"results\":{\"sum\":\"number_of_cars\"}}}]Return the minimum and maximum value of those for the age property[{\"FindEntity\":{\"with_class\":\"Person\",\"results\":{\"min\":\"age\",\"max\":\"age\"}}}]Return the minimum and maximum value of those for the age, height and\nweight properties[{\"FindEntity\":{\"with_class\":\"Person\",\"results\":{\"min\":[\"height\",\"weight\",\"age\"],\"max\":[\"height\",\"weight\",\"age\"]}}}]Return the first 150 objects sorted by email[{\"FindEntity\":{\"with_class\":\"Person\",\"sort\":\"email\",\"limit\":150,\"results\":{\"list\":[\"name\"]}}}]Group Example\u200bgroupstatement groups results that have the same values for\nspecified properties.groupis often used with aggregate functions",
+        "title": "results | ApertureDB"
+      },
+      {
+        "id": "9aa7965d-bc38-4dbd-92f0-5cca8dfc9075",
+        "url": "https://docs.aperturedata.io/python_sdk/data_loaders/csv_wrappers/EntityUpdateDataCSV#__docusaurus",
+        "content": "What this means is:If it doesn't exist, add it.If it exists, update the properties.This class utilizes 2 conditionalsnormal constraint_ to select the elementa series of updateif_ to determine if an update is necessaryConditionals:updateif>_prop: updates if the database value greater than csv valueupdateif<_prop: updates if the database value less than csv valueupdateif!_prop: updates if the database value is not equal to csv valuenoteIs backed by a CSV file with the following columns (format optional):``filename``, ``PROP_NAME_1``, ... ``PROP_NAME_N``, ``constraint_PROP1``, ``format``OR``url``, ``PROP_NAME_1``, ... ``PROP_NAME_N``, ``constraint_PROP1``, ``format``OR``s3_url``, ``PROP_NAME_1``, ... ``PROP_NAME_N``, ``constraint_PROP1``, ``format``OR``gs_url``, ``PROP_NAME_1``, ... ``PROP_NAME_N``, ``constraint_PROP1``, ``format``..Example CSV file::filename,id,label,constraint_id,format,dataset_ver,updateif>_dataset_ver,gen_blobsha1_sha/home/user/file1.jpg,321423532,dog,321423532,jpg,2,2,/home/user/file2.jpg,42342522,cat,42342522,png,2,2,...Example",
+        "title": "EntityUpdateDataCSV | ApertureDB"
+      },
+      {
+        "id": "6507cdfa-b662-4dfe-bf3e-2bf74d565039",
+        "url": "https://docs.aperturedata.io/python_sdk/data_loaders/csv_wrappers/EntityDataCSV#__docusaurus",
+        "content": "and converts it into a series of ApertureDB queries.Is backed by a CSV file with the following columns:EntityClass,PROP_NAME_1, ...PROP_NAME_N,constraint_PROP1Example CSV file::EntityClass,name,lastname,age,id,constraint_idPerson,John,Salchi,69,321423532,321423532Person,Johna,Salchi,63,42342522,42342522...Example usage:data=EntityDataCSV(\"/path/to/EntityData.csv\")loader=ParallelLoader(client)loader.ingest(data)infoIn the above example, the constraint_id ensures that a Entity with the specified\nid would be only inserted if it does not already exist in the database.EntityDeleteDataCSV Objects\u200bclassEntityDeleteDataCSV(CSVParser.CSVParser)ApertureDB Entity Delete Data.This class loads the Entity Data which is present in a CSV file,\nand converts it into a series of ApertureDB deletes.:::note\nExpects a CSV file with the following columns:``constraint_PROP1``:::Example CSV file::constraint_id32142353242342522...Example usage:data=ImageDeleteDataCSV(\"/path/to/UnusedImages.csv\")loader=ParallelQuery(client)loader.query(data):::info\nIn the above example, the constraint_id ensures that a Entity with the specified\nid would be only deleted.Note that you can take a csv with normal prop data and this will ignore it, so you",
+        "title": "EntityDataCSV | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "Yes, ApertureDB supports various distance metrics such as Euclidean Distance, Manhattan Distance, Cosine Similarity, etc., depending on the specific requirements of the application. The exact metric supported depends on the implementation of the algorithm being used.",
+    "history": null,
+    "rewritten_query": "What ApertureDB features do you offer for supporting different distance metrics?",
+    "duration": 0.9081482887268066,
+    "documents": [
+      {
+        "id": "8e0955bd-1816-4472-8c19-de07efe790c6",
+        "url": "https://docs.aperturedata.io/Introduction/WhyAperture#__docusaurus",
+        "content": "Data scientists using ApertureDB can create their datasets potentially 35X faster,\ndepending on the query complexity (VLDB'21).\nWith our unified design and near data preprocessing, data science and engineering teams\nare no longer forced to manually integrate disparate data, and we see sizeable reduction in network\ntransfers. ApertureDB continues to scale with data and use cases.Basically, ApertureDB is a very high-performance and scalable database because of its architecture and\nimplementation, so your data pipelines are never the bottleneck!\nAnalytics teams get what they need from their data layer without worrying about building it or\nmaintaining it, even at enterprise scale.PreviousIntroductionNextWhat is ApertureDB?Status Quo: Manually Integrated SolutionMissing Piece: Purpose-built Database for Multimodal AIGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Why ApertureDB? | ApertureDB"
+      },
+      {
+        "id": "ee7a6cf9-e85a-4631-879a-92bac14838b4",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_s3#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The S3 bucket name. You may be able to list your S3 buckets usingaws s3 lsor by using theAWS S3 Console.AWS Access Key and AWS Secret Access Key. SeeAWS documentationfor details on how to generate these keys. For your own security, you may wish to generate new keys for this purpose.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest Datasets WorkflowNextIngest From a croissant URL WorkflowCreating the workflowSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From S3 Workflow | ApertureDB"
+      },
+      {
+        "id": "bd730c69-cad5-46ca-a5d1-8de08e5c5e7b",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_croissant#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The croissant URL. You can get a croissant URL from datasets under croissant button. Here are a few examples.MNIT-CoT-Dataset on huggingface.text-2-video-human-preferences-veo3 on huggingfaceGetting croissant links for datasets\u200bHuggingface DatasetKaggle DatasetOnce the URL is copied, the workflow at ApertureDB is about putting the URL in workflow creation step.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest From S3 WorkflowNextGenerate Embeddings WorkflowCreating the workflowGetting croissant links for datasetsSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From a croissant URL Workflow | ApertureDB"
+      },
+      {
+        "id": "d5bc2144-7b22-406b-80f9-370ec539bc05",
+        "url": "https://docs.aperturedata.io/Setup/client/configuration#__docusaurus",
+        "content": "The correct contents of this string will depend on how you have set up your ApertureDB instance.Getting Your APERTUREDB Key\u200bCloudLocalIf you created your ApertureDB instance using our self-service ApertureDB Cloud portal, then you can obtain a APERTUREDB KEY by clicking on the \"Connect\" button for your instance.Scroll down to \"Connect using Api Key\" underneath 'Using Python SDK'. Next click\nthe 'Generate Api Key' button.Once the system has filled in your instance-specific API key, copy it, either with the copy button on the top right, or manually.",
+        "title": "Configuration | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "I am sorry to hear that you were charged for ApertureDB without cancelling your subscription. Unfortunately, we do not offer refunds or cancellation policies for paid subscriptions. However, if you feel that you did not receive adequate support during your trial period, please contact us through our customer service channel so that we can investigate further. Thank you for reaching out!",
+    "history": null,
+    "rewritten_query": "Can you please provide me with instructions on how to cancel my subscription to ApertureDB? My email address is kicks66@gmail.com.",
+    "duration": 1.3630621433258057,
+    "documents": [
+      {
+        "id": "d5bc2144-7b22-406b-80f9-370ec539bc05",
+        "url": "https://docs.aperturedata.io/Setup/client/configuration#__docusaurus",
+        "content": "The correct contents of this string will depend on how you have set up your ApertureDB instance.Getting Your APERTUREDB Key\u200bCloudLocalIf you created your ApertureDB instance using our self-service ApertureDB Cloud portal, then you can obtain a APERTUREDB KEY by clicking on the \"Connect\" button for your instance.Scroll down to \"Connect using Api Key\" underneath 'Using Python SDK'. Next click\nthe 'Generate Api Key' button.Once the system has filled in your instance-specific API key, copy it, either with the copy button on the top right, or manually.",
+        "title": "Configuration | ApertureDB"
+      },
+      {
+        "id": "a7aa3a41-4d84-4fa1-8a73-0699240baac9",
+        "url": "https://docs.aperturedata.io/Setup/client/configuration?storing=colab#__docusaurus",
+        "content": "The correct contents of this string will depend on how you have set up your ApertureDB instance.Getting Your APERTUREDB Key\u200bCloudLocalIf you created your ApertureDB instance using our self-service ApertureDB Cloud portal, then you can obtain a APERTUREDB KEY by clicking on the \"Connect\" button for your instance.Scroll down to \"Connect using Api Key\" underneath 'Using Python SDK'. Next click\nthe 'Generate Api Key' button.Once the system has filled in your instance-specific API key, copy it, either with the copy button on the top right, or manually.",
+        "title": "Configuration | ApertureDB"
+      },
+      {
+        "id": "ee7a6cf9-e85a-4631-879a-92bac14838b4",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_s3#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The S3 bucket name. You may be able to list your S3 buckets usingaws s3 lsor by using theAWS S3 Console.AWS Access Key and AWS Secret Access Key. SeeAWS documentationfor details on how to generate these keys. For your own security, you may wish to generate new keys for this purpose.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest Datasets WorkflowNextIngest From a croissant URL WorkflowCreating the workflowSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From S3 Workflow | ApertureDB"
+      },
+      {
+        "id": "bd730c69-cad5-46ca-a5d1-8de08e5c5e7b",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_croissant#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The croissant URL. You can get a croissant URL from datasets under croissant button. Here are a few examples.MNIT-CoT-Dataset on huggingface.text-2-video-human-preferences-veo3 on huggingfaceGetting croissant links for datasets\u200bHuggingface DatasetKaggle DatasetOnce the URL is copied, the workflow at ApertureDB is about putting the URL in workflow creation step.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest From S3 WorkflowNextGenerate Embeddings WorkflowCreating the workflowGetting croissant links for datasetsSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From a croissant URL Workflow | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "ApertureDB is a NoSQL document database that supports both JSON and BSON formats. It provides features such as indexing, querying, and aggregations over documents. However, it does not support full-text search like some other databases.",
+    "history": null,
+    "rewritten_query": "Yes",
+    "duration": 0.8971216678619385,
+    "documents": [
+      {
+        "id": "6be7bc20-f6eb-408f-974d-1cfab0ff5848",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Regions#__docusaurus",
+        "content": "[[[483.8399963378906,2890.93994140625],[416.3999938964844,2314.3701171875],[704.5919799804688,1935.3599853515625],[1391.0400390625,1854.719970703125],[1814.4000244140625,2177.280029296875],[1844.6400146484375,2741.760009765625],[1118.8800048828125,3104.639892578125]]],\"annotation_source\": \"labelstudio\",\"name\": \"Homemade Foccacia\"}],\"returned\": 1,\"status\": 0}}]Find an image by its label\u200bquery=[{\"FindBoundingBox\":{\"_ref\":1,\"with_label\":\"Pan\",\"coordinates\":True,\"labels\":True,\"blobs\":False}},{\"FindImage\":{\"is_connected_to\":{\"ref\":1},\"blobs\":True}}]res,blobs=client.query(query)client.print_last_response()nh.display(blobs)[{\"FindBoundingBox\": {\"entities\": [{\"_coordinates\": {\"height\": 1800,\"width\": 2200,\"x\": 40,\"y\": 1500},\"_label\": \"Pan\"}],\"returned\": 1,\"status\": 0}},{\"FindImage\": {\"blobs_start\": 0,\"returned\": 1,\"status\": 0}}]Find Polygon pixels by",
+        "title": "BoundingBox and Polygon Annotations on Images | ApertureDB"
+      },
+      {
+        "id": "96361b5d-be3c-4dd7-9bba-a7c117c916f8",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Regions#__docusaurus",
+        "content": "[[[483.8399963378906,2890.93994140625],[416.3999938964844,2314.3701171875],[704.5919799804688,1935.3599853515625],[1391.0400390625,1854.719970703125],[1814.4000244140625,2177.280029296875],[1844.6400146484375,2741.760009765625],[1118.8800048828125,3104.639892578125]]]}],\"returned\": 1,\"status\": 0}},{\"FindImage\": {\"blobs_start\": 0,\"returned\": 1,\"status\": 0}}]Compute IoU\u200bYou can use the in-builtRegionIoUcommand to find how much two regions of interest overlapquery=[{\"FindBoundingBox\":{\"_ref\":1,\"with_label\":\"Pan\",\"coordinates\":True,\"labels\":True,\"blobs\":False}},{\"FindPolygon\":{\"_ref\":2,\"with_label\":\"Bread\",\"bounds\":True,\"labels\":True,\"blobs\":False}},{\"RegionIoU\":{\"roi_1\":1,\"roi_2\":2}}]res,blobs=client.query(query)client.print_last_response()[{\"FindBoundingBox\": {\"entities\": [{\"_coordinates\": {\"height\": 1800,\"width\": 2200,\"x\": 40,\"y\":",
+        "title": "BoundingBox and Polygon Annotations on Images | ApertureDB"
+      },
+      {
+        "id": "3d4abab3-53ce-482d-915e-2b97135616df",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/pytorch_classification#__docusaurus",
+        "content": "={conf}\\n\")converted=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)encoded=cv2.imencode(ext=\".jpeg\",img=converted)[1]ipyimage=Image(data=encoded,format=\"JPEG\")display(ipyimage,f\"{id}:{label}\")print(\"\\rRetrieval performance (imgs/s):\",len(dataset)/(time.time()-start),end=\"\")print(f\"\\nWritten classification results into{out_file_name}\")'139: restaurant, eating house, eating place, eatery''5193: sax, saxophone''2261: snorkel''2299: pickelhaube''2431: restaurant, eating house, eating place, eatery''7816: crash helmet''5529: ski''2473: ski''5586: tennis ball''2532: ski''785: ski''7977: unicycle, monocycle''872: baseball''2685: French horn, horn''8021: stage''885: racket, racquet''6040: streetcar, tram, tramcar, trolley, trolley car''8211: motor scooter, scooter''1000: steel drum''3156: marimba, xylophone''1268: liner, ocean liner''6460: shopping cart''3255: alp''8532: bow tie, bow-tie, bowtie''1296: cellular telephone, cellular phone, cellphone, cell, mobile phone''6471:",
+        "title": "Image Classification with PyTorch and ApertureDB | ApertureDB"
+      },
+      {
+        "id": "5be1b61c-49e5-48fe-9033-7bdb14fc9b1b",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/tensorflow_training#__docusaurus",
+        "content": "images found for stage test2/2 [==============================] - 0s 5ms/step781/781 [==============================] - 42s 49ms/step - loss: 1.5644 - accuracy: 0.4354 - val_loss: 1.5898 - val_accuracy: 0.4585Epoch 3/550000 images found for stage train780/781 [============================>.] - ETA: 0s - loss: 1.2961 - accuracy: 0.536510000 images found for stage test2/2 [==============================] - 0s 4ms/step781/781 [==============================] - 42s 49ms/step - loss: 1.2959 - accuracy: 0.5366 - val_loss: 1.4096 - val_accuracy: 0.5062Epoch 4/550000 images found for stage train781/781 [==============================] - ETA: 0s - loss: 1.0716 - accuracy: 0.621810000 images found for stage test2/2 [==============================] - 0s 3ms/step781/781 [==============================] - 42s 50ms/step - loss: 1.0716 - accuracy: 0.6218 - val_loss: 1.3959 - val_accuracy: 0.5165Epoch",
+        "title": "Train a model using data from apertureDB | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "I am glad to help! ApertureDB is a powerful NoSQL database designed specifically for machine learning applications. It offers features such as efficient query processing, high availability, and scalable storage. With its flexible schema design, users can easily build custom models and deploy them into production environments. Some popular uses of ApertureDB include object detection, image classification, chatbots, and fraud detection. The community around ApertureDB is active and welcoming, with many resources available online to learn more about the technology and contribute to the development of the platform.",
+    "history": null,
+    "rewritten_query": "Asking for help on Stack Overflow is not an option as this platform does not allow direct contact between users and developers. However, you may find some resources below to get started with using ApertureDB:\n\n1. Getting Started Guide - https://aperturedb.com/docs/getting_started/\n2. Documentation - https://aperturedb.com/docs/latest/\n3. Community Forum - https://community.aperturedb.com/\n4. GitHub Repository - https://github.com/aperturedb/aperturedb",
+    "duration": 2.7901337146759033,
+    "documents": [
+      {
+        "id": "ee7a6cf9-e85a-4631-879a-92bac14838b4",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_s3#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The S3 bucket name. You may be able to list your S3 buckets usingaws s3 lsor by using theAWS S3 Console.AWS Access Key and AWS Secret Access Key. SeeAWS documentationfor details on how to generate these keys. For your own security, you may wish to generate new keys for this purpose.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest Datasets WorkflowNextIngest From a croissant URL WorkflowCreating the workflowSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From S3 Workflow | ApertureDB"
+      },
+      {
+        "id": "bd730c69-cad5-46ca-a5d1-8de08e5c5e7b",
+        "url": "https://docs.aperturedata.io/workflows/ingest_from_croissant#__docusaurus",
+        "content": "This provides an easy way to get started with ApertureDB, and to see how it can be used with real data.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The croissant URL. You can get a croissant URL from datasets under croissant button. Here are a few examples.MNIT-CoT-Dataset on huggingface.text-2-video-human-preferences-veo3 on huggingfaceGetting croissant links for datasets\u200bHuggingface DatasetKaggle DatasetOnce the URL is copied, the workflow at ApertureDB is about putting the URL in workflow creation step.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousIngest From S3 WorkflowNextGenerate Embeddings WorkflowCreating the workflowGetting croissant links for datasetsSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest From a croissant URL Workflow | ApertureDB"
+      },
+      {
+        "id": "76a617b8-762a-49c1-94dc-c91b88316cba",
+        "url": "https://docs.aperturedata.io/workflows/ingest_datasets#__docusaurus",
+        "content": "Once you have experimented with the datasets, you can upload your own data to ApertureDB.For more detailed information about what this workflow is doing, see thedataset-ingestiondocumentation in GitHub.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The dataset to ingest. We have preconfigured a number of datasets for you to choose from. Two are shown here, but more may be available in the future.You might have an option for whether to include the training corpus in the ingestion. You can save time and space by ingesting only the validation corpus, which is much smaller.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bIf you go to the \"My Instances\" page and click on \"Connect\" for the instance you used, you will see an option to go to theWeb UIfor your instance. You will see the number of objects in the database increase as the workflow runs. Click on the refresh button to update the count.PreviousCreating and deleting workflowsNextIngest From S3 WorkflowCreating the workflowSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Ingest Datasets Workflow | ApertureDB"
+      },
+      {
+        "id": "620a0118-64e8-4137-8403-e5a7dde4c4ef",
+        "url": "https://docs.aperturedata.io/workflows/jupyterlab#__docusaurus",
+        "content": "This is useful to experiment with the data in your ApertureDB instance, and to see how it can be used with real data.For more detailed information about what this workflow is doing, see thejupyterlabdocumentation in GitHub.Creating the workflow\u200bFor general information on creating workflows in ApertureDB Cloud seeCreating and Deleting Workflows.Configure your workflow by selecting:Which instance to use. If you only have one instance, there will be no options to select.The password to use for access to the Jupyter Notebook. Please keep a note of this password as you will not be able to recover it later. Remember to use a strong password so no-one else can access your Jupyter Notebook or the ApertureDB instance it has access to.Once you have filled in the fields, click \"Submit\". Your workflow will be created and will start running.See the results\u200bTo connect to your Jupyter Notebook, seeConnecting to a workflow. After connecting, you will see a screen like the one below. Enter the password you set when creating the workflow.This will take you to the Jupyter Notebook interface, where you can create new notebooks, upload existing notebooks, and run code. We have provided a sample notebook that shows how to connect to your ApertureDB instance and run some queries.PreviousObject Detection WorkflowNextWebsite Chatbot WorkflowCreating the workflowSee the resultsGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Jupyter Notebooks Workflow | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To populate the database, follow these steps:\n\n1. Define the schema of your data model by creating tables that correspond to the different entities in your application.\n\n2. Create a connection to the database using PyTorch Datasets.\n\n3. Load the data into the specified table(s).\n\n4. Add new records to the database as needed.\n\n5. Update existing records based on changes made to the data.\n\n6. Use SQL queries to perform CRUD operations on the database.\n\n7. Test the database by running unit tests and integration tests.\n\n8",
+    "history": null,
+    "rewritten_query": "SELECT * FROM table_name;",
+    "duration": 1.7421340942382812,
+    "documents": [
+      {
+        "id": "3d1136fd-0136-4010-a822-660dc9ce18a5",
+        "url": "https://docs.aperturedata.io/python_sdk/data_loaders/csv_wrappers/PolygonDataCSV#__docusaurus",
+        "content": "identify at most a single image, like a unique id. The value in each row will be",
+        "title": "PolygonDataCSV | ApertureDB"
+      },
+      {
+        "id": "3d4abab3-53ce-482d-915e-2b97135616df",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/pytorch_classification#__docusaurus",
+        "content": "={conf}\\n\")converted=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)encoded=cv2.imencode(ext=\".jpeg\",img=converted)[1]ipyimage=Image(data=encoded,format=\"JPEG\")display(ipyimage,f\"{id}:{label}\")print(\"\\rRetrieval performance (imgs/s):\",len(dataset)/(time.time()-start),end=\"\")print(f\"\\nWritten classification results into{out_file_name}\")'139: restaurant, eating house, eating place, eatery''5193: sax, saxophone''2261: snorkel''2299: pickelhaube''2431: restaurant, eating house, eating place, eatery''7816: crash helmet''5529: ski''2473: ski''5586: tennis ball''2532: ski''785: ski''7977: unicycle, monocycle''872: baseball''2685: French horn, horn''8021: stage''885: racket, racquet''6040: streetcar, tram, tramcar, trolley, trolley car''8211: motor scooter, scooter''1000: steel drum''3156: marimba, xylophone''1268: liner, ocean liner''6460: shopping cart''3255: alp''8532: bow tie, bow-tie, bowtie''1296: cellular telephone, cellular phone, cellphone, cell, mobile phone''6471:",
+        "title": "Image Classification with PyTorch and ApertureDB | ApertureDB"
+      },
+      {
+        "id": "41671797-245d-437a-90c1-b17069445a54",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/loaders#__docusaurus",
+        "content": "imageconverted=cv2.cvtColor(img[0],cv2.COLOR_BGR2RGB)encoded=cv2.imencode(ext=\".jpeg\",img=converted)[1]ipyimage=Image(data=encoded,format=\"JPEG\")display(ipyimage)print(\"Throughput (imgs/s):\",len(dataset)/(time.time()-start))Total Images in dataloader: 100Throughput (imgs/s): 1021.0336181503932Create a dataset with resized images\u200bMore detailsfor writing custom constraints and operations when finding images.query=[{\"FindImage\":{\"constraints\":{\"dataset_name\":[\"==\",\"coco_validation_with_annotations\"]},\"operations\":[{\"type\":\"resize\",\"width\":224}],\"blobs\":True}}]dataset=PyTorchDataset.ApertureDBDataset(client,query)print(\"Total Images in dataloader:\",len(dataset))start=time.time()# Iterate over dataset.fori,imginenumerate(dataset):ifi>=5:break# img[0] is a decoded, cv2 imageconverted=cv2.cvtColor(img[0],cv2.COLOR_BGR2RGB)encoded=cv2.imencode(ext=\".jpeg\",img=converted)[1]ipyimage=Image(data=encoded,format=\"JPEG\")display(ipyimage)print(\"Throughput (imgs/s):\",len(dataset)/(time.time()-start))Total Images in dataloader: 100Throughput (imgs/s): 231.35447843109566Create a DataLoader from the dataset to use in",
+        "title": "Interact with PyTorch Objects | ApertureDB"
+      },
+      {
+        "id": "0af6141f-55a2-472c-97e2-9678d30e5d82",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Embeddings#__docusaurus",
+        "content": "\"recipe_search\",\"_uniqueid\": \"3.174639.224220\",\"id\": 75,\"model\": \"embed-english-v3.0\",\"provider\": \"cohere\",\"source\": \"Cookbook recipe\"}],\"returned\": 1,\"status\": 0}}]Remove the Embedding\u200bq=[{\"DeleteDescriptor\":{\"constraints\":{\"provider\":[\"==\",\"cohere\"]}}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"DeleteDescriptor\": {\"count\": 1,\"status\": 0}}]Verify Deletion\u200bq=[{\"FindDescriptor\":{# Specify the descriptor set in which to search.\"set\":descriptorset_name,\"constraints\":{\"id\":[\"==\",75]},\"results\":{\"all_properties\":True}}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"FindDescriptor\": {\"returned\": 0,\"status\": 0}}]Remove the Descriptor Set\u200bq=[{\"DeleteDescriptorSet\":{\"with_name\":descriptorset_name}}]responses,blobs=client.query(q)print(client.get_last_response_str())[{\"DeleteDescriptorSet\": {\"count\": 1,\"status\": 0}}]What's next?\u200bBulk loadembeddingsAddtextorimagesto ApertureDBPreviousWork with ConnectionsNextImage and Video Preprocessing or AugmentationConnect to the databaseDefine the search space for recipesPrepare the embedding to be addedAdd a Recipe Embedding for Similarity Search LaterK-NN Search For Matching",
+        "title": "Work with Descriptors (Embeddings) | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To retrieve a specific portion of a video, specify its index using the `index` keyword. Here's how it works:\n\n```python\nimport aperturesdk\n\n# Create a new client instance\nclient = aperturesdk.Client()\n\n# Retrieve a video\nvideos = client.Videos().List({})\nvideo = next((item for item in videos['items'] if item['id'] == 'your_video_id'), None)\n\n# Get the first 10 seconds of the video\nvideo['content']['segments'][0]['frames",
+    "history": null,
+    "rewritten_query": "Given a YouTube video URL (e.g., \"https://www.youtube.com/watch?v=dQw4w9WgXcq\"), how can I extract only the relevant portion(s) for further analysis or use as an attachment to email or other communication?",
+    "duration": 2.225576400756836,
+    "documents": [
+      {
+        "id": "7bb6a7a9-b93f-4903-8fcf-e655a2cb7fcf",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/clip_commands/AddClip#__docusaurus",
+        "content": "in a video expressed as a fraction of video duration.[optional]label[optional]properties[optional]if_not_found[optional]connectDetails\u200bpropertiesare key-value pairs associated with the entity.\nCheckpropertiesfor more details.if_not_foundcan be used to turn this command into \"conditional add\".\nCheckif_not_foundfor more details.connectcan be used to create a connection between the added\nobject and other object(s).\nCheckconnectfor more details.One offrame_number_range,time_offset_range\n<time_offset_range>ortime_fraction_rangemust be specified.\nMulitple range types are not supported. For adding a clip, both start and stop must be defined.The referenced video must be specified in thevideo_ref. Exactly 1 video\nmust be referenced, otherwise an error is generated.Examples\u200bframe_number_range\u200bTheframe_number_rangeparameter defines the clip by providing start frame number and stop frame number.ExampleThe following query finds a video based on propertyname, and adds a clip to\nit. The newly created clip is defined in terms of a range of frame numbers  (from 360",
+        "title": "AddClip | ApertureDB"
+      },
+      {
+        "id": "9f005714-a1b2-4d2e-ae25-f2253a11f9fc",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/clip_commands/FindClip#__docusaurus",
+        "content": "(Default: false).[optional]as_container:\nSpecifies the container in which the video clip will be returned.[optional]as_codec:\nSpecifies the codec in which the video clip will be returned.[optional]in_frame_number_range[optional]in_time_offset_range[optional]in_time_fraction_range[optional]operations: operations to apply to videoDetails\u200bOnly one ofin_frame_number_range,in_time_offset_rangeorin_time_fraction_rangeis supported at a time. For finding a clip, one or both of start and stop may be defined.Operations defined inoperationswill be performed on-the-fly and\nwill not affect the original video stored in ApertureDB.If only one ref parameter is used in theis_connected_toarray,\nthe resulting objects obtained after traversing the given connection can be\nassociated with their source objects by specifying the parametergroup_by_sourceas true.\nSimilarly, if thevideo_refparameter is used, the results can be grouped by the source video.\nThe parameter is ignored if neitheris_connected_tonorvideo_refis used.\nIt is set to false by default.Ifin_..._rangeis specified, the clips returned must be\nfully within the boundaries indicated by the given parameters.Examples\u200bFinds clips based on scene names for given video, returning the duration of the",
+        "title": "FindClip | ApertureDB"
+      },
+      {
+        "id": "9d6333f6-4f2e-4eba-8253-bb897cd58c9a",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/frame_commands/FindFrame#__docusaurus",
+        "content": "with no regard to the videos the frames are connected to.[{\"FindFrame\":{\"constraints\":{\"topic\":[\"==\",\"car chase\"]},\"results\":{\"list\":[\"topic\",\"movie title\"]}}}]Successful response:[{\"FindFrame\":{\"returned\":1,\"status\":0,\"entities\":[{\"topic\":\"car chase\",\"movie title\":\"Megamind\"}]}}]Similar to the above, except the search is performed over the frames that are\nconnected to videos that have property \"movie rating\" equal to \"PG13\":Find videos with the property \"movie rating\" equal to \"PG13\", then find frames\nthat are connected to the videos and have property \"topic\" equal to \"car\nchase\". Returned properties of the frames are \"topic\" and \"movies title\".[{\"FindVideo\":{\"_ref\":1,\"constraints\":{\"movie rating\":[\"==\",\"PG13\"]}}},{\"FindFrame\":{\"is_connected_to\":{\"ref\":1},\"constraints\":{\"topic\":[\"==\",\"car chase\"]},\"results\":{\"list\":[\"topic\",\"movie title\"]}}}]Successful response:[{\"FindVideo\":{\"returned\":0,\"status\":0}},{\"FindFrame\":{\"returned\":1,\"status\":0,\"entities\":[{\"topic\":\"car chase\",\"movie title\":\"Megamind\"}]}}]PreviousAddFrameNextUpdateFrameParametersExamplesGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "FindFrame | ApertureDB"
+      },
+      {
+        "id": "4d2d0940-1068-4027-b112-73e1d7994490",
+        "url": "https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/video_position#__docusaurus",
+        "content": "time since the beginning of the video. Type is string. Format is\n\"[[HH:]MM:]SS[.n[n[...]]]\", where square brackets indicate\noptional elements.ExampleThis defines a time offset at \"5 seconds and 125 milliseconds\" after the\nbeginning of the video:[{\"AddVideo\":{\"_ref\":1,\"codec\":\"h264\",\"container\":\"mp4\",\"properties\":{\"year_captured\":1993}}},{\"AddFrame\":{\"video_ref\":1,\"time_offset\":\"00:00:05.125\",\"properties\":{\"source\":\"my_model\"}}}]Successful response:[{\"AddVideo\":{\"status\":0}},{\"AddFrame\":{\"status\":0}}]in_time_offset_range\u200bThein_time_offset_rangeparameter is the position range in a video\ndefined by the times \"start\" and \"stop\" since the beginning of the\nvideo. The format for each is \"[[HH:]MM:]SS[.n[n[...]]]\",",
+        "title": "Parameters for Positional Media Access | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To retrieve a resized image which is 100x100 pixels, you can use the following SQL statement:\n```sql\nSELECT * FROM Images WHERE width = 100 AND height = 100;\n```",
+    "history": null,
+    "rewritten_query": "To retrieve a resized image with dimensions of 100x100 pixels from an input file named \"image_file\", use the following command:\n\n```bash\nconvert -resize 100x100 \"$input_file\" -quality 95 \"$output_file\"\n```\n\nThis will resize the image to 100x100 pixels using the `resample` method, set its quality to 95 (highest possible), and save the resulting image as `$output_file`.",
+    "duration": 1.8990952968597412,
+    "documents": [
+      {
+        "id": "935e5587-6f1e-4ca2-a0c4-efd5d8fe9840",
+        "url": "https://docs.aperturedata.io/query_language/Reference/image_commands/bbox_commands/FindBoundingBox#__docusaurus",
+        "content": "Similarly, if theimage_refparameter is used, the results can be grouped by the source image.\nThe parameter is ignored if neitheris_connected_tonorimage_refis used.\nIt is set to false by default.Examples\u200bFind the bounding boxes connected to the image with \"unique_id\" = 34,\nand of the label = \"Dog\":[{\"FindImage\":{\"_ref\":1,\"constraints\":{\"unique_id\":[\"==\",34]},\"blobs\":true}},{\"FindBoundingBox\":{\"image_ref\":1,\"blobs\":false,\"coordinates\":true,\"labels\":true,\"with_label\":\"Dog\",\"results\":{\"list\":[\"label_id\"]}}}]Successful response:[{\"FindImage\":{\"blobs_start\":0,\"returned\":1,\"status\":0}},{\"FindBoundingBox\":{\"entities\":[{\"_coordinates\":{\"height\":40,\"width\":40,\"x\":120,\"y\":50},\"_label\":\"Dog\",\"label_id\":32}],\"returned\":1,\"status\":0}}]Find the bounding boxes connected to the image with \"unique_id\" = 34,",
+        "title": "FindBoundingBox | ApertureDB"
+      },
+      {
+        "id": "9866da5e-6c6f-47d1-ba5e-ef50f9fba498",
+        "url": "https://docs.aperturedata.io/Integrations/mlmodels#__docusaurus",
+        "content": "well in identifying detailed shapes in images.print(\"\\nRunning inference on images from data source: \" + data_source + \"\\n\")imgs  = Images(client)# Benefit of doing this is - data is downloaded as needed, avoiding unnecessary slowdownsquery = {\"FindImage\": {\"blobs\": True,\"constraints\": {\"adb_data_source\": [\"==\", data_source]},\"operations\": [{ \"type\": \"resize\", \"width\": 400, \"height\": 400},],}}dataset = ApertureDBDataset(client = client, query = [query])total = len(dataset)print(\"Total images in the dataset: \", total)# Choose a random imagetest_index = random.randint(0, total-1)# You can access any image within this new dataset created above.img, inference_label = dataset[test_index]# Using the image queried aboveSAMClassifier.display_image(img)checkpoint = f\"{os.path.expanduser('~')}/.cache/SAM/sam_vit_h_4b8939.pth\"model_type = \"vit_h\"sam = sam_model_registry[model_type](checkpoint=checkpoint)mask_generator = SamAutomaticMaskGenerator(sam)masks = mask_generator.generate(img)R-CNN and RetinaNet\u200bYou can also use the more accurate but slower \"frcnn-resnet\" or the\nfaster but less accurate \"frcnn-mobilenet\". We have also used RetinaNet to strike",
+        "title": "AI/ML Models | ApertureDB"
+      },
+      {
+        "id": "90360ce0-e401-408e-8a09-ac41629f5afc",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Data_Input_and_Output#__docusaurus",
+        "content": "following code is a good way to retrieve an image:query=[{\"FindImage\":{\"blobs\":True,# Return image data\"constraints\":{\"uuid\":[\"==\",\"127e46bf-48c0-42c1-8c70-6c0e24252c15\"]# search by a unique property to retrieve only one matching image}}}]results,blobs=db.query(query)But what format is that blob in, and how to you get it into the format you want?As you may know, blobs, returned by db.query(), is a list, and each result will give you an index into the arrayso you can find the results. We'll deal with that later, but first retrieving the image:ifdb.last_query_ok()andresults[0][\"FindImage\"][\"returned\"]!=0:withopen('output.jpg','wb')asfile:file.write(blobs[0])Theblobs[0]object returned is a python bytes object. If you want to then use the image in thePIL library,",
+        "title": "Data Input & Output Formats | ApertureDB"
+      },
+      {
+        "id": "78ebb0dd-ebe0-4f6d-9b1a-9bcccb9867a8",
+        "url": "https://docs.aperturedata.io/HowToGuides/Ingestion/Updates#__docusaurus",
+        "content": "We read the images off the DB with theFindImagecommandimportjsonfromaperturedb.Utilsimportcreate_connectorfromaperturedb.ParallelQueryimportexecute_batchquery=[{\"FindImage\":{\"blobs\":True,\"constraints\":{\"dataset\":[\"==\",\"cookbook\"]},\"results\":{\"all_properties\":True}}}]db=create_connector()result,response,op_blobs=execute_batch(db=db,q=query,blobs=[])print(json.dumps(response,indent=2))print(f\"{len(op_blobs)=}\")noteTheconstraintsis a filtering condition that would be applied at the server side, to retrieve only the necessary information. This predicate here implies that only Images with propertydatasetset tocookbookshould be returned.The response is a JSON object, along with blobs. The JSON object contains all the properties associated with each Image that is retrieved. Theresultssection of FindImage command can be used to get counts, group counts, etc.Take a look at the return values fromexecute_batchcall. Theop_blobsis the list of buffers. They can be written to file system to recreate the input files.Update the data in the DB.\u200bIt's a rarity that the data is spot on in the first pass. Often there's a need to iterate on the schema, values, etc.Overview of UpdateImageLet's exercise that feature of ApertureDB.We update the data in 2 ways as follows.Update PropertiesAdd ConnectionsAdd more properties to ImagesIn the folder we extracted in the first",
+        "title": "Data Transformation Workflows | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To retrieve an image rotated by 45 degrees, simply pass the keyword argument `rotate` with value `-45` to the `find_image()` method. For example:\n```python\nfrom sagemaker import get_execution_role\nimport boto3\nimport os\nimport json\n\nassistant = SageMakerAssistant()\nclient = assistant.get_client('sagemaker')\nrole = get_execution_role()\nregion = boto3.Session().region_name\nbucket = 'your-bucket-name'\nprefix = 'your-object",
+    "history": null,
+    "rewritten_query": "Retrieve an image with its orientation set to 45 degrees using PHP's ImageRotate function.",
+    "duration": 1.8253629207611084,
+    "documents": [
+      {
+        "id": "f7a2226a-40b9-4cb5-af07-5ed404536705",
+        "url": "https://docs.aperturedata.io/HowToGuides/Applications/similarity_search#__docusaurus",
+        "content": "For the purpose of this experiment, we're using a publicly available image.Fun experiment : Upload your own photo and see which celebries you resembleFirst, we create a descriptor for using the same algorithm as used for ingestion.Next, we perform a nearest-neighbor search to find the 5 descriptors that come closest to our query image.Finally, we return the images associated with those 5 nearest neighbor results.Our database consists of around ~10000 images of people worldwide, which is not that big.",
+        "title": "Find Similar Faces in CelebA Kaggle Dataset | ApertureDB"
+      },
+      {
+        "id": "935e5587-6f1e-4ca2-a0c4-efd5d8fe9840",
+        "url": "https://docs.aperturedata.io/query_language/Reference/image_commands/bbox_commands/FindBoundingBox#__docusaurus",
+        "content": "Similarly, if theimage_refparameter is used, the results can be grouped by the source image.\nThe parameter is ignored if neitheris_connected_tonorimage_refis used.\nIt is set to false by default.Examples\u200bFind the bounding boxes connected to the image with \"unique_id\" = 34,\nand of the label = \"Dog\":[{\"FindImage\":{\"_ref\":1,\"constraints\":{\"unique_id\":[\"==\",34]},\"blobs\":true}},{\"FindBoundingBox\":{\"image_ref\":1,\"blobs\":false,\"coordinates\":true,\"labels\":true,\"with_label\":\"Dog\",\"results\":{\"list\":[\"label_id\"]}}}]Successful response:[{\"FindImage\":{\"blobs_start\":0,\"returned\":1,\"status\":0}},{\"FindBoundingBox\":{\"entities\":[{\"_coordinates\":{\"height\":40,\"width\":40,\"x\":120,\"y\":50},\"_label\":\"Dog\",\"label_id\":32}],\"returned\":1,\"status\":0}}]Find the bounding boxes connected to the image with \"unique_id\" = 34,",
+        "title": "FindBoundingBox | ApertureDB"
+      },
+      {
+        "id": "2fc4e824-bc06-4803-baf4-10c616b1e9cc",
+        "url": "https://docs.aperturedata.io/query_language/Reference/image_commands/bbox_commands/AddBoundingBox#__docusaurus",
+        "content": "If the reference points to multiple Image object, an error is returned.Arectangleparameter is required, as it\nindicates the boundaries of the bounding box.Examples\u200bInsert an Image, re-encoding it as a \"png\", and 2 BoundingBox objects,\nand create a connection between the 2 BoundingBox objects and the Image:[{\"AddImage\":{\"_ref\":1,\"format\":\"png\",\"properties\":{\"description\":\"dog playing in a park\"}}},{\"AddBoundingBox\":{\"image_ref\":1,\"label\":\"Dog\",\"rectangle\":{\"x\":120,\"y\":50,\"width\":40,\"height\":40},\"properties\":{\"label_id\":32}}},{\"AddBoundingBox\":{\"image_ref\":1,\"label\":\"Park\",\"rectangle\":{\"x\":10,\"y\":20,\"width\":400,\"height\":400},\"properties\":{\"label_id\":6}}}]Successful response:[{\"AddImage\":{\"status\":0}},{\"AddBoundingBox\":{\"status\":0}},{\"AddBoundingBox\":{\"status\":0}}]Insert an Image and a BoundingBox,\nand create a connection between the 2 objects, and connect\nthe BoundingBox to an existing Entity of the class \"Person\" with a specific",
+        "title": "AddBoundingBox | ApertureDB"
+      },
+      {
+        "id": "9866da5e-6c6f-47d1-ba5e-ef50f9fba498",
+        "url": "https://docs.aperturedata.io/Integrations/mlmodels#__docusaurus",
+        "content": "well in identifying detailed shapes in images.print(\"\\nRunning inference on images from data source: \" + data_source + \"\\n\")imgs  = Images(client)# Benefit of doing this is - data is downloaded as needed, avoiding unnecessary slowdownsquery = {\"FindImage\": {\"blobs\": True,\"constraints\": {\"adb_data_source\": [\"==\", data_source]},\"operations\": [{ \"type\": \"resize\", \"width\": 400, \"height\": 400},],}}dataset = ApertureDBDataset(client = client, query = [query])total = len(dataset)print(\"Total images in the dataset: \", total)# Choose a random imagetest_index = random.randint(0, total-1)# You can access any image within this new dataset created above.img, inference_label = dataset[test_index]# Using the image queried aboveSAMClassifier.display_image(img)checkpoint = f\"{os.path.expanduser('~')}/.cache/SAM/sam_vit_h_4b8939.pth\"model_type = \"vit_h\"sam = sam_model_registry[model_type](checkpoint=checkpoint)mask_generator = SamAutomaticMaskGenerator(sam)masks = mask_generator.generate(img)R-CNN and RetinaNet\u200bYou can also use the more accurate but slower \"frcnn-resnet\" or the\nfaster but less accurate \"frcnn-mobilenet\". We have also used RetinaNet to strike",
+        "title": "AI/ML Models | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "Sure thing! Here are some examples of using ApertureDB to train a model:\n\n1. Image classification: Let's assume that you have a dataset of images labeled with different categories like \"cat\", \"dog\", etc. You want to build a deep neural net model to predict which category each image belongs to. First, let's define a dataset in ApertureDB:\n\n```python\nfrom aperturedatastore import DataStore\nimport pandas as pd\n\n# Define a dataset\ndataset = DataStore(name=\"my_image_dataset\")\nfor filepath",
+    "history": null,
+    "rewritten_query": "Yes, here are some examples of how you can use ApertureDB to train models:\n\n1. Using pretrained models: You can load pretrained models from ApertureDB's built-in database schema, such as TensorFlow Lite for Mobile (TFLITE) or Inception V3. These models have been trained on large datasets like ImageNet, which contains millions of images with labels. To load these models into your application, simply create an instance of `ApertureDB::Model` class and pass it the path to the file containing the model data. For example:",
+    "duration": 2.749951124191284,
+    "documents": [
+      {
+        "id": "8e0955bd-1816-4472-8c19-de07efe790c6",
+        "url": "https://docs.aperturedata.io/Introduction/WhyAperture#__docusaurus",
+        "content": "Data scientists using ApertureDB can create their datasets potentially 35X faster,\ndepending on the query complexity (VLDB'21).\nWith our unified design and near data preprocessing, data science and engineering teams\nare no longer forced to manually integrate disparate data, and we see sizeable reduction in network\ntransfers. ApertureDB continues to scale with data and use cases.Basically, ApertureDB is a very high-performance and scalable database because of its architecture and\nimplementation, so your data pipelines are never the bottleneck!\nAnalytics teams get what they need from their data layer without worrying about building it or\nmaintaining it, even at enterprise scale.PreviousIntroductionNextWhat is ApertureDB?Status Quo: Manually Integrated SolutionMissing Piece: Purpose-built Database for Multimodal AIGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Why ApertureDB? | ApertureDB"
+      },
+      {
+        "id": "7c684581-37c1-4b4b-8d89-cd754f19679c",
+        "url": "https://docs.aperturedata.io/HowToGuides/Advanced/loaders#__docusaurus",
+        "content": "To handle the semantics for ApertureDB, a classCocoDataPyTorchis implemented.\nIt uses aperturedb.PytorchData as a base class, and implements a methodgenerate_querywhich translates the data as it is represented in CocoDetection (a PyTorch dataset object)",
+        "title": "Interact with PyTorch Objects | ApertureDB"
+      },
+      {
+        "id": "5bc5cc10-ce0c-4dab-897b-fb4ddfe5202f",
+        "url": "https://docs.aperturedata.io/HowToGuides/Applications/semantic_search/website_search#__docusaurus",
+        "content": "support does ApertureDB have for PyTorch?Non-RAG Answer\u200bApertureDB supports PyTorch through its Python API, allowing users to easily integrate their PyTorch models with large-scale datasets stored in ApertureDB. This integration enables efficient data loading, processing, and querying capabilities within the PyTorch framework. Additionally, ApertureDB provides optimized storage and retrieval mechanisms for PyTorch tensors and other data structures.RAG Answer\u200bApertureDB supports PyTorch through its Python SDK and provides classes such asApertureDBDatasetthat allow loading datasets from PyTorch into ApertureDB. Additionally, theCocoDataPyTorchclass is implemented to handle semantics for ApertureDB when working with a PyTorch CocoDetection dataset. This integration enables users to load images from ApertureDB into a PyTorch model and retrieve results of inference pipelines such as new classifications or annotations.Documents\u200bTraining and Inference | ApertureDB: for more information: An active ApertureDB instance ApertureDB client package available for pip install PyTorch or TensorFlow installed Please reach out to us (team@aperturedata.io) for more details or to discuss other frameworks.Interact with PyTorch Objects | ApertureDB: Steps \u200b Load PyTorch dataset into ApertureDB \u200b This step uses a PyTorch CocoDetection dataset, and ingests it into ApertureDB. To handle the semantics for ApertureDB, a class",
+        "title": "Building a RAG chain from a Website | ApertureDB"
+      },
+      {
+        "id": "9beab83a-bbf8-4b80-92b2-bc19bfc3646b",
+        "url": "https://docs.aperturedata.io/concepts/other_databases#__docusaurus",
+        "content": "teams to adopt and deploy in production. That\u2019s what we have built with ApertureDB.Given our work lies at the intersection of database and machine learning, we also have a comparison chart for ML tools.For an example of how to manage multimodal data in ApertureDB, checkout ourCookbook examples.PreviousMigrate From Relational DatabasesNextApertureDB TerminologyComparison with Traditional DatabasesComparison with Vector DatabasesComparison Across AI PipelinesGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Migrate From Any Database Type | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To add a read-only user, follow these steps:\n\n1. Log into the ApertureDB web interface.\n2. Click on the \"Users\" tab.\n3. Click on the \"Create User\" button.\n4. Enter a username and password for the new user.\n5. Select the \"ReadOnly\" permission level for the new user.\n6. Save changes.\n7. Once saved, the new user will be added to the list of available users.",
+    "history": null,
+    "rewritten_query": "Add a new role called \"read_only\" to your database schema with no privileges attached. This will allow users who don't have write permissions on any tables to view data but not modify it.",
+    "duration": 1.747563123703003,
+    "documents": [
+      {
+        "id": "de36583f-91de-4d62-9dc9-7ed4fbf5a136",
+        "url": "https://docs.aperturedata.io/query_language/Overview/Access%20Control#__docusaurus",
+        "content": "objects, indexes, and users/roles.By default, the database always has an \"admin\" role that has permissions\nto perform any action on the database, as well as an \"admin\" user that\nis assigned the \"admin\" role. The \"admin\" user can, thus, perform any\naction in the database.User\u200bAuserdefines access credentials for a database user.Eachuserhas ausername, apassword, and, optionally, a set\nof tokens assigned to it.The defaultusernameis 'admin'.Ausernamemust be at least 4 characters long and cannot contain any\nwhite spaces.Ausernamecannot start with an underscore character (_).When running for the first time, the defaultpasswordfor 'admin'\nuser will be taken from 'ADB_MASTER_KEY' environment variable.Apasswordis a combination or characters only known to the user,\nrepresented as a string. Accepted characters are: uppercase, lowercase,\nnumeric, and the following special characters: ! @#\\$ % ^ &*( )_+ , - = \\<>? . ,[]{ }Apasswordmust be at least 10 characters long, and contain letters,\nnumbers, and symbols.Atokenis a string that can be used instead of the password. This\nallows a user to define different tokens for different use-cases, if",
+        "title": "Access Control | ApertureDB"
+      },
+      {
+        "id": "32656138-19ef-48a0-98d2-b5e8009a977e",
+        "url": "https://docs.aperturedata.io/Setup/collaborate#__docusaurus",
+        "content": "managed by a given ApertureDB instance, you will want to create user accounts and assign\nappropriate roles so you can all share data and work together. The Web UI makes this very\neasy to do.You can also use ApertureDBJSON commands to manage rolesin a database instance.\nThis may be convenient for configuring multiple instances with the same users.PreviousConfigurationNextHow to GuidesAdd New RolesAdd New UsersGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "Collaborate With Team | ApertureDB"
+      },
+      {
+        "id": "bb0cec6e-1003-4d06-aeb3-2131303bacf5",
+        "url": "https://docs.aperturedata.io/administration/faq#__docusaurus",
+        "content": "data types that are equally important to access. This frequently leads to a complex implementation that needs to stitch together an ad hoc combination of a metadata store, a cloud object store, a vector database, and some processing libraries. This is largely inefficient and heavily prone to errors. With ApertureDB, we offer a database designed for data such as images, videos, documents, embeddings, and associated metadata including annotations. Our biggest value proposition is that we integrate functionalities of a vector database, intelligence graph, and visual or document data to seamlessly query across data domains.Q:Our data management is messy right now but we don't have a lot of time or resources to fix it. How long does customer onboarding take?A:We can setup a hosted environment for your data within a few minutes. If you would like to install ApertureDB in your virtual private cloud, we can provide you access to our Dockerhub to get started. While data ingestion is usually a matter of a day or a few days, the overall time to onboard will depend on how quickly we can start working with you on schema definition and data ingestion. In short, as soon as we figure out our engagement details, we function as your extended team when onboarding and it should take no more than a week or two.Q:What is the current engagement or pricing model for ApertureDB?A:Our pricing is based on annual or multi-year subscription based on the number of database instances, storage tier, and support level. We",
+        "title": "Frequently Asked Questions | ApertureDB"
+      },
+      {
+        "id": "45e91da5-ddae-4969-bb76-2d6aa2273df0",
+        "url": "https://docs.aperturedata.io/Introduction/Usecases#__docusaurus",
+        "content": "to search and create datasets easily. They no longer have to organize folders\nwith annotation labels and put images / frames in those folders to create training\nor classification datasets. They can also avoid having to read through all the\nannotations to find the ones they need. The annotations in ApertureDB can be\nextended to contain not just labels and coordinates, but also any other information\nlike source of annotations, the model that helped label (or auto tag), and others.ApertureDB supports both bounding boxes and polygon shaped annotations and operations like\nintersection over union (IoU) for any of these annotations.\nApertureDB also supports segmentation masks.Dataset Preparation During ML (Re)training / Classification\u200bWe have dataset loaders for ML frameworks like PyTorch where our loaders remove\nthe complexity of retrieving the right datasets to support training or\nclassification of data in batches. Users only need to specify queries to\nfind the right data. All the user needs to specify is a query that filters\nthe relevant dataset. This query can in fact specify pre-processing and\naugmentation operations like resize, rotate, which ApertureDB then applies\non-the-fly.It is already easy to store Datasets as entities in the ApertureDB metadata\ngraph and map them to different images / annotations. Updating (evolving)\nmetadata schema is easy by design.K-NN Similarity Search for Visual Search or Recommendations\u200bApertureDB offers indexing of n-dimensional feature vectors.",
+        "title": "Example Technical Use Cases | ApertureDB"
+      }
+    ]
+  },
+  {
+    "answer": "To update metadata associated with a video, follow these steps:\n\n1. First, retrieve the metadata for the video using the FindVideo query.\n\n```python\nresponse = client.query(\"\"\"\n    SELECT * FROM FindVideo WHERE constraint_id ='my_video_id';\n\"\"\")\nblobs = client.query([{\"FindVideo\": {\"properties\": {\"contributor\": [\"Vishakha\", \"John\"]}}}])\nblobs[0]['FindVideo']['blobs']\n```\n\n2. Update the desired metadata fields as needed. You can do this either through the",
+    "history": null,
+    "rewritten_query": "Can you help me update the metadata for my video on YouTube?",
+    "duration": 1.789461612701416,
+    "documents": [
+      {
+        "id": "60d48ea7-99af-4199-85e6-c5c8a30ffa99",
+        "url": "https://docs.aperturedata.io/HowToGuides/start/Videos#__docusaurus",
+        "content": "{\"status\": 0}}]Query video by its metadata attributes\u200bVerify this Video was added to the database and read all the property valuesfromaperturedbimportNotebookHelpersasnh# Our helper package for image displays and other utilitiesquery=[{\"FindVideo\":{\"constraints\":{\"name\":[\">=\",\"crepe\"],\"location\":[\">\",\"A\"]},\"blobs\":True,# This is set to False by default\"results\":{\"all_properties\":True}}}]response,blobs=client.query(query)client.print_last_response()num_videos=response[0][\"FindVideo\"][\"returned\"]forcountinrange(num_videos):nh.display_video_mp4(blobs[count])Update properties of the video already in ApertureDB\u200bUseUpdateVideoif any of the attributes need a new value or your application now needs a new attribute in existing videosquery=[{\"UpdateVideo\":{\"properties\":{\"contributor\":\"Vishakha\"# property will get added if missing or the value will be updated},\"constraints\":{\"name\":[\"==\",\"crepe_flambe\"]},}}]response,blobs=client.query(query)client.print_last_response()[{\"UpdateVideo\": {\"count\": 1,\"status\": 0}}]query=[{\"FindVideo\":{\"constraints\":{\"name\":[\"==\",\"crepe_flambe\"]},\"results\":{\"all_properties\":True}}}]response,blobs=client.query(query)client.print_last_response()[{\"FindVideo\": {\"entities\": [{\"_duration_us\": 5500000,\"_fps\":",
+        "title": "Work with Videos | ApertureDB"
+      },
+      {
+        "id": "2b942fee-4e9c-4d1e-a823-db16817856b6",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/video_commands/FindVideo#__docusaurus",
+        "content": "Encode the videos using H.264 and a MP4 container:[{\"FindEntity\":{\"with_class\":\"Category\",\"_ref\":1,\"unique\":true,\"constraints\":{\"name\":[\"==\",\"Comedy\"]}}},{\"FindVideo\":{\"as_codec\":\"h264\",\"as_container\":\"mp4\",\"is_connected_to\":{\"ref\":1},\"blobs\":true,\"operations\":[{\"type\":\"interval\",\"start\":0,\"stop\":100,\"step\":1},{\"type\":\"resize\",\"width\":1920,\"height\":1080}]}}]Successful response:[{\"FindEntity\":{\"returned\":0,\"status\":0}},{\"FindVideo\":{\"returned\":1,\"blobs_start\":0,\"status\":0}}]PreviousAddVideoNextUpdateVideoParametersDetailsExamplesGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "FindVideo | ApertureDB"
+      },
+      {
+        "id": "9f005714-a1b2-4d2e-ae25-f2253a11f9fc",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/clip_commands/FindClip#__docusaurus",
+        "content": "(Default: false).[optional]as_container:\nSpecifies the container in which the video clip will be returned.[optional]as_codec:\nSpecifies the codec in which the video clip will be returned.[optional]in_frame_number_range[optional]in_time_offset_range[optional]in_time_fraction_range[optional]operations: operations to apply to videoDetails\u200bOnly one ofin_frame_number_range,in_time_offset_rangeorin_time_fraction_rangeis supported at a time. For finding a clip, one or both of start and stop may be defined.Operations defined inoperationswill be performed on-the-fly and\nwill not affect the original video stored in ApertureDB.If only one ref parameter is used in theis_connected_toarray,\nthe resulting objects obtained after traversing the given connection can be\nassociated with their source objects by specifying the parametergroup_by_sourceas true.\nSimilarly, if thevideo_refparameter is used, the results can be grouped by the source video.\nThe parameter is ignored if neitheris_connected_tonorvideo_refis used.\nIt is set to false by default.Ifin_..._rangeis specified, the clips returned must be\nfully within the boundaries indicated by the given parameters.Examples\u200bFinds clips based on scene names for given video, returning the duration of the",
+        "title": "FindClip | ApertureDB"
+      },
+      {
+        "id": "8aa93109-8b04-4bd7-ab2c-9c77324af7f9",
+        "url": "https://docs.aperturedata.io/query_language/Reference/video_commands/video_commands/AddVideo#__docusaurus",
+        "content": "and transcode to H.264 before persisting it:[{\"AddVideo\":{\"codec\":\"h264\",\"container\":\"mp4\",\"properties\":{\"name\":\"The Shinning\",\"length\":186},\"operations\":[{\"type\":\"resize\",\"width\":1920,\"height\":1080}]}}]//A blob must be passed togetherwiththe JSON Query.Successful response:[{\"AddVideo\":{\"status\":0}}]Insert a new video with properties, resize to 1080p resolution,\nand create a connection between the new video and\nan Entity of the class \"Category\" where the \"name\" property is \"Comedy\":[{\"FindEntity\":{\"with_class\":\"Category\",\"_ref\":1,\"unique\":true,\"constraints\":{\"name\":[\"==\",\"Comedy\"]}}},{\"AddVideo\":{\"properties\":{\"name\":\"Mean Girls\",\"length\":97},\"operations\":[{\"type\":\"resize\",\"width\":1920,\"height\":1080}],\"connect\":{\"ref\":1,\"class\":\"IsOfCategory\"}}}]//A blob must be passed togetherwiththe JSON Query.Successful response:[{\"FindEntity\":{\"returned\":0,\"status\":0}},{\"AddVideo\":{\"status\":0}}]PreviousVideo CommandsNextFindVideoParametersDetailsExamplesGet StartedIntroductionDatabase conceptsCloud loginCommunityJoin SlackLinkedInRedditMoreGitHubSubredditCopyright \u00a9 2025 ApertureData",
+        "title": "AddVideo | ApertureDB"
+      }
+    ]
+  }
+]

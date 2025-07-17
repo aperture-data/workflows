@@ -15,7 +15,7 @@ docker run \
            aperturedata/workflows-rag
 ```
 
-Parameters: 
+Parameters:
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`WF_TOKEN`**: Authorization token to use in API
 * **`WF_INPUT`**: Name of descriptorset to use
@@ -32,7 +32,7 @@ See [Common Parameters](../../README.md#common-parameters) for common parameters
 
 This code supports a number of different LLM providers, and can easily be extended to more. One local "free" provider is included, but this will be slow to use. It should be straightforward to extend [the code](app/llm.py) to other providers.
 
-| Type | Provider | Suggested Model | API key required | 
+| Type | Provider | Suggested Model | API key required |
 | --- | --- | --- | --- |
 | Local | [huggingface](https://huggingface.co/models) | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | No |
 | Cloud | [openai](https://platform.openai.com/docs/models) | gpt-3.5-turbo | Yes |
@@ -44,7 +44,7 @@ This code supports a number of different LLM providers, and can easily be extend
 
 The service supports a number of API endpoints. It is implemented using FastAPI, so also supports `/docs`, `/redoc`, and `/openapi.json` for documentation. Brief documentation follows below:
 
-* **`/ask`**: Non-stream query interface. 
+* **`/ask`**: Non-stream query interface.
     * As GET, expects `query` and optionally `history`.
     * As POST, expects a JSON object with `query` and optionally `history`.
 * **`/ask/stream`**: Stream query interface. GET only. Expects `query` and optionally `history`.  Returns events:
@@ -58,3 +58,29 @@ The service supports a number of API endpoints. It is implemented using FastAPI,
 * **`/config`**: GET only. Returns a JSON object reporting aspects of the server configuration. Used for debugging.
 
 With the exception of `/login` and `/logout`, all API methods require authentication using the token specified when the workflow was started. This can be supplied in as and authorization bearer token, or as a cookie called `token`.
+
+# Testing.
+This attempts to have a sort of way to evaluate the quality of RAG results from a FindDesctiptor part of responses.
+
+The test.py runs some NLP queries and can possibly evaluate the rag retrievals based on the premise that we advice to our users.
+
+the file responses_openclip ViT-B-32 laion2b_s34b_b79k_TinyLlama-1.1B-Chat-v1.0.json is a capture of one such run.
+
+There is no scoring implemented yet.
+
+The db was prepared with the following docker invocations:
+
+### crawl-website
+```
+bash ../build.sh  && docker run -it -p 8000:8000 -p 8080:8080 -p 8888:8888 --network garfield_default -e DB_PORT=55551 -e DB_HOST=lenz  -e CLEAN=true  -e DATASET=faces -e RUN_NAME=testing -e WF_OUTPUT=testing  -e WF_LOG_LEVEL=INFO  -v ./input:/app/input aperturedata/workflows-crawl-website:latest
+```
+
+### text-extraction
+```
+bash ../build.sh  && docker run -it -p 8000:8000 -p 8080:8080 -p 8888:8888 --network garfield_default -e DB_PORT=55551 -e DB_HOST=lenz  -e CLEAN=true  -e DATASET=faces -e RUN_NAME=testing -e WF_OUTPUT=testing -e WF_INPUT=testing -e WF_LOG_LEVEL=INFO  -e WF_CLEAN=true -v ./input:/app/input aperturedata/workflows-text-extraction:latest
+```
+
+### text-embeddings
+```
+bash ../build.sh  && docker run -it -p 8000:8000 -p 8080:8080 -p 8888:8888 --network garfield_default -e DB_PORT=55551 -e DB_HOST=lenz  -e CLEAN=true  -e DATASET=faces -e RUN_NAME=testing -e WF_OUTPUT=testing -e WF_INPUT=testing -e WF_LOG_LEVEL=INFO  -e WF_CLEAN=true -v ./input:/app/input aperturedata/workflows-text-embeddings:latest
+```
