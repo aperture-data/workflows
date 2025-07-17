@@ -381,7 +381,6 @@ async def main(args):
     logger.info("Starting RAG API")
     logger.info(f"Log level: {args.log_level}")
     logger.info(f"Input ID: {args.input}")
-    logger.info(args)
 
     global API_TOKEN
     API_TOKEN = args.token
