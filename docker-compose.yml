@@ -29,33 +29,6 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-base:${VERSION}"
         image: aperturedata/workflows-base:${VERSION}
-
-    crawl-to-rag:
-        build: 
-            context: ./apps/crawl-to-rag
-            args:
-                <<: *build-args
-            labels:
-                <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-to-rag:${VERSION}"
-        depends_on:
-            - base
-            - crawl-website
-            - text-extraction
-            - text-embeddings
-            - rag
-        image: aperturedata/workflows-crawl-to-rag:${VERSION}
-        ports:
-            - "8000:8000"
-        environment:
-            <<: *common-env
-            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-openai}"
-            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_TOKEN: "${WF_TOKEN:-test}"
-            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
-            WF_CLEAN: "${WF_CLEAN:-true}"
-            WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
-            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
           
     crawl-website:
         build: 
@@ -65,8 +38,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-crawl-website:${VERSION}
         environment:
             <<: *common-env
@@ -82,8 +53,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-dataset-ingestion:${VERSION}
         environment:
             <<: *common-env
@@ -103,8 +72,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-embeddings-extraction:${VERSION}
         # Don't let this service kill your dev box
         deploy:
@@ -151,8 +118,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-mcp-server:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-mcp-server:${VERSION}
         ports:
             - "8001:8000"
@@ -169,8 +134,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-rag:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-rag:${VERSION}
         ports:
             - "8002:8000"
@@ -190,8 +153,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-text-embeddings:${VERSION}
         environment:
             <<: *common-env
@@ -210,8 +171,6 @@ services:
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
-        depends_on:
-            - base
         image: aperturedata/workflows-text-extraction:${VERSION}
         environment:
             <<: *common-env
@@ -219,3 +178,25 @@ services:
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+
+    # Put this last so it can depend on the others
+    crawl-to-rag:
+        build: 
+            context: ./apps/crawl-to-rag
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-to-rag:${VERSION}"
+        image: aperturedata/workflows-crawl-to-rag:${VERSION}
+        ports:
+            - "8000:8000"
+        environment:
+            <<: *common-env
+            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-openai}"
+            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            WF_TOKEN: "${WF_TOKEN:-test}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+            WF_CLEAN: "${WF_CLEAN:-true}"
+            WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
