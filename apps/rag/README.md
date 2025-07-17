@@ -26,6 +26,11 @@ Parameters:
 * **`WF_PORT`**: The port to use; default 8000. Note that this service is HTTP and expects to be wrapped by an HTTPS proxy with appropriate keys.
 * **`WF_N_DOCUMENTS`**: Number of documents to retrieve
 
+The following parameters are required, if configuring for AIMon analytics.
+* **`AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work. If not specified the AIMon integration would be disabled.
+* **`AIMON_APP_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
+* **`LLM_MODEL_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
+
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
 ## LLMs
