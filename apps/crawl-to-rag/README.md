@@ -21,7 +21,6 @@ The following parameters are recommended:
 * **`WF_ALLOWED_DOMAINS`**: Optionally allows the `crawl-website` workflow to follow links to additional sites
 * **`WF_LLM_PROVIDER`**: For performance, it is recommended to use a cloud provider for the `rag` workflow. The default is `huggingface` which is local, but largely intended for cloud-independent testing.
 * **`WF_LLM_API_KEY`**: Required by the `rag` workflow when using a cloud LLM
-* **`AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work.
 
 The following parameters are required, if configuring for AIMon analytics.
 * **`AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work. If not specified the AIMon integration would be disabled.
