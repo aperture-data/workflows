@@ -51,7 +51,7 @@ with_env_only() {
 
     echo
     echo "Running $command"
-    
+
     cd /workflows/$command || exit 1
     env -i "${env_args[@]}" bash app.sh
 }
@@ -64,7 +64,7 @@ function cleanup() {
         wait $bg_pid 2>/dev/null || true
     fi
 }
-    
+
 function set_ready() {
     mv $NOT_READY_FILE $NOT_READY_FILE.bak
 }
@@ -97,4 +97,5 @@ trap 'fatal $LINENO' ERR
 trap cleanup EXIT
 
 echo "Running webserver for RAG API"
+
 with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS

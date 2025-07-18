@@ -62,6 +62,7 @@ class Retriever:
             f"Retrieved {len(results)} documents for query: {query}")
         logger.debug(
             f"Results: {results}")
+
         return results
 
     def count(self):
