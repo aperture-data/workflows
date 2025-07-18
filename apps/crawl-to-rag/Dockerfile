@@ -1,15 +1,13 @@
 # Name the source images
-FROM aperturedata/workflows-crawl-website as crawl-website
-FROM aperturedata/workflows-text-extraction as text-extraction
-FROM aperturedata/workflows-text-embeddings as text-embeddings
-FROM aperturedata/workflows-rag as rag
+ARG VERSION=latest
+FROM aperturedata/workflows-crawl-website:${VERSION} as crawl-website
+FROM aperturedata/workflows-text-extraction:${VERSION} as text-extraction
+FROM aperturedata/workflows-text-embeddings:${VERSION} as text-embeddings
+FROM aperturedata/workflows-rag:${VERSION} as rag
 
-FROM aperturedata/workflows-base
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-crawl-to-rag
-
-# Needed for text-embeddings
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # copy in the app directories
 COPY --from=crawl-website   /app /workflows/crawl-website
