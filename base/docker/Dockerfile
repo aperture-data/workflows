@@ -29,7 +29,7 @@ RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir -r /requirements.txt
 
 COPY requirements_cpu.txt /
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu -r requirements_cpu.txt
+RUN pip install --no-cache-dir -r requirements_cpu.txt
 
 RUN pip3 install --upgrade aperturedb
 
