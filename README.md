@@ -40,6 +40,7 @@ docker run \
 
 Certain parameters are supported by all workflow images:
 * **`RUN_NAME`**: A name for this run. May be used in internal logging or reporting.
+* **`APERTUREDB_KEY`**: API key for access to an ApertureDB instance. This replaces all of the options below, which are still supported for back-wards compatibility.
 * **`DB_HOST`**: Hostname of the ApertureDB instance
 * **`DB_PORT`**: Port number for the ApertureDB instance. Defaults to `55555`.
 * **`DB_USER`**: ApertureDB user name. Defaults to `admin`.
