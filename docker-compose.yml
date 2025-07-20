@@ -179,7 +179,7 @@ services:
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
 
-    # Put this last so it can depend on the others
+    # Put this last because it depends on the others
     crawl-to-rag:
         build: 
             context: ./apps/crawl-to-rag
