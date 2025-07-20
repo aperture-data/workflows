@@ -184,7 +184,7 @@ class CohereLLM(LLM):
                             yield text
 
 
-class HuggingFaceLLM:
+class HuggingFaceLLM(LLM):
     def __init__(self, model_id: str):
         """
         model_id: Hugging Face model repo ID, like 'mistralai/Mistral-7B-v0.1'
