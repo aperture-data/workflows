@@ -1,6 +1,7 @@
 import os
 import argparse
 from typing import Optional
+import logging
 
 import clip
 
@@ -9,6 +10,7 @@ from aperturedb import ParallelQuery
 
 
 from images import FindImageQueryGenerator
+from pdfs import FindPDFQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
@@ -20,10 +22,21 @@ def clean_embeddings(db):
 
     db.query([{
         "DeleteDescriptorSet": {
-            "with_name": "wf_embeddings_clip"
+            "with_name": IMAGE_DESCRIPTOR_SET
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
         "UpdateImage": {
+            "constraints": {
+                "wf_embeddings_clip": ["!=", None]
+            },
+            "remove_props": ["wf_embeddings_clip"]
+        }
+    }, {
+        "UpdateBlob": {
             "constraints": {
                 "wf_embeddings_clip": ["!=", None]
             },
@@ -55,6 +68,8 @@ def add_descriptor_set(db,
 
 def main(params):
 
+    logging.basicConfig(level=params.log_level.upper())
+
     db = CommonLibrary.create_connector()
 
     if params.clean:
@@ -65,7 +80,8 @@ def main(params):
                            descriptor_set=IMAGE_DESCRIPTOR_SET,
                            properties={"type": "image"})
 
-        generator = FindImageQueryGenerator(db, params.model_name)
+        generator = FindImageQueryGenerator(
+            db, IMAGE_DESCRIPTOR_SET, params.model_name)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Images Detector...")
@@ -75,6 +91,25 @@ def main(params):
                       stats=True)
 
         print("Done with Images.")
+
+    if params.extract_pdfs:
+        add_descriptor_set(db,
+                           descriptor_set=TEXT_DESCRIPTOR_SET,
+                           properties={"type": "text"})
+
+        generator = FindPDFQueryGenerator(
+            db, TEXT_DESCRIPTOR_SET, params.model_name)
+        querier = ParallelQuery.ParallelQuery(db)
+
+        print("Running PDFs Detector...")
+
+        querier.query(generator, batchsize=1,
+                      numthreads=params.numthreads,
+                      stats=True)
+
+        print("Done with PDFs.")
+
+    print("Done")
 
 
 def get_args():
@@ -105,6 +140,9 @@ def get_args():
 
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
+
+    obj.add_argument('--log-level', type=str,
+                     default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
     params = obj.parse_args()
 

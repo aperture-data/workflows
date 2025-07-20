@@ -12,4 +12,6 @@ RUN apt-get update && apt-get install -y \
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip install git+https://github.com/openai/CLIP.git
 
+RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
+
 COPY app /app/

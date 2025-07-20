@@ -15,9 +15,10 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, model_name):
+    def __init__(self, db, descriptor_set: str, model_name: str):
 
         self.db = db
+        self.descriptor_set = descriptor_set
 
         # Choose the model to be used.
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -136,16 +137,19 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
             query.append({
                 "AddDescriptor": {
-                    "set": "wf_embeddings_clip",
+                    "set": self.descriptor_set,
                     "connect": {
                         "ref": i + 1
+                    },
+                    "properties": {
+                        "type": "image"
                     }
                 }
             })
 
         # This is not nice, but we need to create a new connection
         # and this happens in parallel with many threads.
-        db = self.db.create_new_connection()
+        db = self.db.clone()
 
         r, _ = db.query(query, desc_blobs)
 
