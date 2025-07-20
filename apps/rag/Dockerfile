@@ -1,10 +1,12 @@
 # Pull base image with Python and ApertureDB tools
-FROM aperturedata/workflows-base
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-rag
 
-# Install dependencies; git is required for CLIP
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 

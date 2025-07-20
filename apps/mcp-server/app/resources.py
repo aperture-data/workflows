@@ -36,7 +36,8 @@ def image(
     ]
 
     try:
-        response, blobs = connection_pool.query(query)
+        status, response, blobs = connection_pool.execute_query(query)
+        assert status == 0, f"Error executing query: {response}"
         if not response or not blobs:
             logger.error(f"Image with ID {image_id} not found.")
             raise ValueError(f"Image with ID {image_id} not found.")

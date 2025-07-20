@@ -1,11 +1,11 @@
 # Pull base image.
-FROM aperturedata/workflows-base
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-ingest-croissant
 
 COPY requirements.txt /
 RUN apt-get update && apt-get install -y \
-    git \
     git-lfs \
     && rm -rf /var/lib/apt/lists/*
 

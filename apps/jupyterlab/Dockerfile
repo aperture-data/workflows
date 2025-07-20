@@ -1,5 +1,6 @@
 # Pull base image.
-FROM aperturedata/workflows-base AS common
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION} as common
 FROM aperturedata/aperturedb-notebook:cpu
 
 RUN mkdir -p /app
@@ -10,7 +11,6 @@ RUN apt-get -y install lsof
 
 COPY --from=common requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
-
 
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt

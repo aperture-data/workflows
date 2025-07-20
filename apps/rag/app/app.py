@@ -12,14 +12,14 @@ import os
 from aperturedb.CommonLibrary import create_connector
 import asyncio
 
-from embeddings import BatchEmbedder
+from llm import LLM
+from embeddings import Embedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
 from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ allowed_origins = ""
 
 start_time = time.time()
 startup_time = None
+
 
 async def query_with_aimon(query: str, history: Optional[str] = None):
     answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
@@ -46,8 +47,11 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
         # This is the generated response from the original LLM
         aimon_payload["generated_text"] = answer
         # This is the instructions that you want to evaluate
-        aimon_payload["instructions"] = ["Ensure that the output is correct and is derived from the provided context."]
-        aimon_payload["context"] = [docs.page_content for docs in docs] + [history]  # The context is the documents retrieved by the retriever
+        aimon_payload["instructions"] = [
+            "Ensure that the output is correct and is derived from the provided context."]
+        # The context is the documents retrieved by the retriever
+        aimon_payload["context"] = [
+            docs.page_content for docs in docs] + [history]
 
         # This configuration invokes AIMon's "instruction_adherence" model
         # that validates if an LLM response has been
@@ -70,19 +74,19 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
 
         # Include application_name and model_name if publishing
         if aimon_payload["publish"]:
-            aimon_payload["application_name"] = os.environ.get('AIMON_APP_NAME', "ChatBot workflow")
+            aimon_payload["application_name"] = os.environ.get(
+                'AIMON_APP_NAME', "ChatBot workflow")
             # This is the LLM you used to generate the SQL query from text,
             # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
-            aimon_payload["model_name"] = os.environ.get('LLM_MODEL_NAME', args.llm_model)
+            aimon_payload["model_name"] = os.environ.get(
+                'LLM_MODEL_NAME', args.llm_model)
 
         data_to_send = [aimon_payload]
-
 
         async def call_aimon():
             async with AsyncClient(auth_header=f"Bearer {aimon_api_key}") as aimon:
                 resp = await aimon.inference.detect(body=data_to_send)
                 return resp
-
 
         # Await on
         resp = await call_aimon()
@@ -94,6 +98,7 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
 
     return answer, new_history, rewritten_query, docs
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting RAG API lifespan")
@@ -104,6 +109,7 @@ async def lifespan(app: FastAPI):
     startup_time = time.time() - start_time
     logger.info(
         f"RAG API is ready to serve requests after {startup_time:.2f}s")
+    global ready
     yield
     logger.info("Shutting down RAG API.")
 
@@ -165,6 +171,7 @@ async def ask_post(request: Request,
     query = body.get("query")
     history = body.get("history")
     return await ask(request, authorization, token, query, history)
+
 
 async def ask(request: Request,
               authorization: str,
@@ -347,14 +354,19 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
 
 def get_retriever(descriptorset_name: str, model: str, k: int):
     """Build the retriever for the given descriptorset and model."""
-    embeddings = BatchEmbedder(model)
+    client = create_connector()
+    embeddings = Embedder.find_or_create_descriptor_set(
+        client=client,  # only used for construction
+        **Embedder.parse_string(model),
+        descriptor_set=descriptorset_name,
+    )
     retriever = Retriever(
         embeddings=embeddings,
         descriptor_set=descriptorset_name,
         search_type="mmr",  # "similarity" or "mmr"
         k=k,
         fetch_k=k * 4,  # number of results fetched for MMR
-        client=create_connector(),
+        client=client,
     )
     return retriever
 
@@ -367,10 +379,16 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
     # Lifespan test
     if not ready:
         logger.info("App is not ready yet")
-        return {"ready": False, "detail": "App is not ready yet"}
 
-    # Check for a not-ready file; created when composed with other workflows
-    try:
+
+<< << << < HEAD
+   return JSONResponse({"ready": False, "detail": "App is not ready yet"})
+== == == =
+   return {"ready": False, "detail": "App is not ready yet"}
+>>>>>> > origin/main
+
+   # Check for a not-ready file; created when composed with other workflows
+   try:
         with open(path, "r") as f:
             return {"ready": False, "detail": f.read()}
     except FileNotFoundError:
@@ -452,4 +470,3 @@ def get_args(argv=[]):
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
-

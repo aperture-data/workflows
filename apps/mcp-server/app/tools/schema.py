@@ -10,8 +10,7 @@ from aperturedb.Utils import Utils
 
 def get_schema():
     """Get the schema of the ApertureDB database."""
-    with connection_pool.get_connection() as client:
-        utils = Utils(client)
+    with connection_pool.get_utils() as utils:
         schema = utils.get_schema()
     return schema
 

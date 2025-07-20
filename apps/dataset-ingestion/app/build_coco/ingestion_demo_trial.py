@@ -1,3 +1,5 @@
+from status import StatusUpdater
+from log_processor import LogProcessor
 import os
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
@@ -5,8 +7,7 @@ import sys
 import subprocess
 
 sys.path.append("/app")
-from log_processor import LogProcessor
-from status import StatusUpdater
+
 
 def ingest_coco(cli_args):
     """
@@ -34,11 +35,17 @@ def ingest_coco(cli_args):
     if cli_args.train == "true":
         stages.append("train")
 
-
     set_name = "ViT-B/16"
+    # See corresponding code in embeddings.py
     dbutils.add_descriptorset(set_name, 512,
                               metric=["CS"],
-                              engine=["HNSW"])
+                              engine=["HNSW"],
+                              properties={
+                                  "embeddings": "clip ViT-B/16 openai",
+                                  "embeddings_provider": "clip",
+                                  "embeddings_model": "ViT-B/16",
+                                  "embeddings_pretrained": "openai",
+                              })
 
     updater = StatusUpdater()
     for stage in stages:
@@ -52,7 +59,8 @@ def ingest_coco(cli_args):
             command = f"{common_command} {transformers}"
             print(command, flush=True)
             # os.system(command)
-            process = subprocess.Popen(command, shell=True, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                command, shell=True, stderr=subprocess.PIPE, text=True)
             lp = LogProcessor(process)
             lp.process_logs()
 
@@ -62,14 +70,17 @@ def update_adb_source():
     print(command)
     os.system(command)
 
+
 def add_ro_user():
     command = f"adb transact from-json-file create_ro_user_role.json"
     print(command)
     os.system(command)
 
+
 def clean_db():
     utils: Utils = Utils(create_connector())
     assert utils.remove_all_objects() == True
+
 
 def main(args):
     if args.clean == "true":
@@ -78,7 +89,6 @@ def main(args):
     ingest_coco(args)
     update_adb_source()
 
-import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -95,6 +105,7 @@ def parse_args():
     parser.add_argument("-T", "--train", type=str, choices=["true", "false"],
                         default="false", help="include train dataset")
     return parser.parse_args()
+
 
 if __name__ in "__main__":
     args = parse_args()
