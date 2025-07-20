@@ -5,8 +5,8 @@ from typing import List, Union, Literal, Optional
 import cv2
 from PIL import Image
 import logging
-from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
+from aperturedb_io import AperturedbIO
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -84,6 +84,8 @@ class Embedder():
         # This should be "cpu" during docker build
         self.device = torch.device(device or (
             "cuda" if torch.cuda.is_available() else "cpu"))
+
+        self.io = AperturedbIO()
 
         self._load_model()  # sets self.preprocess, self.tokenizer
 
@@ -201,66 +203,24 @@ class Embedder():
 
             # Create the descriptor set in the database
             properties = self.get_properties()
-            query = [{
-                "AddDescriptorSet": {
-                    "name": descriptor_set,
-                    "properties": properties,
-                    "metric": self.metric,
-                    "dimensions": self.dimensions,
-                    "engine": engine,
-                }
-            }]
-            status, response, _ = execute_query(client, query)
-            if status != 0:
-                raise RuntimeError(
-                    f"Failed to create descriptor set {descriptor_set}: {response}")
-
-            logger.info(
-                f"Created descriptor set {descriptor_set} for model {self.provider} {self.model_name} ({self.pretrained}) on {self.device}")
+            self.io.add_descriptor_set(
+                descriptor_set=descriptor_set,
+                metric=self.metric,
+                dimensions=self.dimensions,
+                engine=engine,
+                properties=properties
+            )
             return self
 
     @classmethod
-    def get_query(cls, descriptor_set) -> List[dict]:
-        """Get a query to find a descriptor set."""
-        return [{
-            "FindDescriptorSet": {
-                "with_name": descriptor_set,
-                "results": {
-                    "list": ['embeddings_provider', 'embeddings_model', 'embeddings_pretrained', 'embeddings_fingerprint',]
-                },
-                "metrics": True,
-                "dimensions": True,
-            }
-        }]
-
-    @classmethod
     def from_descriptor_set(cls,
-                            client: Connector,
                             descriptor_set: str,
                             device: str = None,
                             ) -> "Embedder":
         """Create an instance from a descriptor set name."""
-        query = cls.get_query(descriptor_set)
-        status, response, _ = execute_query(client, query)
-        if status != 0:
-            raise RuntimeError(
-                f"Failed to execute query for descriptor set {descriptor_set}: {response}")
-        if not response or not response[0].get("FindDescriptorSet"):
-            raise ValueError(
-                f"Unexpected response format for descriptor set {descriptor_set}: {response}")
-
-        if "entities" not in response[0]["FindDescriptorSet"]:
-            # Specific error for missing descriptor set
+        properties = self.io.find_descriptor_set(descriptor_set)
+        if not properties:
             raise DescriptorSetNotFoundError(descriptor_set)
-
-        entities = response[0]["FindDescriptorSet"]["entities"]
-        if len(entities) == 0:
-            raise ValueError(
-                f"No entities found in descriptor set {descriptor_set}")
-        if len(entities) > 1:
-            logger.warning(
-                f"Multiple entities found in descriptor set {descriptor_set}. Using the first one.")
-        properties = entities[0]
 
         provider = properties.get("embeddings_provider")
         if not provider:
@@ -394,11 +354,3 @@ class Embedder():
 
     def __repr__(self):
         return f"<Embedder {self.provider} {self.model_name} ({self.pretrained}) on {self.device}>"
-
-
-# Invoke this module directly to warm the cache
-if __name__ == "__main__":
-    for spec in SUPPORTED_MODELS:
-        print(f"\n=== Warming cache for {spec} ===")
-        be = Embedder(**Embedder.parse_string(spec), device="cpu")
-        be.summarize()

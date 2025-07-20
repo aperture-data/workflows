@@ -15,6 +15,9 @@ COPY --from=text-extraction /app /workflows/text-extraction
 COPY --from=text-embeddings   /app /workflows/text-embeddings
 COPY --from=rag     /app /workflows/rag
 
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+
 # copy in the requirements; hope they're compatible
 COPY --from=crawl-website   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt

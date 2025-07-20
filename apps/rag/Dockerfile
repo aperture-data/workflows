@@ -4,6 +4,9 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-rag
 
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 

@@ -1,5 +1,5 @@
 # Global option affecting all packages in this file
 # Make sure we get the CPU version.
 --index-url https://download.pytorch.org/whl/cpu
-torch
+torch>=2.0
 torchvision
