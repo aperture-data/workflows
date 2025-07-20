@@ -34,7 +34,7 @@ COPY scripts/connection_pool.py app/
 COPY scripts/status_server.py app/
 COPY scripts/status.py app/
 COPY scripts/log_processor.py app/
-copy scripts/text_extraction app/text_extraction/
+COPY scripts/text_extraction app/text_extraction/
 
 COPY scripts/start.sh /
 

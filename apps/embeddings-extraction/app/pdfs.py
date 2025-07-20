@@ -46,7 +46,6 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
         # Choose the model to be used.
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.preprocess = clip.load(model_name, device=self.device)
 
         query = [{
             "FindBlob": {
@@ -235,7 +234,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             })
             total_segments += blob_segments
             db = self.db.clone()
-            r, _ = db.query(query, vectors)
+            r, _ = db.query(query)
 
             if not db.last_query_ok():
                 db.print_last_response()
