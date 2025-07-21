@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Get the directory this script is in
+BIN_DIR=$(dirname "$(readlink -f "$0")")
+cd "$BIN_DIR"
+
 bash ../build.sh
 RUNNER_NAME="$(whoami)"
 EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"

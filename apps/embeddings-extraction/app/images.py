@@ -18,7 +18,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, descriptor_set: str, model_name: str):
 
-        self.pool = ConnectionPool(db.clone)
+        self.pool = ConnectionPool(connection_factory=db.clone)
         self.descriptor_set = descriptor_set
 
         # Choose the model to be used.

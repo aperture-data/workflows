@@ -41,7 +41,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, descriptor_set: str, model_name):
 
-        self.pool = ConnectionPool(db.clone)
+        self.pool = ConnectionPool(connection_factory=db.clone)
         self.model_name = model_name
         self.descriptor_set = descriptor_set
 
