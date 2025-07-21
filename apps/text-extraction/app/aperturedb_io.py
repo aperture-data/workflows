@@ -1,4 +1,4 @@
-from schema import CrawlDocument, Segment, ImageBlock, FullTextBlock
+from text_extraction.schema import CrawlDocument, Segment, ImageBlock, FullTextBlock
 from typing import Iterator, Optional, Tuple
 from uuid import uuid4
 import math

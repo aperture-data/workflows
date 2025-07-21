@@ -33,7 +33,16 @@ RUN pip3 install --upgrade aperturedb
 RUN mkdir -p app/output
 
 COPY scripts/app.sh app/
-COPY scripts/*.py app/
+
+COPY scripts/userlog.py app/
+COPY scripts/slack-alert.py app/
+COPY scripts/batcher.py app/
+COPY scripts/wf_argparse.py app/
+COPY scripts/connection_pool.py app/
+COPY scripts/status_server.py app/
+COPY scripts/status.py app/
+COPY scripts/log_processor.py app/
+COPY scripts/text_extraction app/text_extraction/
 
 COPY scripts/start.sh /
 

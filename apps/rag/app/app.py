@@ -1,39 +1,102 @@
 from fastapi import FastAPI, Request, Response, Header, HTTPException, status, Query, Cookie
-from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
-import uuid
+from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
 from rag import QAChain
 from llm import load_llm
 from fastapi.staticfiles import StaticFiles
 from wf_argparse import ArgumentParser
 import logging
-from uuid import uuid4
 import time
 import json
 import os
 from aperturedb.CommonLibrary import create_connector
 import asyncio
 
-from llm import LLM
 from embeddings import BatchEmbedder
 from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
 from rag import QAChain
 from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
+
+
 
 logger = logging.getLogger(__name__)
 
 APP_PATH = "/rag"
 
 ready = False
+allowed_origins = ""
 
 start_time = time.time()
 startup_time = None
 
+async def query_with_aimon(query: str, history: Optional[str] = None):
+    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    from aimon import AsyncClient
+    # Add your AIMON_API_KEY, get it from app.aimon.ai -> My Account -> Keys -> "Copy API Key"
+    aimon_api_key = os.environ.get('AIMON_API_KEY', None)
+    logger.info(f"AIMON_API_KEY: {aimon_api_key is not None}")
+    if aimon_api_key:
+        # The user query and generated text are important
+        aimon_payload = {}
+        # This is the user query that you sent to the original LLM
+        aimon_payload["user_query"] = rewritten_query
+        # This is the generated response from the original LLM
+        aimon_payload["generated_text"] = answer
+        # This is the instructions that you want to evaluate
+        aimon_payload["instructions"] = ["Ensure that the output is correct and is derived from the provided context."]
+        aimon_payload["context"] = [docs.page_content for docs in docs] + [history]  # The context is the documents retrieved by the retriever
+
+        # This configuration invokes AIMon's "instruction_adherence" model
+        # that validates if an LLM response has been
+        aimon_payload["config"] = {
+            "hallucination": {"detector_name": "default"},
+            "conciseness": {"detector_name": "default"},
+            "completeness": {"detector_name": "default"},
+            "toxicity": {"detector_name": "default"},
+            "instruction_adherence": {
+                "detector_name": "default",
+                "explain": "true",  # Generates textual explanation that helps understand AIMon's evaluation
+            }
+        }
+
+        # This parameter controls whether you want to publish the analysis to the go/aimonui
+        aimon_payload["publish"] = True
+
+        # This parameter controls whether you would like to perform this computation asynchronously
+        aimon_payload["async_mode"] = False
+
+        # Include application_name and model_name if publishing
+        if aimon_payload["publish"]:
+            aimon_payload["application_name"] = os.environ.get('AIMON_APP_NAME', "ChatBot workflow")
+            # This is the LLM you used to generate the SQL query from text,
+            # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
+            aimon_payload["model_name"] = os.environ.get('LLM_MODEL_NAME', args.llm_model)
+
+        data_to_send = [aimon_payload]
+
+
+        async def call_aimon():
+            async with AsyncClient(auth_header=f"Bearer {aimon_api_key}") as aimon:
+                resp = await aimon.inference.detect(body=data_to_send)
+                return resp
+
+
+        # Await on
+        resp = await call_aimon()
+        resp_json = resp[0].instruction_adherence
+        print(json.dumps(resp_json, indent='\t'))
+    else:
+        logger.info("AIMON_API_KEY not set, skipping AIMon analysis")
+        resp_json = {}
+
+    return answer, new_history, rewritten_query, docs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting RAG API lifespan")
     global args
     args = get_args()
     asyncio.create_task(main(args))
@@ -56,6 +119,17 @@ async def redirect_to_rag():
 
 # This is the main app for the RAG API
 app = FastAPI(root_path=APP_PATH)
+allowed_origins = os.getenv("WF_ALLOWED_ORIGINS", "").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+print(f"Added CORS middleware with origins: {allowed_origins}")
+
 root_app.mount(APP_PATH, app)
 
 
@@ -92,7 +166,6 @@ async def ask_post(request: Request,
     history = body.get("history")
     return await ask(request, authorization, token, query, history)
 
-
 async def ask(request: Request,
               authorization: str,
               token: str,
@@ -112,7 +185,9 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    # answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
+    answer, new_history, rewritten_query, docs = await query_with_aimon(query, history)
+
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
     json_docs = [doc.to_json() for doc in docs]
@@ -164,7 +239,7 @@ async def stream_ask(query: str = Query(description="The question to ask"),
         qa_duration = time.time() - start_time
         answer = "".join(results)
         logger.info(
-            f"Answer: {answer}, duration: {qa_duration: .2f}s")
+            f"Answer: {answer}, duration: {qa_duration:.2f}s")
         yield f"event: end\ndata: {json.dumps({'duration': qa_duration, 'parts': len(results)})}\n\n"
         new_history = history_fn()
         yield f"event: history\ndata: {json.dumps(new_history)}\n\n"
@@ -219,11 +294,6 @@ async def config(request: Request):
     verify_token(request.headers.get("Authorization"),
                  request.cookies.get("token"))
 
-    global ready
-    if not ready:
-        logger.info("App is not ready yet")
-        return JSONResponse({"ready": False, "detail": "App is not ready yet"})
-
     # If we're not ready, then return that information instead
     if not_ready := get_not_ready_status():
         logger.info(f"Not ready: {not_ready}")
@@ -237,7 +307,6 @@ async def config(request: Request):
         "llm_model": llm.model,
         "embedding_model": args.model,
         "input": args.input,
-        "embedding_model": args.model,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
         # "startup_time": startup_time,  # Debugging, but confusing to user
@@ -295,6 +364,12 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
     This allows this workflow to be composed with other workflows
     that may not be ready yet.
     """
+    # Lifespan test
+    if not ready:
+        logger.info("App is not ready yet")
+        return {"ready": False, "detail": "App is not ready yet"}
+
+    # Check for a not-ready file; created when composed with other workflows
     try:
         with open(path, "r") as f:
             return {"ready": False, "detail": f.read()}
@@ -368,8 +443,13 @@ def get_args(argv=[]):
                      default=4,
                      type=int)
 
+    obj.add_argument('--allowed-origins',
+                     help='Comma-separated list of allowed origins for CORS',
+                     default="")
+
     params = obj.parse_args(argv)
     return params
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+

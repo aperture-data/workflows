@@ -1,157 +1,20 @@
 import os
 import argparse
-import math
+from typing import Optional
+import logging
 
-import torch
 import clip
-import cv2
-import numpy as np
-from PIL import Image
 
 from aperturedb import CommonLibrary
-from aperturedb import QueryGenerator
 from aperturedb import ParallelQuery
 
 
-class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
+from images import FindImageQueryGenerator
+from pdfs import FindPDFQueryGenerator
 
-    """
-        Generates n FindImage Queries
-    """
+IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
+TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
 
-    def __init__(self, db, model_name):
-
-        self.db = db
-
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.preprocess = clip.load(model_name, device=self.device)
-
-        query = [{
-            "FindImage": {
-                "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
-
-        response, _ = db.query(query)
-
-        try:
-            total_images = response[0]["FindImage"]["count"]
-        except:
-            print("Error retrieving the number of images. No images in the db?")
-            exit(0)
-
-        if total_images == 0:
-            print("No images to be processed. Bye!")
-            exit(0)
-
-        print(f"Total images to process: {total_images}")
-
-        self.batch_size = 32
-        self.total_batches = int(math.ceil(total_images / self.batch_size))
-
-        self.len = self.total_batches
-
-    def __len__(self):
-        return self.len
-
-    def getitem(self, idx):
-
-        if idx < 0 or self.len <= idx:
-            return None
-
-        query = [{
-            "FindImage": {
-                "blobs": True,
-                "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "operations": [
-                    {
-                        "type": "resize",
-                        "width": 224,
-                        "height": 224
-                    }
-                ],
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }]
-
-        return query, []
-
-    def response_handler(self, query, blobs, response, r_blobs):
-
-        try:
-            uniqueids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-        except:
-            print(f"error: {response}")
-            return 0
-
-        desc_blobs = []
-
-        for b in r_blobs:
-            nparr = np.frombuffer(b, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = self.preprocess(Image.fromarray(image)).unsqueeze(0).to(self.device)
-
-            image_features = self.model.encode_image(image)
-
-            if self.device == "cuda":
-                image_features = image_features.float()
-                desc_blobs.append(image_features.detach().cpu().numpy().tobytes())
-            else:
-                desc_blobs.append(image_features.detach().numpy().tobytes())
-
-        query = []
-        for  uniqueid, i in zip(uniqueids, range(len(uniqueids))):
-
-            query.append({
-                "FindImage": {
-                    "_ref": i + 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
-
-            query.append({
-                "UpdateImage": {
-                    "ref": i + 1,
-                    "properties": {
-                        "wf_embeddings_clip": True
-                    },
-                }
-            })
-
-            query.append({
-                "AddDescriptor": {
-                    "set": "wf_embeddings_clip",
-                    "connect": {
-                        "ref": i + 1
-                    }
-                }
-            })
-
-        # This is not nice, but we need to create a new connection
-        # and this happens in parallel with many threads.
-        db = self.db.create_new_connection()
-
-        r, _ = db.query(query, desc_blobs)
-
-        if not db.last_query_ok():
-            db.print_last_response()
 
 def clean_embeddings(db):
 
@@ -159,10 +22,21 @@ def clean_embeddings(db):
 
     db.query([{
         "DeleteDescriptorSet": {
-            "with_name": "wf_embeddings_clip"
+            "with_name": IMAGE_DESCRIPTOR_SET
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
         "UpdateImage": {
+            "constraints": {
+                "wf_embeddings_clip": ["!=", None]
+            },
+            "remove_props": ["wf_embeddings_clip"]
+        }
+    }, {
+        "UpdateBlob": {
             "constraints": {
                 "wf_embeddings_clip": ["!=", None]
             },
@@ -172,40 +46,70 @@ def clean_embeddings(db):
 
     db.print_last_response()
 
-def add_descriptor_set(db):
+
+def add_descriptor_set(db,
+                       descriptor_set: str,
+                       properties: Optional[dict] = None):
 
     print("Adding Descriptor Set...")
 
     db.query([{
         "AddDescriptorSet": {
-            "name": "wf_embeddings_clip",
+            "name": descriptor_set,
             "engine": "HNSW",
             "metric": "CS",
             "dimensions": 512,
+            **({"properties": properties} if properties else {})
         }
     }])
 
     db.print_last_response()
 
+
 def main(params):
+
+    logging.basicConfig(level=params.log_level.upper())
 
     db = CommonLibrary.create_connector()
 
     if params.clean:
         clean_embeddings(db)
 
-    add_descriptor_set(db)
+    if params.extract_images:
+        add_descriptor_set(db,
+                           descriptor_set=IMAGE_DESCRIPTOR_SET,
+                           properties={"type": "image"})
 
-    generator = FindImageQueryGenerator(db, params.model_name)
-    querier = ParallelQuery.ParallelQuery(db)
+        generator = FindImageQueryGenerator(
+            db, IMAGE_DESCRIPTOR_SET, params.model_name)
+        querier = ParallelQuery.ParallelQuery(db)
 
-    print("Running Detector...")
+        print("Running Images Detector...")
 
-    querier.query(generator, batchsize=1,
-                  numthreads=params.numthreads,
-                  stats=True)
+        querier.query(generator, batchsize=1,
+                      numthreads=params.numthreads,
+                      stats=True)
 
-    print("Done.")
+        print("Done with Images.")
+
+    if params.extract_pdfs:
+        add_descriptor_set(db,
+                           descriptor_set=TEXT_DESCRIPTOR_SET,
+                           properties={"type": "text"})
+
+        generator = FindPDFQueryGenerator(
+            db, TEXT_DESCRIPTOR_SET, params.model_name)
+        querier = ParallelQuery.ParallelQuery(db)
+
+        print("Running PDFs Detector...")
+
+        querier.query(generator, batchsize=1,
+                      numthreads=params.numthreads,
+                      stats=True)
+
+        print("Done with PDFs.")
+
+    print("Done")
 
 
 def get_args():
@@ -231,13 +135,23 @@ def get_args():
     obj.add_argument('-clean',  type=str2bool,
                      default=os.environ.get('CLEAN', "false"))
 
+    obj.add_argument('--extract-images', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_IMAGES', False))
+
+    obj.add_argument('--extract-pdfs', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_PDFS', False))
+
+    obj.add_argument('--log-level', type=str,
+                     default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
+
     params = obj.parse_args()
 
     # >>> import clip
     # clip.available_models>>> clip.available_models()
     # ['RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px']
     if params.model_name not in clip.available_models():
-        raise ValueError(f"Invalid model name. Options: {clip.available_models()}")
+        raise ValueError(
+            f"Invalid model name. Options: {clip.available_models()}")
 
     return params
 

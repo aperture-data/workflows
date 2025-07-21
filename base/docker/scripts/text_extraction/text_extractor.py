@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from typing import Iterator, Optional, Union, Literal
 import io
 import pdfplumber
-from schema import Block, TextBlock, ImageBlock, FullTextBlock
+from .schema import Block, TextBlock, ImageBlock, FullTextBlock
 import logging
 from email.message import Message
 
