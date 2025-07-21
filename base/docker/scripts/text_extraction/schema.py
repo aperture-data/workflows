@@ -1,6 +1,10 @@
 from typing import List, Optional, Union, Literal
 from dataclasses import dataclass
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class CrawlDocument:
@@ -100,7 +104,7 @@ class Segment:
     total_tokens: int
     title: Optional[str] = None
 
-    def url(self, url: str):
+    def url(self, url: str) -> Optional[str]:
         """Pick the first URL from the blocks, if any
         """
         for block in self.blocks:
@@ -108,6 +112,18 @@ class Segment:
             if new_url and new_url != url:
                 return new_url
         return url
+
+    def page_number(self) -> Optional[int]:
+        """Return the page number from the first block, if any
+        """
+        if not self.blocks:
+            logger.warning(
+                "Segment has no blocks, cannot determine page number.")
+        for block in self.blocks:
+            if block.page_number is not None:
+                return block.page_number
+        logger.warning("No blocks with page number found in segment.")
+        return None
 
     @property
     def kinds(self) -> str:
