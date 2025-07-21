@@ -17,6 +17,7 @@ resnet = InceptionResnetV1(pretrained='vggface2', device=device).eval()
 PROCESSED_LABEL_IMAGES = "wf_facenet_processed"
 PROCESSED_LABEL_CONFIDENCE = "wf_facenet_confidence"
 
+
 class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
     """
     Generates FindImage Queries.
@@ -73,7 +74,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
     def response_handler(self, query, blobs, response, r_blobs):
         try:
-            uniqueids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
+            uniqueids = [i["_uniqueid"]
+                         for i in response[0]["FindImage"]["entities"]]
         except:
             print(f"error: {response}")
             return 0
@@ -157,19 +159,18 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     bb_ref += 1
             ref_counter += (bb_ref + 1)
 
-
-
         # This is not nice, but we need to create a new connection
         # and this happens in parallel with many threads.
-        db = self.db.create_new_connection()
+        db = self.db.clone()
 
         result, response, _ = execute_query(db, query, desc_blobs)
         if result != 0:
             print(f"Error: {response}")
             return 0
 
+
 def clean_artifacts(db):
-    query=[{
+    query = [{
         "FindImage": {
             "_ref": 1,
             "constraints": {
@@ -179,12 +180,12 @@ def clean_artifacts(db):
                 "count": True
             }
         }
-    },{
+    }, {
         "UpdateImage": {
             "ref": 1,
             "remove_props": [PROCESSED_LABEL_IMAGES]
         }
-    },{
+    }, {
         "FindBoundingBox": {
             "_ref": 2,
             "constraints": {
@@ -194,9 +195,9 @@ def clean_artifacts(db):
                 "count": True
             }
         }
-    },{
-            "DeleteBoundingBox": {
-                "ref": 2
+    }, {
+        "DeleteBoundingBox": {
+            "ref": 2
         }
     }, {
         "DeleteDescriptorSet": {
@@ -205,6 +206,7 @@ def clean_artifacts(db):
     }]
     result, response, _ = execute_query(db, query, [])
     print(f"Cleaning Artifacts... {response if result!=0 else 'done'}")
+
 
 def add_descriptor_set(db):
 
@@ -217,6 +219,7 @@ def add_descriptor_set(db):
         }
     }], [], success_statuses=[0, 2])
     print(f"Added Descriptor Set... {response if result!=0 else 'done'}")
+
 
 def main(params):
 
@@ -267,7 +270,7 @@ def get_args():
                      default=os.environ.get('CLEAN', "false"))
 
     obj.add_argument('-generate_embeddings', type=str2bool,
-                        default=os.environ.get('GENERATE_EMBEDDINGS', "false"))
+                     default=os.environ.get('GENERATE_EMBEDDINGS', "false"))
 
     params = obj.parse_args()
     return params

@@ -21,6 +21,7 @@ COPY --from=rag     /app /workflows/rag
 COPY --from=crawl-website   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 COPY --from=text-extraction /requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 COPY --from=text-embeddings   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt

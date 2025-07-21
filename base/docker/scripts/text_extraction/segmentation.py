@@ -1,5 +1,5 @@
 from typing import Iterator
-from schema import Segment, TextBlock
+from .schema import Segment, TextBlock
 from tiktoken import encoding_for_model
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 import logging

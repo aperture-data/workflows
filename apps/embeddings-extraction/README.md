@@ -55,6 +55,9 @@ Default is `false`.
 loop, or if it will exit upon completion, without watching for new images.
 Default is `false`.
 * **`SLEEPING_TIME`**: Delay between scans, in seconds. Default is `30`.
+* **`WF_EXTRACT_IMAGES`**: Extract embeddings for images. Default is `False`.
+* **`WF_EXTRACT_PDFS`**: Extract embeddings for PDFs. Defailt is `False`.
+* **`WF_LOG_LEVEL`**: Set log level for workflow code. Defaults is WARNING.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
