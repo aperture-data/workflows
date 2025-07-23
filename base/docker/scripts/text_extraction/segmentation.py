@@ -47,21 +47,21 @@ class TextSegmenter:
         """Applies some simple filters to exclude garbage text"""
         # Reject empty or short text
         if not text or len(text.strip()) < 20:
-            logger.info(f"Rejecting {text} because empty or short")
+            logger.debug(f"Rejecting {text[:100]} because empty or short")
             return False
 
         # Must contain mostly alphanumeric
         ratio = sum(c.isalnum() for c in text) / len(text)
         ratio_threshold = 0.2
         if ratio < ratio_threshold:
-            logger.info(
-                f"Rejecting {text} because alphanumeric ratio {ratio} < {ratio_threshold}")
+            logger.debug(
+                f"Rejecting {text[:100]} because alphanumeric ratio {ratio} < {ratio_threshold}")
             return False
 
         # Reject excessive repetition
         if len(set(text)) < 5:
-            logger.info(
-                f"Rejecting {text} because characters set {set(text)} has cardinality {len(set(text))} < 5")
+            logger.debug(
+                f"Rejecting {text[:100]} because characters set {set(text)} has cardinality {len(set(text))} < 5")
             return False
 
         def is_weird(c: str) -> bool:
@@ -85,8 +85,8 @@ class TextSegmenter:
         ) / max(len(normalized), 1)
         weird_character_ratio_threshold = 0.2
         if weird_character_ratio > weird_character_ratio_threshold:
-            logger.info(
-                f"Rejecting {text} because weird character ratio {weird_character_ratio} > {weird_character_ratio_threshold}")
+            logger.debug(
+                f"Rejecting {text[:100]} because weird character ratio {weird_character_ratio} > {weird_character_ratio_threshold}")
             return False
 
         return True
