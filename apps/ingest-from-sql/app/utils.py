@@ -16,6 +16,7 @@ class TableSpec:
     url_columns: List[str]
     name: str
     entity_type:str
+    primary_key:str
 
 class CommandlineType:
     @staticmethod
