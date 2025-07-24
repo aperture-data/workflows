@@ -15,11 +15,17 @@ import utils
 
 
 
-def scan(engine:sql.Engine,table_ignore_list:list, column_ignore_list:list,
+def scan(engine:sql.Engine,
+        image_tables:list, pdf_tables:list,
+        table_ignore_list:list, column_ignore_list:list,
         url_columns:list, table_to_entity_map:dict,
         error_on_unused_binary:bool ) -> List[utils.TableSpec] :
 
     selected_tables = []
+    if image_tables is None:
+        image_tables = []
+    if pdf_tables is None:
+        pdf_tables = []
     if table_ignore_list is None:
         table_ignore_list = []
     if column_ignore_list is None:
@@ -56,6 +62,16 @@ def scan(engine:sql.Engine,table_ignore_list:list, column_ignore_list:list,
 
             if table.name in table_to_entity_map:
                 entity_name = table_to_entity_map[table.name]
+
+            if table.name in image_tables:
+                print(f" ! Table is an image table")
+                expect_binary = True
+                table_type = "image"
+            elif table.name in pdf_tables:
+                print(f" ! Table is an pdf table")
+                expect_binary = True
+                table_type = "pdf"
+
 
             for col in table.columns:
                 skip=False
@@ -95,6 +111,13 @@ def scan(engine:sql.Engine,table_ignore_list:list, column_ignore_list:list,
                     print("")
                     used_cols.append(col.name)
 
+
+            if has_binary:
+                if not expect_binary:
+                    if error_on_unused_binary:
+                        raise Exception(f"Table {table.name} had a binary column but it was not expected.")
+            elif expect_binary and not has_binary:
+                raise Exception(f"Was expecting a binary in {table.name}, but didn't find any.")
 
             if has_binary or len(url_cols) != 0:
                 table_info = inspect(table).primary_key
@@ -140,7 +163,8 @@ if __name__ == '__main__':
 
     args = get_opts()
     engine = create_engine(args.connection_string)
-    res = scan(engine,args.tables_to_ignore,args.columns_to_ignore,
+    res = scan(engine, args.image_tables, args.pdf_tables,
+            args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_map,
             args.undefined_blob_action == 'error' )
     print(res)
