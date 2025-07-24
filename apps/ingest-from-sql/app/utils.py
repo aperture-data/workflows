@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from typing import List
 from sqlalchemy import Table
 
+import hashlib
+
+def hash_string(string):
+    return hashlib.sha1(string.encode('utf-8')).hexdigest()
+
 @dataclass
 class TableSpec:
     table: Table
