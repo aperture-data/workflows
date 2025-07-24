@@ -108,7 +108,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     "batch_id": idx
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "list": ["_uniqueid", "url"]
                 }
             }
         }]
@@ -167,12 +167,14 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             uniqueids = [i["_uniqueid"]
                          for i in response[0]["FindBlob"]["entities"]]
+            urls = [i["url"] if "url" in i else None
+                    for i in response[0]["FindBlob"]["entities"]]
         except:
             logger.exception(f"error: {response}")
             return 0
 
         total_segments = 0
-        for uniqueid, b in zip(uniqueids, r_blobs):
+        for uniqueid, url, b in zip(uniqueids, urls, r_blobs):
             blob_segments = 0
             segments_and_embeddings = self.blob_to_embeddings(b)
             for segment_batch in batch(segments_and_embeddings, 100):
@@ -196,6 +198,15 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                         properties["text"] = segment.text
                     properties["type"] = "text"
                     properties["total_tokens"] = segment.total_tokens
+
+                    page_number = segment.page_number()
+                    if page_number is not None:
+                        properties["page_number"] = page_number
+
+                    if url is not None:
+                        segment_url = segment.url(url)
+                        properties["url"] = segment_url
+
                     query.append({
                         "AddDescriptor": {
                             "set": self.descriptor_set,
