@@ -66,7 +66,7 @@ def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
                 skip=False
                 gen = col.type.as_generic()
                 col_is_binary = isinstance(gen,LargeBinary)
-                full_col_name = "{}.{}".format(table.name, col.name),
+                full_col_name = "{}.{}".format(table.name, col.name)
                 print(f"  * Column = {col.name} {col.type} {gen}",end="") 
 
                 for pat in column_ignore_list:
