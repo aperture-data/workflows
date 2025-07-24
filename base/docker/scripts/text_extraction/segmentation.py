@@ -43,7 +43,24 @@ class TextSegmenter:
         """
         return len(self.encoder.encode(text))
 
-    def _is_clean(self, text: str) -> bool:
+    @staticmethod
+    def _is_weird(c: str) -> bool:
+        # Mathematical Alphanumeric Symbols
+        if 0x1D400 <= ord(c) <= 0x1D7FF:
+            return True
+
+        # Emoji, Dingbats, Enclosed, etc.
+        if 0x1F000 <= ord(c) <= 0x1FAFF:
+            return True
+
+        # replacement character
+        if c == "\uFFFD":
+            return True
+
+        return False
+
+    @staticmethod
+    def _is_clean(text: str) -> bool:
         """Applies some simple filters to exclude garbage text"""
         # Reject empty or short text
         if not text or len(text.strip()) < 20:
@@ -64,23 +81,8 @@ class TextSegmenter:
                 f"Rejecting {text[:100]} because characters set {set(text)} has cardinality {len(set(text))} < 5")
             return False
 
-        def is_weird(c: str) -> bool:
-            # Mathematical Alphanumeric Symbols
-            if 0x1D400 <= ord(c) <= 0x1D7FF:
-                return True
-
-            # Emoji, Dingbats, Enclosed, etc.
-            if 0x1F000 <= ord(c) <= 0x1FAFF:
-                return True
-
-            # replacement character
-            if c == "\uFFFD":
-                return True
-
-            return False
-
         weird_character_ratio = sum(
-            is_weird(c) for c in text
+            TextSegmenter._is_weird(c) for c in text
         ) / max(len(text), 1)
         weird_character_ratio_threshold = 0.2
         if weird_character_ratio > weird_character_ratio_threshold:
