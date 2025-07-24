@@ -8,13 +8,14 @@ from typing import List
 
 from sqlalchemy import insert, update, Table, Column, Integer, LargeBinary, MetaData, BLOB, String
 from sqlalchemy import URL,create_engine
+from sqlalchemy import inspect
 import sqlalchemy as sql
 
 import utils
 
 
 
-def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
+def scan(engine:sql.Engine,table_ignore_list:list, column_ignore_list:list,
         url_columns:list, table_to_entity_map:dict,
         error_on_unused_binary:bool ) -> List[utils.TableSpec] :
 
@@ -25,7 +26,9 @@ def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
         column_ignore_list = []
     if url_columns is None:
         url_columns = []
-    engine = create_engine(connection_string)
+    if table_to_entity_map is None:
+        table_to_entity_map = {}
+
     with engine.connect() as conn:
         meta = MetaData()
         meta.reflect(bind=engine)
@@ -33,6 +36,7 @@ def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
             used_cols = []
             url_cols = []
             bin_cols = []
+            pk = None
             print(f"* Table = {table.name}",end="")
             skip=False
             for pat in table_ignore_list: 
@@ -49,15 +53,6 @@ def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
             expect_binary = False
             has_binary = False
             is_url = False
-
-            if table.name in args.image_tables:
-                print(f" ! Table is an image table")
-                expect_binary = True
-                table_type = "image"
-            elif table.name in args.pdf_tables:
-                print(f" ! Table is an pdf table")
-                expect_binary = True
-                table_type = "pdf"
 
             if table.name in table_to_entity_map:
                 entity_name = table_to_entity_map[table.name]
@@ -100,16 +95,17 @@ def scan(connection_string,table_ignore_list:list, column_ignore_list:list,
                     print("")
                     used_cols.append(col.name)
 
-            if has_binary:
-                if not expect_binary:
-                    if error_on_unused_binary:
-                        raise Exception(f"Table {table.name} had a binary column but it was not expected.")
-            elif expect_binary and not has_binary:
-                raise Exception(f"Was expecting a binary in {table.name}, but didn't find any.")
+
+            if has_binary or len(url_cols) != 0:
+                table_info = inspect(table).primary_key
+                if len(table_info.columns) != 1:
+                    raise Exception("Exactly 1 column is required to be a primary key")
+                pk = table_info.columns[0].name
+                print(f"Primary key is {pk}")
             selected_tables.append(
                 utils.TableSpec(table=table,prop_columns=used_cols,
                     url_columns=url_cols,bin_columns=bin_cols,name=entity_name,
-                    entity_type = table_type))
+                    entity_type = table_type,primary_key=pk))
 
     return selected_tables
 
@@ -143,7 +139,8 @@ def get_opts():
 if __name__ == '__main__':
 
     args = get_opts()
-    res = scan(args.connection_string,args.tables_to_ignore,args.columns_to_ignore,
+    engine = create_engine(args.connection_string)
+    res = scan(engine,args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_map,
             args.undefined_blob_action == 'error' )
     print(res)
