@@ -14,6 +14,7 @@ from pdfs import FindPDFQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
+DONE_PROPERTY = 'wf_embeddings_clip'
 
 
 def clean_embeddings(db):
@@ -31,16 +32,16 @@ def clean_embeddings(db):
     }, {
         "UpdateImage": {
             "constraints": {
-                "wf_embeddings_clip": ["!=", None]
+                DONE_PROPERTY: ["!=", None]
             },
-            "remove_props": ["wf_embeddings_clip"]
+            "remove_props": [DONE_PROPERTY]
         }
     }, {
         "UpdateBlob": {
             "constraints": {
-                "wf_embeddings_clip": ["!=", None]
+                DONE_PROPERTY: ["!=", None]
             },
-            "remove_props": ["wf_embeddings_clip"]
+            "remove_props": [DONE_PROPERTY]
         }
     }])
 
