@@ -3,6 +3,7 @@ from .schema import Segment, TextBlock
 from tiktoken import encoding_for_model
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 import logging
+import unicodedata
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,65 @@ class TextSegmenter:
         """
         return len(self.encoder.encode(text))
 
-    def segment(self, blocks: Iterator[TextBlock]) -> Iterator[Segment]:
+    @staticmethod
+    def _is_weird(c: str) -> bool:
+        # Mathematical Alphanumeric Symbols
+        if 0x1D400 <= ord(c) <= 0x1D7FF:
+            return True
+
+        # Emoji, Dingbats, Enclosed, etc.
+        if 0x1F000 <= ord(c) <= 0x1FAFF:
+            return True
+
+        # replacement character
+        if c == "\uFFFD":
+            return True
+
+        return False
+
+    @staticmethod
+    def _is_clean(text: str) -> bool:
+        """Applies some simple filters to exclude garbage text"""
+        # Reject empty or short text
+        if not text or len(text.strip()) < 20:
+            logger.debug(f"Rejecting {text[:100]} because empty or short")
+            return False
+
+        # Must contain mostly alphanumeric
+        ratio = sum(c.isalnum() for c in text) / len(text)
+        ratio_threshold = 0.2
+        if ratio < ratio_threshold:
+            logger.debug(
+                f"Rejecting {text[:100]} because alphanumeric ratio {ratio} < {ratio_threshold}")
+            return False
+
+        # Reject excessive repetition
+        if len(set(text)) < 5:
+            logger.debug(
+                f"Rejecting {text[:100]} because characters set {set(text)} has cardinality {len(set(text))} < 5")
+            return False
+
+        weird_character_ratio = sum(
+            TextSegmenter._is_weird(c) for c in text
+        ) / max(len(text), 1)
+        weird_character_ratio_threshold = 0.2
+        if weird_character_ratio > weird_character_ratio_threshold:
+            logger.debug(
+                f"Rejecting {text[:100]} because weird character ratio {weird_character_ratio} > {weird_character_ratio_threshold}")
+            return False
+
+        return True
+
+    def segment(self,
+                blocks: Iterator[TextBlock],
+                clean_only: bool = True,
+                ) -> Iterator[Segment]:
         """Turn the sequence of text blocks into segments"""
         buffer = []
         buffer_tokens = 0
         total_tokens = 0
         n_segments = 0
+        n_rejected_segments = 0
         title = None
 
         for block in blocks:
@@ -75,13 +129,16 @@ class TextSegmenter:
                 # by emitting a new segment
                 if buffer_tokens + sub_tokens > self.max_tokens and buffer:
                     segment_text = "\n\n".join(b.text for b in buffer)
-                    yield Segment(
-                        text=segment_text,
-                        blocks=buffer.copy(),
-                        total_tokens=buffer_tokens,
-                        title=title
-                    )
-                    n_segments += 1
+                    if not clean_only or self._is_clean(segment_text):
+                        yield Segment(
+                            text=segment_text,
+                            blocks=buffer.copy(),
+                            total_tokens=buffer_tokens,
+                            title=title
+                        )
+                        n_segments += 1
+                    else:
+                        n_rejected_segments += 1
 
                     # Now extract just the next overlap from the buffer
                     overlap = []
@@ -104,8 +161,11 @@ class TextSegmenter:
 
         if buffer:  # Finally flush buffer by emitting one more segment
             segment_text = "\n\n".join(b.text for b in buffer)
-            yield Segment(text=segment_text, blocks=buffer.copy(), total_tokens=buffer_tokens, title=title)
-            n_segments += 1
+            if not clean_only or self._is_clean(segment_text):
+                yield Segment(text=segment_text, blocks=buffer.copy(), total_tokens=buffer_tokens, title=title)
+                n_segments += 1
+            else:
+                n_rejected_segments += 1
 
         logger.info(
-            f"Segmented {n_segments} segments with {total_tokens} tokens")
+            f"Segmented {n_segments} segments with {total_tokens} tokens; {n_rejected_segments} segments rejected")

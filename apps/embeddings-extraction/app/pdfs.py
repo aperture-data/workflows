@@ -155,12 +155,16 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
         segments = self.segmenter.segment(text_blocks)
 
+        segment_number = 0
         for segment_batch in batch(segments, 100):
             logger.info(f"Processing batch of {len(segment_batch)} segments.")
             embeddings = self.segments_to_embeddings(segment_batch)
             logger.info(
                 f"Generated {len(embeddings)} embeddings for segments.")
-            yield from zip(segment_batch, embeddings)
+            numbers = range(segment_number, segment_number +
+                            len(segment_batch))
+            yield from zip(segment_batch, embeddings, numbers)
+            segment_number += len(segment_batch)
 
     def response_handler(self, query, blobs, response, r_blobs):
 
@@ -189,7 +193,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     }
                 })
 
-                for segment, embedding in segment_batch:
+                for segment, embedding, number in segment_batch:
                     blob_segments += 1
                     properties = {}
                     if segment.title:
@@ -198,6 +202,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                         properties["text"] = segment.text
                     properties["type"] = "text"
                     properties["total_tokens"] = segment.total_tokens
+                    properties["segment_number"] = number
 
                     page_number = segment.page_number()
                     if page_number is not None:
