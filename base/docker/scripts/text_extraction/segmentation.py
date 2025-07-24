@@ -79,10 +79,9 @@ class TextSegmenter:
 
             return False
 
-        normalized = unicodedata.normalize("NFKC", text)
         weird_character_ratio = sum(
-            1 for c in normalized if is_weird(c)
-        ) / max(len(normalized), 1)
+            is_weird(c) for c in text
+        ) / max(len(text), 1)
         weird_character_ratio_threshold = 0.2
         if weird_character_ratio > weird_character_ratio_threshold:
             logger.debug(
