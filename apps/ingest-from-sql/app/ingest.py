@@ -4,7 +4,9 @@ from aperturedb.EntityDataCSV import EntityDataCSV
 from aperturedb.ImageDataCSV import ImageDataProcessor
 import pandas as pd
 from utils import hash_string,TableSpec
-from sqlalchemy import URL,create_engine,Connection
+from sqlalchemy import URL,create_engine,Connection,MetaData,select
+import copy
+import datetime as dt
 
 
 class SQLEntityData(EntityDataCSV):
@@ -108,8 +110,46 @@ class SQLProvider:
         return self.database
     def table_name(self):
         return self.table
+
+    def as_table(self,info):
+        new = copy.copy(self)
+        new.info = info
+        new.table = info.table.name
+        return new
     def get_property_names(self):
         pass
+
+    def url_column_name(self):
+        pass
+
+    def get_data_cols(self):
+        return self.info.prop_columns + self.info.bin_columns + self.info.url_columns 
+    def get_pk_col(self):
+        return self.info.primary_key
+    def get_bin_col(self):
+        return self.info.bin_columns[0]
+
+    def get_data(self):
+        meta = MetaData()
+        meta.reflect(bind=self.engine,only=[self.table])
+        t = meta.sorted_tables[0]
+        to_select=[]
+        all_ret_cols = self.info.prop_columns + self.info.bin_columns + self.info.url_columns 
+        print(all_ret_cols)
+        for c in t.columns:
+            if c.name in all_ret_cols:
+                to_select.append(c)
+        stmt = select(*to_select)
+        data=[]
+        with self.engine.connect() as conn:
+            print(stmt)
+            rows = conn.execute(stmt.compile(self.engine))
+            for r in rows:
+                data.append(r)
+
+        return data
+
+
     def as_connection_string(self):
         return "postgresql+psycopg://{}:{}@{}/{}".format(
                 self.user,self.password,self.host,self.database)
@@ -125,9 +165,10 @@ class SQLProvider:
 class Ingester:
     def __init__(self,  source: Provider, info:TableSpec): 
         self.multiple_objects = None
-        self.source = source
+        self.source = source.as_table(info)
         self.dataframe = None
         self.workflow_id = None
+        self.info = info
 
 
     def set_workflow_id(self,id):
@@ -142,14 +183,14 @@ class Ingester:
         table_name = self.source.table_name()
         scheme = "sql://{}/{} ".format(
                 self.source.host_name() , self.source.database_name())
-        url_column_name = self.source.url_column_name()
+        #url_column_name = self.info.url_columns
         load_time = dt.datetime.now().isoformat()
         full = []
         objects = []
         for row in self.source.get_data():
             full.append(row)
         df = pd.DataFrame(
-                columns = [ self.source.get_property_names() ],
+                columns =  self.source.get_data_cols(),
                 data=full)
         df['wf_creator'] =  "sql_ingestor" 
         df['wf_creator_key'] = hash_string( "{}/{}".format(scheme,table_name)) 
@@ -163,14 +204,18 @@ class Ingester:
 class EntityIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(EntityIngester,self).__init__(source,info) 
+    def prepare(self):
+        print("Prepare Entity")
 
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(ImageIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
-        self.binary_df = self.df[PK_COL,BIN_COL]
-        self.df.drop([PK_COL,BIN_COL],inplace=True)
+        print(self.df)
+        self.binary_df = self.df[[self.source.get_pk_col(),self.source.get_bin_col()]]
+        print(self.df.columns)
+        self.df.drop(columns=[self.source.get_bin_col()],inplace=True)
 
         print(self.df)
         print(self.binary_df)
