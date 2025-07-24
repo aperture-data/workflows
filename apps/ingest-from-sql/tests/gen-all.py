@@ -6,6 +6,7 @@ import sys
 
 from sqlalchemy import insert,update,Table,Column,Integer,LargeBinary,MetaData
 from sqlalchemy import URL,create_engine
+from sqlalchemy.ext.automap import automap_base
 import sqlalchemy as sql
 
 
@@ -16,6 +17,7 @@ def generate(args):
     base_name=args.source
     has_link_column=False
     to_split=[]
+    pk_col=None
     print("* Examining columns in input data")
     for c in df.columns:
         if c == args.link:
@@ -23,6 +25,17 @@ def generate(args):
         if c.startswith("blob_"):
             print(f"removing blob column: {c}")
             to_split.append(c)
+        if c.startswith("pk_"):
+            if pk_col is not None:
+                raise Exception("already has pk")
+            pk_col=c
+            pk_rename=c[len("pk_"):]
+            has_link_column=True
+            args.link = pk_rename
+
+
+    if pk_col is not None:
+        df.rename(columns={pk_col:pk_rename},inplace=True)
 
     if to_split:
 
@@ -54,6 +67,11 @@ def generate(args):
 
     if to_split:
         add_blobs( args, blobs_name , table_name )
+
+    if pk_col is not None:
+        engine = create_engine(args.connection_string)
+        set_pk(engine,table_name,pk_rename)
+
 
 def add_blobs(args,blob_csv_name,table_name):
     print(f"* Adding blob data to {table_name}")
@@ -120,6 +138,40 @@ def add_column(engine,table_name,column_obj):
     print(sqls)
     engine.execute(sql.text(sqls)) 
     engine.commit()
+
+def set_pk(engine,table_name,column_name):
+    with engine.connect() as conn:
+        sqls= "ALTER TABLE {0} ADD PRIMARY KEY({1})".format(table_name, column_name)
+        print(sqls)
+        conn.execute(sql.text(sqls)) 
+        conn.commit()
+
+
+    # not working
+    if False:
+        from types import new_class
+        #with engine.connect() as conn:
+        meta = MetaData()
+        meta.reflect(bind=engine,only=[table_name])
+        Base = automap_base( metadata=meta)
+        Modified = type('Modified',(Base,),
+                {
+                    '__tablename__': table_name,
+                    '__table_args__': {'extend_existing':True},
+                    column_name: Column(Integer, primary_key=True)
+                }
+                )
+        print(f"Setting {column_name} as primary key")
+        print(Modified)
+        print(repr(Modified))
+        stmt = Base.prepare()
+        #stmt = Base.prepare(autoload_with=engine)
+        #stmt = Modified.prepare(engine, reflect=True)
+        print(stmt)
+        print(repr(Modified))
+        #conn.execute(stmt) 
+        res = Modified.metadata.create_all(engine)
+        print(res)
 
 def get_opts():
     parser = ArgumentParser()
