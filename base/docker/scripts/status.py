@@ -35,7 +35,8 @@ class StatusUpdater:
             phase: Optional[str] = None,
             error_message: Optional[str] = None,
             error_code: Optional[WorkFlowError] = None,
-            status: WorkflowStatus = WorkflowStatus.RUNNING):
+            status: Optional[WorkflowStatus] = None,
+            accessible: Optional[bool] = None):
         wf_status = {
         }
         if completed is not None:
@@ -50,6 +51,10 @@ class StatusUpdater:
             wf_status["error_code"] = error_code.value
         if status is not None:
             wf_status["status"] = status.value
+        else:
+            wf_status["status"] = WorkflowStatus.RUNNING.value
+        if accessible is not None:
+            wf_status["accessible"] = accessible
         if len(wf_status) > 0:
             print(f"Updating status: {wf_status}")
             try:
@@ -99,9 +104,10 @@ def shell_updater(
     completed: Optional[float] = None,
     phases: Optional[List[str]] = None,
     phase: Optional[str] = None,
-    status: WorkflowStatus = WorkflowStatus.RUNNING,
+    status: Optional[WorkflowStatus] = None,
     error_message: Optional[str] = None,
     error_code: Optional[WorkFlowError] = None,
+    accessible: Optional[bool] = None,
 ):
     updater = StatusUpdater()
     updater.post_update(
@@ -110,7 +116,8 @@ def shell_updater(
         phase=phase,
         status=status,
         error_message=error_message,
-        error_code=error_code)
+        error_code=error_code,
+        accessible=accessible)
 
 if __name__ == "__main__":
     app()

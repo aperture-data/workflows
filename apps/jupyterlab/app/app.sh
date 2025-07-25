@@ -45,4 +45,4 @@ if [ ! -f /opt/.jupyter_configured ]; then
 fi
 
 bash /start-jupyter.sh &
-python3 /app/status.py --phases running --phase running --completed 100
+python3 /app/status.py --phases running --phase running --completed 100 --accessible
