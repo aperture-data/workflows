@@ -7,6 +7,7 @@ from PIL import Image
 import clip
 
 from aperturedb import QueryGenerator
+from connection_pool import ConnectionPool
 
 
 class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
@@ -17,7 +18,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, descriptor_set: str, model_name: str):
 
-        self.db = db
+        self.pool = ConnectionPool(connection_factory=db.clone)
         self.descriptor_set = descriptor_set
 
         # Choose the model to be used.
@@ -147,11 +148,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 }
             })
 
-        # This is not nice, but we need to create a new connection
-        # and this happens in parallel with many threads.
-        db = self.db.clone()
+        with self.pool.get_connection() as db:
+            r, _ = db.query(query, desc_blobs)
 
-        r, _ = db.query(query, desc_blobs)
-
-        if not db.last_query_ok():
-            db.print_last_response()
+            if not db.last_query_ok():
+                db.print_last_response()

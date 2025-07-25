@@ -7,6 +7,7 @@ from PIL import Image
 from aperturedb.CommonLibrary import create_connector, execute_query
 from aperturedb import QueryGenerator
 from aperturedb import ParallelQuery
+from connection_pool import ConnectionPool
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import torch
 
@@ -26,7 +27,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
     def __init__(self, db, *args, **kwargs):
         self.batch_size = kwargs.get("batch_size", 1)
         self.generate_embeddings = kwargs.get("generate_embeddings", False)
-        self.db = db
+        self.pool = ConnectionPool(connection_factory=db.clone)
         query = [{
             "FindImage": {
                 "constraints": {
@@ -38,7 +39,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        result, response, _ = execute_query(db, query, [])
+        result, response, _ = self.pool.execute_query(query, [])
         try:
             total_images = response[0]["FindImage"]["count"]
         except:
@@ -161,9 +162,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         # This is not nice, but we need to create a new connection
         # and this happens in parallel with many threads.
-        db = self.db.clone()
 
-        result, response, _ = execute_query(db, query, desc_blobs)
+        result, response, _ = self.pool.execute_query(query, desc_blobs)
         if result != 0:
             print(f"Error: {response}")
             return 0
