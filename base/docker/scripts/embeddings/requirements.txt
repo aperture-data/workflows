@@ -1,2 +1,8 @@
+# Global option affecting all packages in this file
+# Make sure we get the CPU version.
+--index-url https://download.pytorch.org/whl/cpu
+torch>=2.0
+torchvision
+# These don't need the CPU version, but it doesn't hurt
 open_clip_torch>=2.23
 git+https://github.com/openai/CLIP.git

@@ -6,7 +6,7 @@ import cv2
 from PIL import Image
 import logging
 from aperturedb.Connector import Connector
-from aperturedb_io import find_descriptor_set, add_descriptor_set
+from aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -39,17 +39,21 @@ class Embedder():
     """
     This class is a general helper for embedding text and images using OpenCLIP or CLIP models.
 
-    The recommended way to construct an Embedder is to use one of the following methods:
-    * from_descriptor_set: This will find an existing descriptor set in the database and create an Embedder instance from it. Only the descriptor set name is required. This method is recomended for read-only use cases where you want to embed query texts or images to search for with an existing descriptor set.
-    * find_or_create_descriptor_set: This will find an existing descriptor set in the database or create a new one if it does not exist. You must provide the provider, model name, pretrained corpus, and descriptor set name. This method is recommended for write use cases where you want to create a new descriptor set with embeddings for texts or images, but you also want to support extention of an existing descriptor set if it already exists.
+    The recommended way to construct an Embedder is to use one of the following factory methods:
+    * `from_existing_descriptor_set`: This will find an existing descriptor set in the database and create an Embedder instance from it. Only the descriptor set name is required. This method is recomended for read-only use cases where you want to embed query texts or images to search for with an existing descriptor set.
+    * `from_new_descriptor_set`: This will find an existing descriptor set in the database or create a new one if it does not exist. You must provide the provider, model name, pretrained corpus, and descriptor set name. This method is recommended for write use cases where you want to create a new descriptor set with embeddings for texts or images, but you also want to support extention of an existing descriptor set if it already exists. See the `clean` parameter for details of how existing descriptor sets are handled.
+
+    These two methods are the only ones to talk to the database, and do not store the client.
+
+    In addition the `parse_string` static method can be used to parse a string containing the provider, model name, and optionally the pretrained corpus, e.g., "openclip ViT-B-32 laion2b_s34b_b79k". This is offered as a convenience to avoid specifying each parameter separately, for example when configuring the model from an environment variable.
 
     Once you have an Embedder instance, you can use it to embed texts and images:
-    * embed_text: Embed a single text input.
-    * embed_texts: Embed a list of text inputs.
-    * embed_image: Embed a single image input (in bytes format).
-    * embed_images: Embed a list of images (in bytes format).
+    * `embed_text`: Embed a single text input.
+    * `embed_texts`: Embed a list of text inputs.
+    * `embed_image`: Embed a single image input.
+    * `embed_images`: Embed a list of images.
 
-    All of these methods return a numpy array or a list of numpy arrays representing the embedded vectors. Call `tobytes`() on the numpy array to get the raw bytes representation of the vector, which can be used as a blob in an ApertureDB query.
+    All of these methods return a raw bytes representation of the embedded vector, which can be used as a blob in an ApertureDB query.
     """
 
     def __init__(self,
@@ -149,14 +153,36 @@ class Embedder():
         }
 
     @classmethod
-    def find_or_create_descriptor_set(cls,
-                                      client: Connector,
-                                      descriptor_set: str,
-                                      provider: str = None,
-                                      model_name: str = None,
-                                      pretrained: str = None,
-                                      engine: str = "HNSW",
-                                      device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
+    def from_properties(cls, properties: dict,
+                        device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
+        """Create an Embedder instance from properties."""
+        provider = properties.get("embeddings_provider")
+        model_name = properties.get("embeddings_model")
+        pretrained = properties.get("embeddings_pretrained")
+        descriptor_set = properties.get("descriptor_set")
+
+        if not provider or not model_name or not pretrained:
+            raise ValueError(
+                "Properties must contain 'embeddings_provider', 'embeddings_model', and 'embeddings_pretrained'.")
+
+        return cls(provider=provider,
+                   model_name=model_name,
+                   pretrained=pretrained,
+                   descriptor_set=descriptor_set,
+                   device=device)
+
+    @classmethod
+    def from_new_descriptor_set(cls,
+                                client: Connector,
+                                descriptor_set: str,
+                                provider: str = None,
+                                model_name: str = None,
+                                pretrained: str = None,
+                                engine: str = "HNSW",
+                                device: Optional[Literal["cpu",
+                                                         "cuda"]] = None,
+                                clean: bool = False
+                                ) -> "Embedder":
         """Find or create a descriptor set for the embedder.
 
         Args:
@@ -166,84 +192,71 @@ class Embedder():
             model_name (str): The name of the model, e.g., "ViT-B-32".
             pretrained (str): The pretrained corpus, e.g., "laion2b_s34b_b79k". (Optional for CLIP)
             device (str): The device to run the model on. Default is to auto-detect.
+            clean (bool): If True, delete the existing descriptor set before creating a new one. If the descriptor set already exists, and the embedder is compatible, it will be extended with new embeddings. If it is not compatible, an error will be raised. Default is False.
         """
 
-        try:
-            self = cls.from_descriptor_set(
+        if clean:
+            delete_descriptor_set(client, descriptor_set)
+        elif properties := find_descriptor_set(
                 client=client,
-                descriptor_set=descriptor_set,
-                device=device)
+                descriptor_set=descriptor_set):
             logger.info(
-                f"Found existing descriptor set {descriptor_set} for model {self.provider} {self.model_name} ({self.pretrained}) on {self.device}")
+                f"Found existing descriptor set {descriptor_set}: {properties}")
 
             # Verify that the existing descriptor set matches the requested parameters
-            if provider != self.provider:
+            if provider != properties['provider']:
                 raise ValueError(
-                    f"Provider mismatch: {provider} != {self.provider}")
-            if model_name != self.model_name:
+                    f"Provider mismatch: {provider} != {properties['provider']}")
+            if model_name != properties['model_name']:
                 raise ValueError(
-                    f"Model name mismatch: {model_name} != {self.model_name}")
-            if pretrained != self.pretrained:
+                    f"Model name mismatch: {model_name} != {properties['model_name']}")
+            if pretrained != properties['pretrained']:
                 raise ValueError(
-                    f"Pretrained corpus mismatch: {pretrained} != {self.pretrained}")
-
-            return self
-
-        except DescriptorSetNotFoundError:
+                    f"Pretrained corpus mismatch: {pretrained} != {properties['pretrained']}")
+        else:
             logger.info(
-                f"Descriptor set {descriptor_set} not found. Creating a new one.")
-            # Create a new embedder instance
-            self = cls(provider=provider,
-                       model_name=model_name,
-                       pretrained=pretrained,
-                       descriptor_set=descriptor_set,
-                       device=device)
+                f"Descriptor set {descriptor_set} not found. Will create a new one.")
 
+        self = cls(provider=provider,
+                   model_name=model_name,
+                   pretrained=pretrained,
+                   descriptor_set=descriptor_set,
+                   device=device)
+
+        if not properties:
             # Create the descriptor set in the database
             properties = self.get_properties()
-            self.io.add_descriptor_set(
+            add_descriptor_set(
+                client=client,
                 descriptor_set=descriptor_set,
                 metric=self.metric,
                 dimensions=self.dimensions,
                 engine=engine,
                 properties=properties
             )
-            return self
+            logger.info(
+                f"Created new descriptor set: {descriptor_set} with properties: {properties}")
+
+        return self
 
     @classmethod
-    def from_descriptor_set(cls,
-                            descriptor_set: str,
-                            device: str = None,
-                            ) -> "Embedder":
+    def from_existing_descriptor_set(cls,
+                                     descriptor_set: str,
+                                     device: str = None,
+                                     ) -> "Embedder":
         """Create an instance from a descriptor set name."""
-        properties = self.io.find_descriptor_set(descriptor_set)
+        properties = find_descriptor_set(descriptor_set)
         if not properties:
-            raise DescriptorSetNotFoundError(descriptor_set)
+            raise ValueError(
+                f"Descriptor set '{descriptor_set}' not found.")
 
-        provider = properties.get("embeddings_provider")
-        if not provider:
-            raise ValueError(
-                f"Descriptor set {descriptor_set} does not have 'embeddings_provider' property.")
-        model = properties.get("embeddings_model")
-        if not model:
-            raise ValueError(
-                f"Descriptor set {descriptor_set} does not have 'embeddings_model' property.")
-        pretrained = properties.get("embeddings_pretrained")
-        if not pretrained:
-            raise ValueError(
-                f"Descriptor set {descriptor_set} does not have 'embeddings_pretrained' property.")
+        self = cls.from_properties(properties=properties,
+                                   descriptor_set=descriptor_set,
+                                   device=device)
 
-        self = cls(provider=provider,
-                   model_name=model,
-                   pretrained=pretrained,
-                   descriptor_set=descriptor_set,
-                   device=device)
-
-        if not self:
-            raise ValueError(
-                f"Failed to create Embedder from descriptor set {descriptor_set}")
         logger.info(
             f"Created Embedder from descriptor set {descriptor_set}: {self}")
+
         return self
 
     @staticmethod
@@ -251,11 +264,11 @@ class Embedder():
         """Convert a PyTorch tensor to a NumPy array."""
         return tensor.float().cpu().numpy()
 
-    def embed_text(self, text: str) -> np.ndarray:
+    def embed_text(self, text: str) -> bytes:
         """Embed a single text input."""
         return self.embed_texts([text])[0]
 
-    def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
+    def embed_texts(self, texts: List[str]) -> List[bytes]:
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
 
         tokens = self._tokenize(texts)
@@ -268,9 +281,9 @@ class Embedder():
         assert all(f.shape[0] == self.dimensions for f in features), \
             f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
 
-        return features
+        return [features.tobytes() for features in features]
 
-    def embed_image(self, b: bytes) -> np.ndarray:
+    def embed_image(self, b: bytes) -> bytes:
         """Embed a single image input.
 
         Args:
@@ -281,7 +294,7 @@ class Embedder():
         """
         return self.embed_images([b])[0]
 
-    def embed_images(self, images: List[bytes]) -> List[np.ndarray]:
+    def embed_images(self, images: List[bytes]) -> List[bytes]:
         """Embed a list of images.
 
         Args:
@@ -318,7 +331,7 @@ class Embedder():
 
         assert all(f.shape[0] == self.dimensions for f in features), \
             f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
-        return features
+        return [features.tobytes() for features in features]
 
     def fingerprint(self, canonical_text: str = FINGERPRINT_TEXT) -> np.ndarray:
         result = self.embed_text(canonical_text)

@@ -17,7 +17,7 @@ def find_descriptor_set(client: Connector,
         descriptor_set_id (str): The ID of the descriptor set to find.
 
     Returns:
-        properties: Seleceted properties of the descriptor set
+        properties: Seleceted properties of the descriptor set, or None if not found.
     """
     _, response, _ = execute_query(
         client,
@@ -37,8 +37,7 @@ def find_descriptor_set(client: Connector,
             f"Unexpected response format for descriptor set {descriptor_set}: {response}")
 
     if "entities" not in response[0]["FindDescriptorSet"]:
-        # Specific error for missing descriptor set
-        raise DescriptorSetNotFoundError(descriptor_set)
+        return None
 
     entities = response[0]["FindDescriptorSet"]["entities"]
     if len(entities) == 0:
@@ -84,3 +83,21 @@ def add_descriptor_set(self,
         }
     }]
     execute_query(client, query)
+
+
+def delete_descriptor_set(client: Connector,
+                          descriptor_set: str) -> None:
+    """
+    Delete a descriptor set from the database.
+
+    Args:
+        client (Connector): The database client to execute the query.
+        descriptor_set (str): The ID of the descriptor set to delete.
+    """
+    query = [{
+        "DeleteDescriptorSet": {
+            "descriptor_set": descriptor_set
+        }
+    }]
+    execute_query(client, query)
+    logger.info(f"Descriptor set {descriptor_set} deleted.")
