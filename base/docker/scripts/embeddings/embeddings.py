@@ -7,6 +7,7 @@ from PIL import Image
 import logging
 from aperturedb.Connector import Connector
 from aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
+import inspect
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -123,6 +124,8 @@ class Embedder():
             )
             self.model.eval()
             self.tokenizer = open_clip.get_tokenizer(self.model_name)
+            self.context_length = context_length = inspect.signature(
+                self.tokenizer.__call__).parameters["context_length"].default
 
         elif self.provider == "clip":
             import clip
@@ -132,6 +135,8 @@ class Embedder():
                 model_id, device=self.device)
             self.model.eval()
             self.tokenizer = clip.tokenize
+            self.context_length = context_length = inspect.signature(
+                self.tokenizer).parameters["context_length"].default
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -150,6 +155,7 @@ class Embedder():
             "embeddings_model": self.model_name,
             "embeddings_pretrained": self.pretrained,
             "embeddings_fingerprint": self.fingerprint_hash(),
+            "embeddings_context_length": self.context_length,
         }
 
     @classmethod
@@ -364,4 +370,4 @@ class Embedder():
         return "CS"
 
     def __repr__(self):
-        return f"<Embedder {self.provider} {self.model_name} ({self.pretrained}) on {self.device}>"
+        return f"<Embedder {self.provider} {self.model_name} ({self.pretrained} for {self.descriptor_set}) on {self.device}>"
