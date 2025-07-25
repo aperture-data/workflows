@@ -1,5 +1,6 @@
 # Pull base image.
-FROM aperturedata/workflows-base
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-text-extraction
 RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt

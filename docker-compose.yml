@@ -1,0 +1,202 @@
+# define some macros for use later in the file
+x-definitions:
+    build-args: &build-args
+        VERSION: ${VERSION}
+        GITHUB_SHA_FULL: ${GITHUB_SHA_FULL}
+        BUILD_DATE: ${BUILD_DATE}
+        DESCRIPTION: ${DESCRIPTION}
+        SOURCE_URL: ${SOURCE_URL}
+    common-env: &common-env
+        DB_HOST: ${DB_HOST:-}
+        DB_PASS: ${DB_PASS:-}
+        APERTUREDB_KEY: ${APERTUREDB_KEY:-}
+    build-labels: &build-labels
+        org.opencontainers.image.vendor: "Aperture Data"
+        org.opencontainers.image.version: "${VERSION}"
+        org.opencontainers.image.revision: "${GITHUB_SHA_FULL}"
+        org.opencontainers.image.created: "${BUILD_DATE}"
+        org.opencontainers.image.description: "${DESCRIPTION}"
+        org.opencontainers.image.source: "${SOURCE_URL}"
+
+services:
+    # base image for all workflows; intended for build only
+    base:
+        build: 
+            context: ./base/docker
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-base:${VERSION}"
+        image: aperturedata/workflows-base:${VERSION}
+          
+    crawl-website:
+        build: 
+            context: ./apps/crawl-website
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
+        image: aperturedata/workflows-crawl-website:${VERSION}
+        environment:
+            <<: *common-env
+            WF_CLEAN: "${WF_CLEAN:-true}"
+            WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+
+    dataset-ingestion:
+        build: 
+            context: ./apps/dataset-ingestion
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
+        image: aperturedata/workflows-dataset-ingestion:${VERSION}
+        environment:
+            <<: *common-env
+            BATCH_SIZE: "${BATCH_SIZE:-100}"
+            NUM_WORKERS: "${NUM_WORKERS:-8}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
+            DATASET: "${DATASET:-coco}"
+            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
+            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"  
+
+    embeddings-extraction:
+        build: 
+            context: ./apps/embeddings-extraction
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
+        image: aperturedata/workflows-embeddings-extraction:${VERSION}
+        # Don't let this service kill your dev box
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 2G
+        environment:
+            <<: *common-env
+            MODEL_NAME: "${MODEL_NAME:-ViT-B/16}"
+            NUMTHREADS: "${NUMTHREADS:-4}"
+            CLEAN: "${CLEAN:-true}"
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            SLEEPING_TIME: "${SLEEPING_TIME:-30}"
+
+    jupyterlab:
+        build: 
+            context: ./apps/jupyterlab
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
+        image: aperturedata/workflows-jupyterlab:${VERSION}
+        ports:
+            - "8888:8888"
+        environment:
+            <<: *common-env
+            JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
+            PASSWORD: "${PASSWORD:-test}"
+
+    # Not a workflow, but useful for debugging mcp-server
+    mcp-inspector:
+        image: allfunc/mcp-inspector:0.14.0
+        ports:
+            - "6274:6274"
+            - "6277:6277"
+
+    mcp-server:
+        build: 
+            context: ./apps/mcp-server
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-mcp-server:${VERSION}"
+        image: aperturedata/workflows-mcp-server:${VERSION}
+        ports:
+            - "8001:8000"
+        environment:
+            <<: *common-env
+            WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
+            WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+
+    rag:
+        build: 
+            context: ./apps/rag
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-rag:${VERSION}"
+        image: aperturedata/workflows-rag:${VERSION}
+        ports:
+            - "8002:8000"
+        environment:
+            <<: *common-env
+            WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+            WF_TOKEN: "${WF_TOKEN:-test}"
+            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
+            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"           
+
+    text-embeddings:
+        build: 
+            context: ./apps/text-embeddings
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
+        image: aperturedata/workflows-text-embeddings:${VERSION}
+        environment:
+            <<: *common-env
+            WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+            WF_MODEL: "${WF_MODEL:-openclip ViT-B-32 laion2b_s34b_b79k}"
+            WF_ENGINE: "${WF_ENGINE:-HNSW}"
+            WF_CLEAN: "${WF_CLEAN:-true}"
+
+    text-extraction:
+        build: 
+            context: ./apps/text-extraction
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
+        image: aperturedata/workflows-text-extraction:${VERSION}
+        environment:
+            <<: *common-env
+            WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+            WF_CLEAN: "${WF_CLEAN:-true}"
+            WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+
+    # Put this last because it depends on the others
+    crawl-to-rag:
+        build: 
+            context: ./apps/crawl-to-rag
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-to-rag:${VERSION}"
+        image: aperturedata/workflows-crawl-to-rag:${VERSION}
+        ports:
+            - "8000:8000"
+        environment:
+            <<: *common-env
+            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-openai}"
+            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            WF_TOKEN: "${WF_TOKEN:-test}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+            WF_CLEAN: "${WF_CLEAN:-true}"
+            WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"

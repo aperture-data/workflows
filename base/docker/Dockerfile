@@ -4,9 +4,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     awscli \
-    unzip wget curl jq lsof\
-    python3-venv &&\
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    unzip \
+    wget \
+    curl \
+    jq \
+    lsof \
+    python3-venv \
+    git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Use virtual environment for pip install
 ENV VIRTUAL_ENV=/opt/venv
@@ -20,7 +25,10 @@ RUN ./google-cloud-sdk/install.sh
 ENV PATH=$PATH:/google-cloud-sdk/bin
 
 COPY requirements.txt /
-RUN pip install --upgrade -r /requirements.txt
+RUN pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir -r /requirements.txt
+
+RUN pip3 install --upgrade aperturedb
 
 RUN mkdir -p app/output
 
