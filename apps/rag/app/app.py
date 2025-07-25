@@ -37,8 +37,10 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
     from aimon import AsyncClient
     # Add your AIMON_API_KEY, get it from app.aimon.ai -> My Account -> Keys -> "Copy API Key"
     aimon_api_key = args.aimon_api_key
-    logger.info(f"AIMON_API_KEY: {aimon_api_key is not None}")
-    if aimon_api_key:
+    logger.info(f"WF_AIMON_API_KEY: {aimon_api_key is not None}")
+    logger.info(f"WF_AIMON_APP_NAME: {args.aimon_app_name}")
+    logger.info(f"WF_AIMON_LLM_MODEL_NAME: {args.aimon_llm_model_name}")
+    if aimon_api_key and args.aimon_app_name and args.aimon_llm_model_name:
         # The user query and generated text are important
         aimon_payload = {}
         # This is the user query that you sent to the original LLM
@@ -70,13 +72,10 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
 
         # Include application_name and model_name if publishing
         if aimon_payload["publish"]:
-            aimon_payload["application_name"] = os.environ.get(
-                args.aimon_app_name,
-                "ChatBot workflow"
-            )
+            aimon_payload["application_name"] = args.aimon_app_name
             # This is the LLM you used to generate the SQL query from text,
             # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
-            aimon_payload["model_name"] = os.environ.get(args.aimon_llm_model_name, args.llm_model)
+            aimon_payload["model_name"] = args.aimon_llm_model_name
 
         data_to_send = [aimon_payload]
 
@@ -92,7 +91,7 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
         resp_json = resp[0].instruction_adherence
         print(json.dumps(resp_json, indent='\t'))
     else:
-        logger.info("WF_AIMON_API_KEY not set, skipping AIMon analysis")
+        logger.info("WF_AIMON_API_KEY, WF_AIMON_APP_NAME, WF_AIMON_LLM_MODEL_NAME not set, skipping AIMon analysis")
         resp_json = {}
 
     return answer, new_history, rewritten_query, docs
