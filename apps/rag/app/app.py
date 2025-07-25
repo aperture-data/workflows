@@ -36,7 +36,7 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
     answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
     from aimon import AsyncClient
     # Add your AIMON_API_KEY, get it from app.aimon.ai -> My Account -> Keys -> "Copy API Key"
-    aimon_api_key = os.environ.get('AIMON_API_KEY', None)
+    aimon_api_key = args.aimon_api_key
     logger.info(f"AIMON_API_KEY: {aimon_api_key is not None}")
     if aimon_api_key:
         # The user query and generated text are important
@@ -70,10 +70,13 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
 
         # Include application_name and model_name if publishing
         if aimon_payload["publish"]:
-            aimon_payload["application_name"] = os.environ.get('AIMON_APP_NAME', "ChatBot workflow")
+            aimon_payload["application_name"] = os.environ.get(
+                args.aimon_app_name,
+                "ChatBot workflow"
+            )
             # This is the LLM you used to generate the SQL query from text,
             # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
-            aimon_payload["model_name"] = os.environ.get('LLM_MODEL_NAME', args.llm_model)
+            aimon_payload["model_name"] = os.environ.get(args.aimon_llm_model_name, args.llm_model)
 
         data_to_send = [aimon_payload]
 
@@ -89,7 +92,7 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
         resp_json = resp[0].instruction_adherence
         print(json.dumps(resp_json, indent='\t'))
     else:
-        logger.info("AIMON_API_KEY not set, skipping AIMon analysis")
+        logger.info("WF_AIMON_API_KEY not set, skipping AIMon analysis")
         resp_json = {}
 
     return answer, new_history, rewritten_query, docs
@@ -314,6 +317,7 @@ async def config(request: Request):
         "ready": True,
     }
     logger.info(f"Config: {config}")
+    assert config["host"] != "", "DB_HOST is not set"
     return JSONResponse(config)
 
 
@@ -446,6 +450,19 @@ def get_args(argv=[]):
     obj.add_argument('--allowed-origins',
                      help='Comma-separated list of allowed origins for CORS',
                      default="")
+
+    obj.add_argument('--aimon-api-key',
+                     help='API key for AIMON',
+                     default="")
+
+    obj.add_argument('--aimon-app-name',
+                     help='Name of the AIMON app',
+                     default="")
+
+    obj.add_argument('--aimon-llm-model-name',
+                     help='Name of the LLM model',
+                     default="")
+
 
     params = obj.parse_args(argv)
     return params
