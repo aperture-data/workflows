@@ -6,6 +6,12 @@ set -o pipefail # exit on pipe failure
 
 bg_pid="" # track background process ID
 NOT_READY_FILE=/workflows/rag/not-ready.txt
+STATUS_SCRIPT="/app/status.py"
+
+python $STATUS_SCRIPT --completed 0 \
+      --phases rag \
+      --phases preprocessing \
+      --phase preprocessing
 
 function log_status() {
     local message="$1"
@@ -71,7 +77,9 @@ function set_ready() {
 
 log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
 
-COMMON_PARAMETERS="DB_HOST DB_HOST_PUBLIC DB_HOST_PRIVATE_TCP DB_HOST_PRIVATE_HTTP DB_USER DB_PASS APERTUREDB_KEY"
+COMMON_PARAMETERS="DB_HOST DB_HOST_PUBLIC DB_HOST_PRIVATE_TCP DB_HOST_PRIVATE_HTTP HOSTNAME DB_USER DB_PASS APERTUREDB_KEY"
+
+
 
 # Run these in a separate thread so we can start the rag server
 (
@@ -98,4 +106,5 @@ trap cleanup EXIT
 
 echo "Running webserver for RAG API"
 
-with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS WF_AIMON_API_KEY WF_AIMON_APP_NAME WF_AIMON_LLM_MODEL_NAME
+
