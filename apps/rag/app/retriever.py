@@ -30,7 +30,7 @@ class Document:
 
 @dataclass
 class Retriever:
-    embeddings: "BatchEmbedder"
+    embeddings: "Embedder"
     descriptor_set: str
     search_type: str  # "mmr" or "similarity"
     k: int
@@ -39,7 +39,7 @@ class Retriever:
 
     def invoke(self, query: str) -> List[Document]:
         descriptors = Descriptors(self.client)
-        embedding = self.embeddings.embed_query(query)
+        embedding = self.embeddings.embed_text(query)
         if self.search_type == "mmr":
             descriptors.find_similar_mmr(
                 set=self.descriptor_set,

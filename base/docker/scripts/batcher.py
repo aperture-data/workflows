@@ -101,6 +101,8 @@ class SymbolicBatcher:
         self._ref_counter = 1
         self._batch_started = False
 
+        logger.info("Flushed %d commands", len(commands))
+
     def _assign_ref(self, obj: dict, field: str) -> None:
         if field not in obj:
             return
