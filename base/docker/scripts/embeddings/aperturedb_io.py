@@ -17,7 +17,7 @@ def find_descriptor_set(client: Connector,
         descriptor_set_id (str): The ID of the descriptor set to find.
 
     Returns:
-        properties: Seleceted properties of the descriptor set, or None if not found.
+        properties: Selected properties of the descriptor set, or None if not found.
     """
     _, response, _ = execute_query(
         client,
