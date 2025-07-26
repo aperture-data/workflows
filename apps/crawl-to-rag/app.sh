@@ -4,7 +4,6 @@ set -e # exit on error
 set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
-bg_pid="" # track background process ID
 NOT_READY_FILE=/workflows/rag/not-ready.txt
 
 function log_status() {
@@ -12,8 +11,6 @@ function log_status() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $message" >> $NOT_READY_FILE
     echo "*** $message"
 }
-
-trap 'log_status "An error occurred at line $LINENO"; exit 1' ERR
 
 function uuid() {
     python3 -c 'import uuid; print(uuid.uuid4())'
@@ -53,7 +50,7 @@ with_env_only() {
     echo "Running $command"
 
     cd /workflows/$command || exit 1
-    env -i "${env_args[@]}" bash app.sh
+    env -i "${env_args[@]}" bash -e app.sh
 }
 
 function cleanup() {
@@ -90,12 +87,30 @@ COMMON_PARAMETERS="DB_HOST DB_USER DB_PASS APERTUREDB_KEY"
     log_status "Text-embeddings complete"
     set_ready
 )&
-bg_pid=$!
+pipeline_pid=$!
 
-# Trap ERR and script exit
-trap 'fatal $LINENO' ERR
-trap cleanup EXIT
+(
+    echo "Running webserver for RAG API"
 
-echo "Running webserver for RAG API"
+    with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+)&
+server_pid=$!
 
-with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_MODEL WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+# Wait for pipeline to complete
+set +e
+wait $pipeline_pid
+pipeline_status=$?
+set -e
+
+echo "Pipeline completed with status $pipeline_status"
+
+if [ $pipeline_status -ne 0 ]; then
+    echo "Pipeline failed with status $pipeline_status, shutting down server"
+    kill $server_pid 2>/dev/null || true
+    pkill -f 'uvicorn' || true
+    wait $server_pid 2>/dev/null || true
+    exit $pipeline_status
+fi
+
+# Wait on server forever
+wait $server_pid

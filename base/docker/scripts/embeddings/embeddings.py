@@ -6,7 +6,6 @@ import cv2
 from PIL import Image
 import logging
 from aperturedb.Connector import Connector
-from aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
 import inspect
 
 # Set up logging
@@ -54,7 +53,7 @@ class Embedder():
     * `embed_image`: Embed a single image input.
     * `embed_images`: Embed a list of images.
 
-    All of these methods return a raw bytes representation of the embedded vector, which can be used as a blob in an ApertureDB query.
+    All of these methods return a the embedded vectors as Numpy arrays. To use this as a blob in an ApertureDB query call `tobytes()`.
     """
 
     def __init__(self,
@@ -124,7 +123,7 @@ class Embedder():
             )
             self.model.eval()
             self.tokenizer = open_clip.get_tokenizer(self.model_name)
-            self.context_length = context_length = inspect.signature(
+            self.context_length = inspect.signature(
                 self.tokenizer.__call__).parameters["context_length"].default
 
         elif self.provider == "clip":
@@ -135,7 +134,7 @@ class Embedder():
                 model_id, device=self.device)
             self.model.eval()
             self.tokenizer = clip.tokenize
-            self.context_length = context_length = inspect.signature(
+            self.context_length = inspect.signature(
                 self.tokenizer).parameters["context_length"].default
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
@@ -155,21 +154,21 @@ class Embedder():
             "embeddings_model": self.model_name,
             "embeddings_pretrained": self.pretrained,
             "embeddings_fingerprint": self.fingerprint_hash(),
-            "embeddings_context_length": self.context_length,
         }
 
     @classmethod
-    def from_properties(cls, properties: dict,
+    def from_properties(cls,
+                        properties: dict,
+                        descriptor_set: str,
                         device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
         """Create an Embedder instance from properties."""
         provider = properties.get("embeddings_provider")
         model_name = properties.get("embeddings_model")
         pretrained = properties.get("embeddings_pretrained")
-        descriptor_set = properties.get("descriptor_set")
 
         if not provider or not model_name or not pretrained:
             raise ValueError(
-                "Properties must contain 'embeddings_provider', 'embeddings_model', and 'embeddings_pretrained'.")
+                f"Properties must contain 'embeddings_provider', 'embeddings_model', and 'embeddings_pretrained': {descriptor_set} - {properties}.")
 
         return cls(provider=provider,
                    model_name=model_name,
@@ -200,6 +199,11 @@ class Embedder():
             device (str): The device to run the model on. Default is to auto-detect.
             clean (bool): If True, delete the existing descriptor set before creating a new one. If the descriptor set already exists, and the embedder is compatible, it will be extended with new embeddings. If it is not compatible, an error will be raised. Default is False.
         """
+        logger.info(
+            f"Creating Embedder for descriptor set '{descriptor_set}' with provider '{provider}', model '{model_name}', pretrained '{pretrained}', engine '{engine}', device '{device}, clean={clean}'")
+
+        from .aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
+        properties = None
 
         if clean:
             delete_descriptor_set(client, descriptor_set)
@@ -247,11 +251,17 @@ class Embedder():
 
     @classmethod
     def from_existing_descriptor_set(cls,
+                                     client: Connector,
                                      descriptor_set: str,
                                      device: str = None,
                                      ) -> "Embedder":
         """Create an instance from a descriptor set name."""
-        properties = find_descriptor_set(descriptor_set)
+        logger.info(
+            f"Creating Embedder from existing descriptor set '{descriptor_set}' on device '{device}'")
+
+        from .aperturedb_io import find_descriptor_set
+
+        properties = find_descriptor_set(client, descriptor_set)
         if not properties:
             raise ValueError(
                 f"Descriptor set '{descriptor_set}' not found.")
@@ -265,16 +275,21 @@ class Embedder():
 
         return self
 
+    @property
+    def model_spec(self) -> str:
+        """Return a string representation of the model specification."""
+        return f"{self.provider} {self.model_name} {self.pretrained}"
+
     @staticmethod
     def _as_numpy(tensor: torch.Tensor) -> np.ndarray:
         """Convert a PyTorch tensor to a NumPy array."""
         return tensor.float().cpu().numpy()
 
-    def embed_text(self, text: str) -> bytes:
+    def embed_text(self, text: str) -> np.ndarray:
         """Embed a single text input."""
         return self.embed_texts([text])[0]
 
-    def embed_texts(self, texts: List[str]) -> List[bytes]:
+    def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
 
         tokens = self._tokenize(texts)
@@ -287,20 +302,20 @@ class Embedder():
         assert all(f.shape[0] == self.dimensions for f in features), \
             f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
 
-        return [features.tobytes() for features in features]
+        return features
 
-    def embed_image(self, b: bytes) -> bytes:
+    def embed_image(self, b: bytes) -> np.ndarray:
         """Embed a single image input.
 
         Args:
             image (bytes): The image data in bytes format (JPEG/PNG).
 
         Returns:
-            np.ndarray: The embedded vector for the image.
+            vector (Numpy array): The embedded vector for the image.
         """
         return self.embed_images([b])[0]
 
-    def embed_images(self, images: List[bytes]) -> List[bytes]:
+    def embed_images(self, images: List[bytes]) -> List[np.ndarray]:
         """Embed a list of images.
 
         Args:
@@ -337,12 +352,10 @@ class Embedder():
 
         assert all(f.shape[0] == self.dimensions for f in features), \
             f"Expected all embeddings to have {self.dimensions} dimensions, got {[f.shape[0] for f in features]}"
-        return [features.tobytes() for features in features]
+        return features
 
     def fingerprint(self, canonical_text: str = FINGERPRINT_TEXT) -> np.ndarray:
         result = self.embed_text(canonical_text)
-        assert self.dimensions == result.shape[0], \
-            f"Expected {self.dimensions} dimensions, got {result.shape[0]}"
         return result
 
     def fingerprint_hash(self, canonical_text: str = FINGERPRINT_TEXT) -> str:
@@ -362,7 +375,6 @@ class Embedder():
         print(f"[INFO] Embedding Dim: {self.dimensions}")
         print(
             f"[INFO] Fingerprint Hash: {self.fingerprint_hash(canonical_text)}")
-        print(f"[INFO] First 5 dims: {np.round(vec[:5], 4).tolist()}")
 
     @property
     def metric(self):

@@ -1,13 +1,13 @@
 from typing import Optional
-from aperturdb.CommonLibrary import execute_query
-from aperturdb.Connector import Connector
+from aperturedb.CommonLibrary import execute_query
+from aperturedb.Connector import Connector
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def find_descriptor_set(client: Connector,
-                        descriptor_set_id: str
+                        descriptor_set: str
                         ) -> Optional[dict]:
     """
     Find a descriptor set by its ID.
@@ -37,6 +37,7 @@ def find_descriptor_set(client: Connector,
             f"Unexpected response format for descriptor set {descriptor_set}: {response}")
 
     if "entities" not in response[0]["FindDescriptorSet"]:
+        logger.warning(f"No entities found in descriptor set {descriptor_set}")
         return None
 
     entities = response[0]["FindDescriptorSet"]["entities"]
@@ -49,17 +50,20 @@ def find_descriptor_set(client: Connector,
 
     properties = entities[0]
 
+    logger.info(
+        f"Found descriptor set {descriptor_set} with properties: {properties}")
+
     return properties
 
 
-def add_descriptor_set(self,
-                       client: Connector,
-                       descriptor_set: str,
-                       metric: str,
-                       dimensions: int,
-                       engine: str,
-                       properties: Optional[dict] = None,
-                       ) -> None:
+def add_descriptor_set(
+    client: Connector,
+    descriptor_set: str,
+    metric: str,
+    dimensions: int,
+    engine: str,
+    properties: Optional[dict] = None,
+) -> None:
     """
     Add a new descriptor set to the database.
 
@@ -73,9 +77,11 @@ def add_descriptor_set(self,
     Returns:
         str: The ID of the newly created descriptor set.
     """
+    logger.info(
+        f"Adding descriptor set {descriptor_set} with metric {metric}, dimensions {dimensions}, engine {engine}, properties {properties}")
     query = [{
         "AddDescriptorSet": {
-            "descriptor_set": descriptor_set,
+            "name": descriptor_set,
             "metric": metric,
             "dimensions": dimensions,
             "engine": engine,
@@ -83,6 +89,9 @@ def add_descriptor_set(self,
         }
     }]
     execute_query(client, query)
+    if not client.last_query_ok():
+        raise RuntimeError(
+            f"Failed to add descriptor set {descriptor_set}: {query} {client.get_last_response_str()}")
 
 
 def delete_descriptor_set(client: Connector,
@@ -96,8 +105,11 @@ def delete_descriptor_set(client: Connector,
     """
     query = [{
         "DeleteDescriptorSet": {
-            "descriptor_set": descriptor_set
+            "with_name": descriptor_set
         }
     }]
     execute_query(client, query)
+    if not client.last_query_ok():
+        raise RuntimeError(
+            f"Failed to add descriptor set {descriptor_set}: {query} {client.get_last_response_str()}")
     logger.info(f"Descriptor set {descriptor_set} deleted.")

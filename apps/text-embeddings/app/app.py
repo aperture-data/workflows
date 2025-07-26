@@ -1,6 +1,7 @@
 from aperturedb_io import AperturedbIO
 from wf_argparse import ArgumentParser
 import logging
+from aperturedb.CommonLibrary import create_connector
 
 from embeddings import Embedder, DEFAULT_MODEL
 from schema import Embedding
@@ -14,7 +15,13 @@ def run_text_embeddings(args):
     segmentation_spec_id = args.input
     embedding_id = args.output
 
-    embedder = Embedder(model_spec=args.model)
+    client = create_connector()
+    embedder = Embedder.from_new_descriptor_set(
+        client=client,
+        descriptor_set=args.descriptorset,
+        **Embedder.parse_string(args.model),
+        clean=args.clean,
+    )
 
     input_spec_id = args.input
     spec_id = args.output
@@ -42,13 +49,13 @@ def run_text_embeddings(args):
             # continue
         io.ensure_output_does_not_exist()
         io.create_spec()
-        io.create_descriptorset()
+        io.connect_descriptor_set()
 
         for segment in io.get_segments():
             try:
                 logger.debug(f"Processing segment {segment.id}")
                 # Embed the segment text
-                v = embedder.embed(segment.text)
+                v = embedder.embed_text(segment.text)
                 embedding = Embedding(
                     segment_id=segment.id,
                     url=segment.url,
@@ -58,8 +65,8 @@ def run_text_embeddings(args):
                 )
                 io.create_embedding(embedding)
             except Exception as e:
-                logger.error(f"Error processing segment {segment.id}: {e}")
-                # continue
+                logger.exception(f"Error processing segment {segment.id}")
+                raise
 
     logger.info("Done.")
 
@@ -120,6 +127,8 @@ def get_args():
 
     if params.descriptorset is None:
         params.descriptorset = params.output
+
+    logger.info(f"Parsed arguments: {params}")
 
     return params
 

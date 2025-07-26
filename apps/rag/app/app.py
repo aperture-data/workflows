@@ -12,8 +12,7 @@ import os
 from aperturedb.CommonLibrary import create_connector
 import asyncio
 
-from embeddings import BatchEmbedder
-from embeddings import DEFAULT_MODEL as EMBEDDING_MODEL
+from embeddings import Embedder
 from rag import QAChain
 from context_builder import ContextBuilder
 from retriever import Retriever
@@ -21,16 +20,17 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
 logger = logging.getLogger(__name__)
 
 APP_PATH = "/rag"
+SLEEP_TIME = 3  # seconds to wait before checking if the app is ready
 
 ready = False
 allowed_origins = ""
 
 start_time = time.time()
 startup_time = None
+
 
 async def query_with_aimon(query: str, history: Optional[str] = None):
     answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
@@ -46,8 +46,11 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
         # This is the generated response from the original LLM
         aimon_payload["generated_text"] = answer
         # This is the instructions that you want to evaluate
-        aimon_payload["instructions"] = ["Ensure that the output is correct and is derived from the provided context."]
-        aimon_payload["context"] = [docs.page_content for docs in docs] + [history]  # The context is the documents retrieved by the retriever
+        aimon_payload["instructions"] = [
+            "Ensure that the output is correct and is derived from the provided context."]
+        # The context is the documents retrieved by the retriever
+        aimon_payload["context"] = [
+            docs.page_content for docs in docs] + [history]
 
         # This configuration invokes AIMon's "instruction_adherence" model
         # that validates if an LLM response has been
@@ -70,19 +73,19 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
 
         # Include application_name and model_name if publishing
         if aimon_payload["publish"]:
-            aimon_payload["application_name"] = os.environ.get('AIMON_APP_NAME', "ChatBot workflow")
+            aimon_payload["application_name"] = os.environ.get(
+                'AIMON_APP_NAME', "ChatBot workflow")
             # This is the LLM you used to generate the SQL query from text,
             # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
-            aimon_payload["model_name"] = os.environ.get('LLM_MODEL_NAME', args.llm_model)
+            aimon_payload["model_name"] = os.environ.get(
+                'LLM_MODEL_NAME', args.llm_model)
 
         data_to_send = [aimon_payload]
-
 
         async def call_aimon():
             async with AsyncClient(auth_header=f"Bearer {aimon_api_key}") as aimon:
                 resp = await aimon.inference.detect(body=data_to_send)
                 return resp
-
 
         # Await on
         resp = await call_aimon()
@@ -93,6 +96,7 @@ async def query_with_aimon(query: str, history: Optional[str] = None):
         resp_json = {}
 
     return answer, new_history, rewritten_query, docs
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -165,6 +169,7 @@ async def ask_post(request: Request,
     query = body.get("query")
     history = body.get("history")
     return await ask(request, authorization, token, query, history)
+
 
 async def ask(request: Request,
               authorization: str,
@@ -305,7 +310,6 @@ async def config(request: Request):
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
-        "embedding_model": args.model,
         "input": args.input,
         "n_documents": args.n_documents,
         "host": os.getenv("DB_HOST", ""),
@@ -345,11 +349,13 @@ def verify_token(auth_header: str = Header(None), token_cookie: str = Cookie(Non
         )
 
 
-def get_retriever(descriptorset_name: str, model: str, k: int):
+def get_retriever(descriptorset_name: str, k: int):
     """Build the retriever for the given descriptorset and model."""
-    embeddings = BatchEmbedder(model)
+    client = create_connector()
+    embedder = Embedder.from_existing_descriptor_set(
+        client, descriptorset_name)
     retriever = Retriever(
-        embeddings=embeddings,
+        embeddings=embedder,
         descriptor_set=descriptorset_name,
         search_type="mmr",  # "similarity" or "mmr"
         k=k,
@@ -357,6 +363,15 @@ def get_retriever(descriptorset_name: str, model: str, k: int):
         client=create_connector(),
     )
     return retriever
+
+
+def read_not_ready_file(path="not-ready.txt") -> Optional[str]:
+    """Read the not-ready file if it exists."""
+    try:
+        with open(path, "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
 
 
 def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
@@ -369,12 +384,8 @@ def get_not_ready_status(path="not-ready.txt") -> Optional[dict]:
         logger.info("App is not ready yet")
         return {"ready": False, "detail": "App is not ready yet"}
 
-    # Check for a not-ready file; created when composed with other workflows
-    try:
-        with open(path, "r") as f:
-            return {"ready": False, "detail": f.read()}
-    except FileNotFoundError:
-        return None
+    if detail := read_not_ready_file(path):
+        return {"ready": False, "detail": detail}
 
 
 async def main(args):
@@ -389,10 +400,17 @@ async def main(args):
     global llm
     llm = load_llm(args.llm_provider, args.llm_model, args.llm_api_key)
 
-    global retriever
-    retriever = get_retriever(args.input, args.model, args.n_documents)
-
     context_builder = ContextBuilder()
+
+    global retriever
+
+    # We can't create the retriever until we're ready
+    while read_not_ready_file():
+        logger.info("Waiting for not-ready file to be removed...")
+        await asyncio.sleep(SLEEP_TIME)
+
+    retriever = get_retriever(args.input, args.n_documents)
+
     global qa_chain
     qa_chain = QAChain(retriever, context_builder, llm)
 
@@ -426,8 +444,8 @@ def get_args(argv=[]):
                      default='INFO')
 
     obj.add_argument('--model',
-                     help='The embedding model to use, of the form "backend model pretrained',
-                     default=EMBEDDING_MODEL)
+                     #  deprecated=True, # Python 3.13+
+                     help='DEPRECATED')
 
     obj.add_argument('--token',
                      help='The token required to use the API',
@@ -448,8 +466,9 @@ def get_args(argv=[]):
                      default="")
 
     params = obj.parse_args(argv)
+    del params.model  # no longer used; reads from descriptor set
+
     return params
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
-
