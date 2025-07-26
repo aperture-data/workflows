@@ -112,7 +112,7 @@ class Embedder():
 
     def _load_model(self):
         """Load the model based on the provider, model name, and pretrained corpus."""
-        # TOOD: Consider caching this so that multiple instances of Embedder
+        # TODO: Consider caching this so that multiple instances of Embedder
         # with the same provider, model name, and pretrained corpus can share the same model.
         if self.provider == "openclip":
             import open_clip
