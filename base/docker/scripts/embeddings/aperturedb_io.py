@@ -25,7 +25,7 @@ def find_descriptor_set(client: Connector,
             "FindDescriptorSet": {
                 "with_name": descriptor_set,
                 "results": {
-                    "list": ['embeddings_provider', 'embeddings_model', 'embeddings_pretrained', 'embeddings_fingerprint',]
+                    "list": ['embeddings_provider', 'embeddings_model', 'embeddings_pretrained', 'embeddings_fingerprint']
                 },
                 "metrics": True,
                 "dimensions": True,
