@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Get the directory this script is in
+BIN_DIR=$(dirname "$(readlink -f "$0")")
+cd "$BIN_DIR"
+
 bash ../build.sh
 export WORKFLOW_NAME="face-detection"
 RUNNER_NAME="$(whoami)"

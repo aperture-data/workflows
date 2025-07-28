@@ -12,6 +12,7 @@ import clip
 from typing import Iterable, Tuple, List
 
 from aperturedb import QueryGenerator
+from connection_pool import ConnectionPool
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
     def __init__(self, db, descriptor_set: str, model_name):
 
-        self.db = db
+        self.pool = ConnectionPool(connection_factory=db.clone)
         self.model_name = model_name
         self.descriptor_set = descriptor_set
 
@@ -59,7 +60,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = db.query(query)
+        _, response, _ = self.pool.execute_query(query)
 
         try:
             total_pdfs = response[0]["FindBlob"]["count"]
@@ -223,11 +224,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     })
                     vectors.append(embedding)
 
-                db = self.db.clone()
-                r, _ = db.query(query, vectors)
-
-                if not db.last_query_ok():
-                    db.print_last_response()
+                _, r, _ = self.pool.execute_query(query, vectors)
 
             # Finally mark the blob as processed
             query = []
@@ -249,11 +246,8 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                 }
             })
             total_segments += blob_segments
-            db = self.db.clone()
-            r, _ = db.query(query)
+            _, r, _ = self.pool.execute_query(query)
 
-            if not db.last_query_ok():
-                db.print_last_response()
             logger.debug(
                 f"Processed {blob_segments} segments for uniqueid {uniqueid}.")
 
