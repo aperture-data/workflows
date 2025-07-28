@@ -5,6 +5,12 @@ set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
 NOT_READY_FILE=/workflows/rag/not-ready.txt
+STATUS_SCRIPT="/app/status.py"
+
+python $STATUS_SCRIPT --completed 0 \
+      --phases rag \
+      --phases preprocessing \
+      --phase preprocessing
 
 function log_status() {
     local message="$1"
@@ -68,17 +74,19 @@ function set_ready() {
 
 log_status "Starting crawl-to-rag workflow: $WF_OUTPUT"
 
-COMMON_PARAMETERS="DB_HOST DB_USER DB_PASS APERTUREDB_KEY"
+COMMON_PARAMETERS="DB_HOST DB_HOST_PUBLIC DB_HOST_PRIVATE_TCP DB_HOST_PRIVATE_HTTP HOSTNAME DB_USER DB_PASS APERTUREDB_KEY"
+
+
 
 # Run these in a separate thread so we can start the rag server
 (
     log_status "Starting crawl"
 
-    with_env_only crawl-website $COMMON_PARAMETERS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN 
+    with_env_only crawl-website $COMMON_PARAMETERS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN
 
     log_status "Crawl complete; starting text-extraction"
 
-    with_env_only text-extraction $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR 
+    with_env_only text-extraction $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR
 
     log_status "Text-extraction complete; starting text-embeddings"
 
