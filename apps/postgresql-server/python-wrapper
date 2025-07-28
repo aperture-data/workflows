@@ -1,0 +1,5 @@
+#!/bin/bash
+echo "$0 called with: $@" >> /tmp/python-wrapper.log
+export PYTHONPATH="/opt/venv/lib/python3.10/site-packages"
+env >>/tmp/python-wrapper.log
+exec /opt/venv/bin/python3 "$@"

@@ -9,17 +9,15 @@ if [ -z "$POSTGRES_PASSWORD" ]; then
   exit 1
 fi
 
-echo "Checking multicorn2 installation..."
-/usr/bin/python3 -c "import multicorn; print(multicorn.__file__)"
-
-/usr/bin/python3 -c "import multicorn; print(dir(multicorn))"
-
 # Start PostgreSQL in the background
 echo "Starting PostgreSQL..."
+# export PYTHONPATH="/opt/venv/lib/python3.10/site-packages:/app"
 /etc/init.d/postgresql start
 
-sleep 2
-/usr/bin/python3 -c "import multicorn; import sys; print(multicorn.__file__); print(sys.path)"
+until pg_isready -U postgres -h /var/run/postgresql ; do
+  echo "Waiting for postgres..."
+  sleep 1
+done
 
 # Set the password for the default 'postgres' user
 echo "Setting postgres password..."
@@ -32,17 +30,15 @@ run_psql() {
   su - postgres -c "psql -d ${DATABASE} -c \"$1\""
 }
 
+echo grep multicorn.python /etc/postgresql/14/main/postgresql.conf
+grep multicorn.python /etc/postgresql/14/main/postgresql.conf
+
 run_psql "CREATE EXTENSION IF NOT EXISTS multicorn;"
-# ls $(pg_config --pkglibdir)
-# strings $(pg_config --pkglibdir)/multicorn.so | grep -i python | grep lib 
-# find / -name libpython3.10.so.1.0 2>/dev/null
-# run_psql "SHOW shared_preload_libraries;"
-# run_psql "SHOW python_path;"
-run_psql "SELECT * FROM pg_extension WHERE extname = 'multicorn';"
-run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn OPTIONS (wrapper 'fwd.FDW');"
+run_psql "SHOW multicorn.python;"
+# /opt/venv/bin/python-wrapper -c "import multicorn; print('success')"
+run_psql "SHOW config_file;"
+run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');"
 run_psql "IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;"
 
-# Optional: log running databases
-echo "Current databases:"
-su - postgres -c "psql -U postgres -c \"\\l\""
-
+echo "Setup complete. Tailing logs to keep container alive..."
+tail -f /var/log/postgresql/postgresql-14-main.log

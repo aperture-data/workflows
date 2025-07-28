@@ -1,4 +1,21 @@
-from multicorn import ForeignDataWrapper
+import sys
+sys.path.insert(0, "/opt/venv/lib/python3.10/site-packages")
+
+with open("/tmp/fdw_hook.log", "w") as f:
+    f.write("FDW __init__ loaded\n")
+    f.write("\n".join(sys.path))
+
+with open("/tmp/fdw_hook2.log", "w") as f:
+    try:
+        from multicorn import ForeignDataWrapper
+        f.write("Successfully imported ForeignDataWrapper\n")
+        f.flush()
+    except Exception as e:
+        import traceback
+        f.write("FAILED to import multicorn:\n")
+        traceback.print_exc(file=f)
+        f.flush()
+        raise
 
 
 class FDW(ForeignDataWrapper):
@@ -17,3 +34,6 @@ class FDW(ForeignDataWrapper):
                 "options": {"dummy_option": "value"}
             }
         ]
+
+
+print("FDW class defined successfully")

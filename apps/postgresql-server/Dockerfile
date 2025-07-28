@@ -18,7 +18,11 @@ RUN apt-get install -y --no-install-recommends \
     libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
+RUN apt-get remove -y postgresql-${POSTGRES_VERSION}-multicorn || true
+
 RUN set -ex  && pg_config --version  # should return "PostgreSQL 14.x"
+
+COPY sitecustomize.py /opt/venv/lib/python3.10/site-packages/sitecustomize.py
 
 ARG MULTICORN_VERSION=v3.0
 
@@ -29,24 +33,24 @@ RUN git clone --branch ${MULTICORN_VERSION} https://github.com/pgsql-io/multicor
     make install PG_CONFIG=/usr/bin/pg_config && \
     rm -rf /tmp/multicorn2
 
-RUN echo 'export PYTHONPATH=/app' > /etc/profile.d/postgres-pyenv.sh
-RUN echo "multicorn.python = '/usr/bin/python3'" >> /etc/postgresql/14/main/postgresql.conf
+COPY python-wrapper /opt/venv/bin
+RUN echo "multicorn.python = '/opt/venv/bin/python-wrapper'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 
-# Install special Python dependencies; must bypsss normal venv
-# RUN apt-get update && apt-get install -y python3-pip
+# Install Python dependencies
 # COPY requirements.txt /requirements.txt
-# RUN /usr/bin/python3 -m pip install --no-cache-dir -r /requirements.txt
+# RUN pip install --no-cache-dir -r /requirements.txt
+RUN apt-get update && apt-get install -y \
+  python3-pip python3-dev libpq-dev build-essential \
+  && unset VIRTUAL_ENV \
+  && /usr/bin/pip3 install "git+https://github.com/pgsql-io/multicorn2.git"
 
-# Ensure system Python and pip are available
-RUN apt-get update && apt-get install -y python3-pip git
-
-# Install multicorn2 system-wide (outside any venv)
-RUN /usr/bin/python3 -m pip install --no-cache-dir git+https://github.com/pgsql-io/multicorn2.git@${MULTICORN_VERSION}
-# RUN /usr/bin/python3 -c "import multicorn; print(multicorn.__file__)"
+# Install the FDW (Foreign Data Wrapper)
+COPY fdw /fdw
+RUN cd /fdw && unset VIRTUAL_ENV && /usr/bin/pip3 install .
 
 # Copy the application code
 COPY app /app/
-ENV PYTHONPATH="/app:$PYTHONPATH"
+ENV MULTICORN_PYTHON="/opt/venv/bin/python3"
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 
 EXPOSE 5432
