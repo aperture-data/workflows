@@ -230,11 +230,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                 }
             })
             total_segments += blob_segments
-            with self.pool.get_connection() as db:
-                r, _ = db.query(query)
-
-                if not db.last_query_ok():
-                    db.print_last_response()
+            _, r, _ = self.pool.execute_query(query)
 
             logger.debug(
                 f"Processed {blob_segments} segments for uniqueid {uniqueid}.")
