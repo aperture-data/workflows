@@ -69,11 +69,7 @@ def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_thr
 
         q.append(abb)
 
-    with pool.get_connection() as db:
-        db.query(q)
-
-        if not db.last_query_ok():
-            db.print_last_response()
+    pool.execute_query(q)
 
 
 def cleanup_bboxes_from_aperturedb(pool, source):
