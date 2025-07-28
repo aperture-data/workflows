@@ -60,7 +60,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = self.pool.query(query)
+        _, response, _ = self.pool.execute_query(query)
 
         try:
             total_pdfs = response[0]["FindBlob"]["count"]
