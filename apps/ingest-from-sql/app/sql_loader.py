@@ -90,8 +90,14 @@ def get_args():
         help="Tables to ignore") 
     obj.add_argument( '--columns-to-ignore', default=None, type=utils.CommandlineType.column_list,
         help="Columns to ignore") 
-    obj.add_argument('-M', '--table-to-entity-mapping', default=None, type=utils.CommandlineType.item_map,
+    obj.add_argument( '--table-to-entity-mapping', default=None, type=utils.CommandlineType.item_map,
         help="Mapping of table names to entity names") 
+
+    # connection options
+    obj.add_argument( '--foriegn-key-entity-mapping', default=None, type=utils.CommandlineType.item_map,
+        help="Mapping of foriegn keys to their source table and column")
+    obj.add_argument( '--automatic-foreign-key', default=False, type=utils.CommandlineType.item_map,
+        help="Enable mapping of regularly named forign keys")
 
     # cleaning options
     obj.add_argument("--clean",type=bool,default=False,

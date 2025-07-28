@@ -19,30 +19,37 @@ def generate(args):
     to_split=[]
     pk_col=None
     print("* Examining columns in input data")
+    data_cols = 0
     for c in df.columns:
+        print( f" - [{c}]")
         if c == args.link:
             has_link_column=True
         if c.startswith("blob_"):
             print(f"removing blob column: {c}")
             to_split.append(c)
-        if c.startswith("pk_"):
-            if pk_col is not None:
-                raise Exception("already has pk")
-            pk_col=c
-            pk_rename=c[len("pk_"):]
-            has_link_column=True
-            args.link = pk_rename
+        else:
+            data_cols = data_cols + 1
+            if c.startswith("pk_"):
+                if pk_col is not None:
+                    raise Exception("already has pk")
+                pk_col=c
+                pk_rename=c[len("pk_"):]
+                has_link_column=True
+                args.link = pk_rename
 
 
+    plur = "s" if data_cols != 1 else ""
+    print(f" - {data_cols} Data Column{plur}")
     if pk_col is not None:
+        print(f" - pk is {pk_col} -> {pk_rename}")
         df.rename(columns={pk_col:pk_rename},inplace=True)
 
+    table_name = Path(Path(args.source).name).stem
     if to_split:
 
         if not has_link_column:
             raise Exception("Can't split blob column out, missing link column in data")
 
-        table_name = Path(Path(args.source).name).stem
         gp = Path(args.generated_path)
         if not gp.exists():
             gp.mkdir()
@@ -57,6 +64,12 @@ def generate(args):
         blob_df = df.drop(labels=non_blob_cols,axis=1)
         base.to_csv(base_name, index=False)
         blob_df.to_csv( blobs_name,index=False)
+    elif pk_col is not None:
+        gp = Path(args.generated_path)
+        if not gp.exists():
+            gp.mkdir()
+        base_name = gp / '{}.csv'.format(table_name)
+        df.to_csv(base_name, index=False)
  
     print(f"* Creating property data for {table_name}")
     cmd=f"csvsql --db {args.connection_string} --insert {base_name}" 

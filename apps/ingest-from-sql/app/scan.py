@@ -5,6 +5,7 @@ import subprocess
 import sys
 import fnmatch
 from typing import List
+from dataclasses import dataclass
 
 from sqlalchemy import insert, update, Table, Column, Integer, LargeBinary, MetaData, BLOB, String
 from sqlalchemy import URL,create_engine
@@ -13,12 +14,16 @@ import sqlalchemy as sql
 
 import utils
 
+from typing import TypedDict 
+
 
 
 def scan(engine:sql.Engine,
         image_tables:list, pdf_tables:list,
         table_ignore_list:list, column_ignore_list:list,
         url_columns:list, table_to_entity_map:dict,
+        automatic_fk_mapping:bool,
+        fk_map:dict,
         error_on_unused_binary:bool ) -> List[utils.TableSpec] :
 
     selected_tables = []
@@ -34,6 +39,24 @@ def scan(engine:sql.Engine,
         url_columns = []
     if table_to_entity_map is None:
         table_to_entity_map = {}
+    if fk_map is None:
+        fk_map = {}
+
+    @dataclass
+    class FkColMapping:
+        col:Column
+        table:Table
+        is_automatic:bool
+        target:str = None
+
+
+    class FkMap(TypedDict):
+        x: str
+        y: FkColMapping
+    potential_fks = FkMap() # maps a potential fk column to its source
+    all_cols = {} # all used colds that aren't fks ( and thus potential targets)
+    create_connections = automatic_fk_mapping or len(fk_map.keys()) != 0
+
 
     with engine.connect() as conn:
         meta = MetaData()
@@ -88,10 +111,34 @@ def scan(engine:sql.Engine,
                     print(" - Skipped")
                     continue
 
+                fk_is_ignored = False
+                fk_used = False
+
+                for name in fk_map.keys():
+                    if name == col.name:
+                        # force fk key to be 
+                        if fk_map[name] == "":
+                            fk_is_ignored = True
+                        else:
+                            print(" - Foriegn Key")
+                            fkm = FkColMapping(table=table, col=col, is_automatic=False)
+                            fkm.target = fk_map[name]
+                            potential_fks[full_col_name] = fkm 
+                            
+                            continue
+
+                if automatic_fk_mapping and not fk_is_ignored:
+                    if col.name.startswith("fk_"):
+                        potential_fks[full_col_name] = FkColMapping(table=table,
+                                col=col, is_automatic=True)
+                        print(" - Foriegn Key (Auto)")
+                        continue
+                    # could do auto on foriegn key def in db.
+
                 for pat in url_columns:
-                    if fnmatch.fnmatch("{}.{}".format(table.name, col.name), pat):
-                        is_url = True
-                        break
+                    if fnmatch.fnmatch( full_col_name,pat):
+                            is_url = True
+                            break
 
                 if is_url:
                     if is_binary: 
@@ -111,6 +158,8 @@ def scan(engine:sql.Engine,
                     print("")
                     used_cols.append(col.name)
 
+                all_cols[full_col_name] = [ table, col ]
+
 
             if has_binary:
                 if not expect_binary:
@@ -129,6 +178,25 @@ def scan(engine:sql.Engine,
                 utils.TableSpec(table=table,prop_columns=used_cols,
                     url_columns=url_cols,bin_columns=bin_cols,name=entity_name,
                     entity_type = table_type,primary_key=pk))
+
+    for fk_to_connect in potential_fks.keys():
+        fkmap = potential_fks[fk_to_connect]
+        target = None
+        if fkmap.is_automatic:
+            # our automatic mapping : fk_table_col
+            split = fk_to_connect.split("_")
+            if len(split) != 3:
+                raise Exception(f"Unable to automatically handle foreign key {fk_to_connect}")
+            target = "{}.{}".format(split[1],split[2])
+        else:
+            target = fkmap.target
+
+        if target not in all_cols.keys():
+            raise Exception(f"Cannot find target column for {fk_to_connect}: ({target})")
+        (ttbl,tcol) = all_cols[target]
+        print(f"Creating Connections from {fk_to_connect} to {target}")
+        selected_tables.append(
+                utils.ConnectionSpec(src_table=fkmap.table,dest_table=ttbl))
 
     return selected_tables
 
@@ -152,6 +220,10 @@ def get_opts():
         help="Columns to ignore") 
     parser.add_argument('-M', '--table-to-entity-map', default=None, type=utils.CommandlineType.item_map,
         help="Mapping of table names to entity names") 
+    parser.add_argument('-A', '--automatic-fk-map', default=False,type=bool,
+        help="Automatically map fks") 
+    parser.add_argument('-F', '--fk-map', default=None, type=utils.CommandlineType.item_map,
+        help="FK mapping")
     args= parser.parse_args()
     print(args.columns_to_ignore)
     print(args.tables_to_ignore)
@@ -166,5 +238,7 @@ if __name__ == '__main__':
     res = scan(engine, args.image_tables, args.pdf_tables,
             args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_map,
+            args.automatic_fk_map, args.fk_map,
             args.undefined_blob_action == 'error' )
-    print(res)
+    for r in res:
+        print(f"++ {r}")

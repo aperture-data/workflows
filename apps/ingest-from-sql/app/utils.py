@@ -18,6 +18,11 @@ class TableSpec:
     entity_type:str
     primary_key:str
 
+@dataclass
+class ConnectionSpec:
+    src_table: Table
+    dest_table: Table
+
 class CommandlineType:
     @staticmethod
     def table_list(input_str):
