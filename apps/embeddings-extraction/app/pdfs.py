@@ -208,11 +208,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     })
                     vectors.append(embedding)
 
-                with self.pool.get_connection() as db:
-                    r, _ = db.query(query, vectors)
-
-                    if not db.last_query_ok():
-                        db.print_last_response()
+                _, r, _ = self.pool.execute_query(query, vectors)
 
             # Finally mark the blob as processed
             query = []
