@@ -19,6 +19,7 @@ from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from status import StatusUpdater
 
 
 
@@ -402,6 +403,12 @@ async def main(args):
     global ready
     ready = True
 
+    updater = StatusUpdater()
+    updater.post_update(
+        completed=100,
+        phase="rag",
+        accessible=True,
+    )
     logger.info("Complete.")
 
 
