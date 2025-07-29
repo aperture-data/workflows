@@ -46,6 +46,7 @@ class SQLBaseDataCSV():
         props["constraint_wf_sha1_hash"] = object_hash
 
 
+        print(f"IJGI {query}")
         return query,blobs
 
 class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
@@ -59,7 +60,16 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
         ConnectionDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
     def getitem(self,idx):
-        return self.injected_getitem( idx, ConnectionDataCSV.getitem )
+        query,blobs = super().getitem(idx)
+        def query_hash(q):
+            return q[list(q.keys())[0]]['constraints']['wf_sha1_hash'][1]
+        hash1 = query_hash( query[0] )
+        hash2 = query_hash( query[1] )
+        object_hash = hash_string(f"{hash1}{hash2}") 
+        props = query[2]["AddConnection"]["properties"]
+        props["wf_sha1_hash"] = object_hash
+        props["constraint_wf_sha1_hash"] = object_hash
+        return query,blobs
 
 class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
     """
@@ -355,7 +365,7 @@ class ConnectionIngester(Ingester):
         # make first hash@One, hash@Two
     def load(self,db):
         print("Ready to load")
-        csv_data = SQLBaseDataCSV( filename=None,df=self.df,
+        csv_data = SQLConnectionDataCSV( filename=None,df=self.df,
                 sql_resource_prefix=self.source.get_table_hash_prefix(),
                 primary_key_column_name=self.source.get_pk_col())
         loader = ParallelLoader(db)

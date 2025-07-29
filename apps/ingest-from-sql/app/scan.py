@@ -198,9 +198,11 @@ def scan(engine:sql.Engine,
         print(f"Creating Connections from {fk_to_connect} to {target}")
         st =  list(filter( lambda sst: sst.entity_type != "connection" and sst.table.name == fkmap.table.name,
             selected_tables )) [0] 
+        pk=fk_to_connect.split(".")[1]
         selected_tables.append(
                 utils.ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
-                    fk_to_connect.split(".")[1], st.primary_key]))
+                    pk, st.primary_key],
+                    primary_key=pk)) 
 
     return selected_tables
 

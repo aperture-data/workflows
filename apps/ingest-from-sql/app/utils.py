@@ -20,9 +20,10 @@ class TableSpec:
 
 @dataclass
 class ConnectionSpec:
-    table: Table
+    table: Table  # should be tablespec?
     foreign_table: Table
     prop_columns: List[str]
+    primary_key:str # of table
     entity_type:str = "connection"
     bin_columns: List[str] = field( default_factory= list )
     url_columns: List[str] = field( default_factory=list)
