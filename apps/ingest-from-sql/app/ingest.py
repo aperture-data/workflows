@@ -34,7 +34,7 @@ class SQLBaseDataCSV():
         self.primary_key_column_name = primary_key_column_name
     def injected_getitem(self,idx,pre_func):
         query,blobs = pre_func(self,idx)
-        print(f"IJGI {query}")
+        #print(f"IJGI {query}")
         idx = self.df.index.start + idx
        # print(self.df.loc[idx])
         resource_name = "{}/{}".format(self.sql_resource_prefix,
@@ -43,10 +43,10 @@ class SQLBaseDataCSV():
 
         props = query[0][self.command]["properties"]
         props["wf_sha1_hash"] = object_hash
-        props["constraint_wf_sha1_hash"] = object_hash
+        query[0][self.command]["if_not_found"]= { "wf_sha1_hash" : ["==", object_hash ]}
 
-
-        print(f"IJGI {query}")
+        print(f"Object {resource_name} -> {object_hash}")
+        #print(f"IJGI {query}")
         return query,blobs
 
 class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
@@ -65,10 +65,12 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
             return q[list(q.keys())[0]]['constraints']['wf_sha1_hash'][1]
         hash1 = query_hash( query[0] )
         hash2 = query_hash( query[1] )
+        print(f"Connecting {hash1} and {hash2}")
         object_hash = hash_string(f"{hash1}{hash2}") 
         props = query[2]["AddConnection"]["properties"]
+        query[2]["AddConnection"]["if_not_found"] = { "wf_sha1_hash":
+                ["==",object_hash]}
         props["wf_sha1_hash"] = object_hash
-        props["constraint_wf_sha1_hash"] = object_hash
         return query,blobs
 
 class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
@@ -340,20 +342,23 @@ class ConnectionIngester(Ingester):
     def prepare(self):
         print("Prepare Connection")
         self.df = super(ConnectionIngester,self).generate_df()
+        from_t = self.info.table.name
         from_e = self.emapper.get_mapping(self.info.table.name)
+        to_t = self.info.foreign_table.name
         to_e = self.emapper.get_mapping(self.info.foreign_table.name)
         def cap_first(instr):
             if instr.startswith("_"):
-                return "_" + instr[1:].capitalize()
+                return  instr[1:].capitalize()
             else:
                 return instr.capitalize()
 
         sql_resource_prefix = self.source.get_hash_prefix()
         def change_to_sha( prefix, value ):
+            print(f"changing {prefix} {value}")
             resource_name = "{}/{}".format(prefix, value )
             return  hash_string(resource_name) 
-        from_prefix = "{sql_resource_prefix}/{from_e}"
-        to_prefix = "{sql_resource_prefix}/{to_e}"
+        from_prefix = f"{sql_resource_prefix}/{from_t}"
+        to_prefix = f"{sql_resource_prefix}/{to_t}"
         print(f"Connection hash from {from_prefix} to {to_prefix}")
         self.df.insert(0,"ConnectionClass",f"{cap_first(from_e)}to{cap_first(to_e)}")
         fc = self.info.prop_columns[0]
@@ -362,7 +367,8 @@ class ConnectionIngester(Ingester):
         self.df[ tc ] =  self.df[ tc ].apply( lambda val: change_to_sha( to_prefix, val ))
         self.df.rename( columns={ self.info.prop_columns[0]: f"{from_e}@wf_sha1_hash" } ,inplace=True)
         self.df.rename( columns={self.info.prop_columns[1]: f"{to_e}@wf_sha1_hash"}, inplace=True)
-        # make first hash@One, hash@Two
+
+        ## TODO - handle missing fk *HERE* ( since we have the data in a df )
     def load(self,db):
         print("Ready to load")
         csv_data = SQLConnectionDataCSV( filename=None,df=self.df,
