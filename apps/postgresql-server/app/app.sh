@@ -46,7 +46,7 @@ run_psql "SELECT * FROM get_python_path();"
 
 run_psql "CREATE EXTENSION IF NOT EXISTS multicorn;"
 run_psql "SHOW multicorn.python;"
-/opt/venv/bin/python3 -c "import multicorn; import fdw; print('success')"
+# /opt/venv/bin/python3 -c "import multicorn; import fdw; print('success')"
 run_psql "SHOW config_file;"
 run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');"
 run_psql "IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;"

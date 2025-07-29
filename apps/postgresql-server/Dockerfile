@@ -31,7 +31,9 @@ COPY sitecustomize.py /opt/venv/lib/python3.10/site-packages/sitecustomize.py
 RUN wget https://github.com/pgsql-io/multicorn2/archive/refs/tags/v${MULTICORN_VERSION}.tar.gz && \
     tar -xvf v${MULTICORN_VERSION}.tar.gz && \
     cd multicorn2-${MULTICORN_VERSION} && \
-    PYTHON_OVERRIDE=/opt/venv/bin/python3 make && \
+    export CFLAGS="-I/opt/venv/include/python3.10" \
+    export LDFLAGS="-L/opt/venv/lib" \
+    make PYTHON=/opt/venv/bin/python3 && \
     PYTHON_OVERRIDE=/opt/venv/bin/python3 make install
 
 # RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 && \

@@ -1,11 +1,15 @@
 import sys
+from datetime import datetime
 sys.path.insert(0, "/opt/venv/lib/python3.10/site-packages")
 
-with open("/tmp/fdw_hook.log", "w") as f:
-    f.write("FDW __init__ loaded\n")
+with open("/tmp/fdw_hook.log", "a") as f:
+    # timestamp the log entry
+    f.write(f"{datetime.now().isoformat()} - ")
+    f.write("FDW hook loaded by: " + " ".join(sys.argv) + "\n")
+
     f.write("\n".join(sys.path))
 
-with open("/tmp/fdw_hook2.log", "w") as f:
+with open("/tmp/fdw_hook.log", "a") as f:
     try:
         from multicorn import ForeignDataWrapper
         f.write("Successfully imported ForeignDataWrapper\n")
