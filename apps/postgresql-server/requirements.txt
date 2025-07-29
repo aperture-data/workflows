@@ -1,2 +1,0 @@
-# multicorn2
-git+https://github.com/pgsql-io/multicorn2.git
