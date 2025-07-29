@@ -22,6 +22,7 @@ RUN apt-get install -y \
 RUN echo "listen_addresses = '*'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/17/main/pg_hba.conf
 
+# Postgres/Multicorn insists on using the system Python, so we need to disable the virtual environment
 ENV VIRTUAL_ENV=
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -38,9 +39,12 @@ RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 \
 COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install .
 
+RUN pip install --no-cache-dir aperturedb
+
 # Copy the application code
 COPY app /app/
 
+# Restore virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/opt/venv/lib/python3.10/site-packages:$PATH"
 
