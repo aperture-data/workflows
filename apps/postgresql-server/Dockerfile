@@ -35,11 +35,11 @@ RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 \
  && make PYTHON=/usr/bin/python3 \
  && make install
 
+RUN pip install --no-cache-dir aperturedb
+
 # Copy and install our FDW into system Python
 COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install .
-
-RUN pip install --no-cache-dir aperturedb
 
 # Copy the application code
 COPY app /app/

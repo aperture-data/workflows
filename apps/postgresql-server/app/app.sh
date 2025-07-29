@@ -3,6 +3,9 @@ set -e
 
 DATABASE="aperturedb"
 
+# Copy selected environment variables to a file
+printenv | grep DB_ > /app/aperturedb.env
+
 # Check if POSTGRES_PASSWORD is set
 if [ -z "$POSTGRES_PASSWORD" ]; then
   echo "Error: POSTGRES_PASSWORD environment variable is not set."
@@ -35,4 +38,4 @@ run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn 
 run_psql "IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;"
 
 echo "Setup complete. Tailing logs to keep container alive..."
-tail -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log
+tail -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log
