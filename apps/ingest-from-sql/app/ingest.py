@@ -337,6 +337,7 @@ class PDFIngester(Ingester):
             drop_col = self.source.get_bin_col()
         print(self.df.columns)
         self.df.drop(columns=[drop_col],inplace=True)
+        self.df["document_type"] = "pdf"
 
 
         print(self.df)
