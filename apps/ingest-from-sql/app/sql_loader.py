@@ -7,7 +7,7 @@ from aperturedb.CommonLibrary import create_connector, execute_query
 
 from wf_argparse import ArgumentParser
 
-from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper
+from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper,PDFIngester
 from scan import scan
 from spec import WorkflowSpec
 import utils
@@ -46,6 +46,7 @@ def main(args):
     ingestions = [
             EntityIngester(provider,info) if info.entity_type == "entity" else
             ConnectionIngester(provider,info)  if info.entity_type == "connection" else
+            PDFIngester(provider,info)  if info.entity_type == "pdf" else
             ImageIngester(provider,info)
             for info in tables ]
 

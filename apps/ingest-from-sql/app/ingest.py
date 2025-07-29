@@ -3,6 +3,7 @@
 from aperturedb.EntityDataCSV import EntityDataCSV
 from aperturedb.ImageDataCSV import ImageDataProcessor,ImageDataCSV
 from aperturedb.ConnectionDataCSV import ConnectionDataCSV
+from aperturedb.Sources import Sources
 import pandas as pd
 from utils import hash_string,TableSpec,ConnectionSpec
 from sqlalchemy import URL,create_engine,Connection,MetaData,select
@@ -197,7 +198,9 @@ class SQLProvider:
     def get_pk_col(self):
         return self.info.primary_key
     def get_bin_col(self):
-        return self.info.bin_columns[0]
+        return None if len(self.info.bin_columns) == 0 else self.info.bin_columns[0]
+    def get_url_col(self):
+        return None if len(self.info.url_columns) == 0 else self.info.url_columns[0]
 
     def get_data(self):
         meta = MetaData()
@@ -255,6 +258,19 @@ class Ingester:
     def load(self):
         raise NotImplementedError("Base Class")
 
+    def load_urls(self, df):
+        sources=Sources(3)
+        pk = self.source.get_pk_col()
+        url_col = self.source.get_url_col()
+        new_data = []
+        for idx,row in df.iterrows():
+            url = row[url_col]
+            binary_data = sources.load_from_http_url(url, lambda buf: True) 
+
+            new_data.append([row[pk],binary_data[1]])
+
+        return pd.DataFrame(columns=[pk,url_col],data=new_data)
+
     def generate_df(self ):
         table_name = self.source.table_name()
         scheme = "sql://{}/{} ".format(
@@ -305,20 +321,63 @@ class EntityIngester(Ingester):
         print(f"Columns: {self.df.columns}")
         print(self.df)
 
+class PDFIngester(Ingester):
+    def __init__(self, source: Provider, info:TableSpec): 
+        super(PDFIngester,self).__init__(source,info) 
+    def prepare(self):
+        self.df = super(PDFIngester,self).generate_df()
+        print(self.df)
+        drop_col=None
+        if not self.source.get_bin_col():
+            self.binary_df = self.load_urls( self.df )
+            drop_col = self.source.get_url_col()
+        else:
+            self.binary_df = \
+                self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
+            drop_col = self.source.get_bin_col()
+        print(self.df.columns)
+        self.df.drop(columns=[drop_col],inplace=True)
+
+
+        print(self.df)
+        print(self.binary_df)
+        self.binary_df.rename(columns={drop_col:"data"},inplace=True)
+        self.emapper.add_mapping( self.source.table_name(),
+                "_Blob")
+
+    def load(self,db):
+        print("Ready to load")
+        csv_data = SQLBinaryDataCSV(
+                filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
+                primary_key_column_name=self.source.get_pk_col(),
+                df=self.df,binary_df=self.binary_df)
+        loader = ParallelLoader(db)
+        loader.ingest(csv_data, batchsize=100,
+                numthreads=4)
+        cnt = len(self.df.index)
+        noun = "blob" if cnt == 1 else "blobs"
+        print(f"Finished uploading {cnt} {noun}")
+
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(ImageIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
         print(self.df)
-        self.binary_df = \
-            self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
+        drop_col=None
+        if not self.source.get_bin_col():
+            self.binary_df = self.load_urls( self.df )
+            drop_col = self.source.get_url_col()
+        else:
+            self.binary_df = \
+                self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
+            drop_col = self.source.get_bin_col()
         print(self.df.columns)
-        self.df.drop(columns=[self.source.get_bin_col()],inplace=True)
+        self.df.drop(columns=[drop_col],inplace=True)
 
         print(self.df)
         print(self.binary_df)
-        self.binary_df.rename(columns={self.source.get_bin_col():"data"},inplace=True)
+        self.binary_df.rename(columns={drop_col:"data"},inplace=True)
         self.emapper.add_mapping( self.source.table_name(),
                 "_Image")
 

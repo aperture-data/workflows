@@ -141,12 +141,13 @@ def scan(engine:sql.Engine,
                             break
 
                 if is_url:
-                    if is_binary: 
+                    if col_is_binary: 
                         raise Exception(f"Column for url isn't a string; {full_col_name} is binary.")
-                    elif not insinstance(gen,String):
+                    elif not isinstance(gen,String):
                         raise Exception(f"Column for url isn't a string; {full_col_name} is {type(gen)} .")
-                        print(" - URL")
-                        url_cols.append(col.name)
+                    print(" - URL")
+                    url_cols.append(col.name)
+                    has_binary = True
                 elif col_is_binary: 
                     print("- Binary")
                     if has_binary:
