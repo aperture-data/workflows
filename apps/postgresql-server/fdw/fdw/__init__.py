@@ -104,6 +104,8 @@ class FDW(ForeignDataWrapper):
             type_ = self._columns[col]["type"]
             if type_ == "datetime":
                 value = row[col]["_date"]
+            elif type_ == "json":
+                value = json.dumps(row[col])
             else:
                 value = row[col]
             result[col] = value
