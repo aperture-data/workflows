@@ -1,56 +1,57 @@
 # Pull base image with Python and ApertureDB tools
 FROM aperturedata/workflows-base
 
-ENV APP_NAME=workflows-rag
-ENV POSTGRES_VERSION=14
+ENV APP_NAME=workflows-postgresql-server
+ENV POSTGRES_VERSION=17
+ENV PYTHONPATH=/opt/venv/lib/python3.10/site-packages
+ARG MULTICORN_VERSION=3.0
+
+# See https://github.com/pgsql-io/multicorn2?tab=readme-ov-file https://multicorn.readthedocs.io/en/latest/implementing-tutorial.html
 
 # Install PostgreSQL server
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Add the PostgreSQL Global Development Group (PGDG) APT repo
+RUN apt-get update && apt-get install -y wget gnupg lsb-release \
+    && echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+    && apt-get update
+ 
+ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-${POSTGRES_VERSION} \
-    postgresql-contrib-${POSTGRES_VERSION}
+    postgresql-contrib-${POSTGRES_VERSION} \
+    postgresql-plpython3-${POSTGRES_VERSION}
 
-# Install build dependencies for multicorn2
-RUN apt-get install -y --no-install-recommends \
-    postgresql-server-dev-${POSTGRES_VERSION} \
-    python3-dev \
-    build-essential \
-    git \
-    libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN apt-get remove -y postgresql-${POSTGRES_VERSION}-multicorn || true
-
-RUN set -ex  && pg_config --version  # should return "PostgreSQL 14.x"
+# Install Dependencies for Building the Multicorn2 extension
+RUN apt-get install -y build-essential postgresql-server-dev-${POSTGRES_VERSION}
+RUN apt-get install -y python3 python3-dev python3-setuptools python3-pip git
 
 COPY sitecustomize.py /opt/venv/lib/python3.10/site-packages/sitecustomize.py
 
-ARG MULTICORN_VERSION=v3.0
+# Download & Compile Multicorn2
+RUN wget https://github.com/pgsql-io/multicorn2/archive/refs/tags/v${MULTICORN_VERSION}.tar.gz && \
+    tar -xvf v${MULTICORN_VERSION}.tar.gz && \
+    cd multicorn2-${MULTICORN_VERSION} && \
+    PYTHON_OVERRIDE=/opt/venv/bin/python3 make && \
+    PYTHON_OVERRIDE=/opt/venv/bin/python3 make install
 
-# Clone and build multicorn2
-RUN git clone --branch ${MULTICORN_VERSION} https://github.com/pgsql-io/multicorn2.git /tmp/multicorn2 && \
-    cd /tmp/multicorn2 && \
-    make PG_CONFIG=/usr/bin/pg_config && \
-    make install PG_CONFIG=/usr/bin/pg_config && \
-    rm -rf /tmp/multicorn2
+# RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 && \
+#     cd /multicorn2 && \
+#     pip install . && \
+#     make PYTHON=/opt/venv/bin/python3 && make install
 
 COPY python-wrapper /opt/venv/bin
 RUN echo "multicorn.python = '/opt/venv/bin/python-wrapper'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
-
-# Install Python dependencies
-# COPY requirements.txt /requirements.txt
-# RUN pip install --no-cache-dir -r /requirements.txt
-RUN apt-get update && apt-get install -y \
-  python3-pip python3-dev libpq-dev build-essential \
-  && unset VIRTUAL_ENV \
-  && /usr/bin/pip3 install "git+https://github.com/pgsql-io/multicorn2.git"
+# RUN echo "multicorn.python = '/opt/venv/bin/python3'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 
 # Install the FDW (Foreign Data Wrapper)
 COPY fdw /fdw
-RUN cd /fdw && unset VIRTUAL_ENV && /usr/bin/pip3 install .
+RUN cd /fdw && pip3 install .
+
 
 # Copy the application code
 COPY app /app/
 ENV MULTICORN_PYTHON="/opt/venv/bin/python3"
-ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+# ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+
 
 EXPOSE 5432

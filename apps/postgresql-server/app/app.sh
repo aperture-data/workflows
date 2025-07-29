@@ -30,15 +30,26 @@ run_psql() {
   su - postgres -c "psql -d ${DATABASE} -c \"$1\""
 }
 
-echo grep multicorn.python /etc/postgresql/14/main/postgresql.conf
-grep multicorn.python /etc/postgresql/14/main/postgresql.conf
+echo grep multicorn.python /etc/postgresql/17/main/postgresql.conf
+grep multicorn.python /etc/postgresql/17/main/postgresql.conf
+
+run_psql "CREATE EXTENSION IF NOT EXISTS plpython3u;"
+run_psql "CREATE OR REPLACE FUNCTION get_python_path() 
+RETURNS SETOF text 
+AS \\\$\\\$
+    import sys
+    for p in sys.path:
+        yield p
+\\\$\\\$ LANGUAGE plpython3u;"
+run_psql "SELECT * FROM get_python_path();"
+
 
 run_psql "CREATE EXTENSION IF NOT EXISTS multicorn;"
 run_psql "SHOW multicorn.python;"
-# /opt/venv/bin/python-wrapper -c "import multicorn; print('success')"
+/opt/venv/bin/python3 -c "import multicorn; import fdw; print('success')"
 run_psql "SHOW config_file;"
 run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');"
 run_psql "IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;"
 
 echo "Setup complete. Tailing logs to keep container alive..."
-tail -f /var/log/postgresql/postgresql-14-main.log
+tail -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log
