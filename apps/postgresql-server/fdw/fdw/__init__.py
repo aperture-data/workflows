@@ -18,6 +18,10 @@ logger.propagate = False
 
 
 def load_aperturedb_env(path="/app/aperturedb.env"):
+    """Load environment variables from a file.
+    This is used because FDW is executed in a "secure" environment where
+    environment variables cannot be set directly.
+    """
     if not os.path.exists(path):
         raise RuntimeError(f"Missing environment file: {path}")
     with open(path) as f:
@@ -48,6 +52,7 @@ def main():
 
 main()
 
+# Mapping from ApertureDB types to PostgreSQL types.
 TYPE_MAP = {
     "number": "double precision",
     "string": "text",
@@ -56,6 +61,7 @@ TYPE_MAP = {
     "json": "jsonb",
 }
 
+# Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 1000
 
 
@@ -94,7 +100,8 @@ class FDW(ForeignDataWrapper):
         """
         if class_[0] == "_":
             return f"Find{class_[1:]}"
-        return "FindEntity"
+        else:
+            return "FindEntity"
 
     def _normalize_row(self, columns, row: dict) -> dict:
         result = {}
@@ -112,9 +119,18 @@ class FDW(ForeignDataWrapper):
         return result
 
     def execute(self, quals, columns):
+        """ Execute the FDW query with the given quals and columns.
+
+        Args:
+            quals (list): List of conditions to filter the results.
+                Note that filtering is optional because PostgreSQL will also filter the results.
+            columns (set): List of columns to return in the results.
+        """
+
         logger.info(
             f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
 
+        # First we run a batch query to get the number of results.
         query = [
             {
                 self._command: {
@@ -153,6 +169,8 @@ class FDW(ForeignDataWrapper):
         n_batches = (n_results + BATCH_SIZE - 1) // BATCH_SIZE
         logger.info(
             f"Found {n_results} results in {n_batches} batches for query: {query}")
+
+        # Now we fetch the results batch by batch.
         for batch in range(n_batches):
             logger.info(
                 f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
@@ -183,6 +201,7 @@ class FDW(ForeignDataWrapper):
     def _encode_options(options):
         """
         Convert options so that all values are strings.
+        Although PostgreSQL does nothing with these options, the value type must be string.
         """
         return {"fdw_config": json.dumps(options, default=str)}
 
@@ -218,6 +237,8 @@ class FDW(ForeignDataWrapper):
                         count, indexed, type_ = prop_data
                         columns.append(ColumnDefinition(
                             column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+                # Add the _uniqueid column
+                # This is a special column that is always present in entities, but does not appear in the schema.
                 columns.append(ColumnDefinition(
                     column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
                 logger.info(f"Adding entity {entity} with columns: {columns}")
@@ -240,6 +261,8 @@ class FDW(ForeignDataWrapper):
                         count, indexed, type_ = prop_data
                         columns.append(ColumnDefinition(
                             column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+                # Add the _uniqueid, _src, and _dst columns
+                # These are special columns that are always present in connections, but do not appear in the schema.
                 columns.append(ColumnDefinition(
                     column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
                 columns.append(ColumnDefinition(
