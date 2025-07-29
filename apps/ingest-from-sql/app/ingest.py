@@ -1,21 +1,44 @@
 # ingest.py - for ingest from SQL
 
 from aperturedb.EntityDataCSV import EntityDataCSV
-from aperturedb.ImageDataCSV import ImageDataProcessor
+from aperturedb.ImageDataCSV import ImageDataProcessor,ImageDataCSV
+from aperturedb.ConnectionDataCSV import ConnectionDataCSV
 import pandas as pd
-from utils import hash_string,TableSpec
+from utils import hash_string,TableSpec,ConnectionSpec
 from sqlalchemy import URL,create_engine,Connection,MetaData,select
 import copy
 import datetime as dt
 
+from aperturedb.ParallelLoader import ParallelLoader
 
-class SQLEntityData(EntityDataCSV):
-    def __init__(self, filename:str, sql_resource_name, primary_key_column_name,  sqldb:Connection, **kwargs):
-        pass
-    def getitem(self,idx):
-        query,blobs = super(EntityDataCSV,self).getitem(idx)
+class EntityMapper:
+    def __init__(self):
+        self.map = {}
+
+    def add_mapping(self,table_name,entity_name):
+        self.map[table_name]=entity_name
+
+    def get_mapping(self,table_name):
+        if not table_name in self.map:
+            print(f"{table_name} not in entity map!")
+        return self.map[table_name]
+
+
+class SQLBaseDataCSV():
+    #def __init__(self, filename:str, sql_resource_name, primary_key_column_name,  sqldb:Connection, **kwargs):
+    def __init__(self, sql_resource_prefix, primary_key_column_name, **kwargs):
+        print("*****************SBD**********************")
+        print(f" {sql_resource_prefix} // {primary_key_column_name}")
+        #super().__init__(filename, **kwargs)
+        self.sql_resource_prefix = sql_resource_prefix
+        self.primary_key_column_name = primary_key_column_name
+    def injected_getitem(self,idx,pre_func):
+        query,blobs = pre_func(self,idx)
+        print(f"IJGI {query}")
         idx = self.df.index.start + idx
-        resource_name = "{}/{}".format(sql_resource_name, self.df[idx][primary_key_column_name])
+       # print(self.df.loc[idx])
+        resource_name = "{}/{}".format(self.sql_resource_prefix,
+                self.df.loc[idx,self.primary_key_column_name])
         object_hash = hash_string(resource_name) 
 
         props = query[0][self.command]["properties"]
@@ -25,7 +48,20 @@ class SQLEntityData(EntityDataCSV):
 
         return query,blobs
 
-class SQLBinaryData(SQLEntityData,ImageDataProcessor):
+class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
+    def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
+        EntityDataCSV.__init__(self,filename,**kwargs)
+        SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
+    def getitem(self,idx):
+        return self.injected_getitem( idx, EntityDataCSV.getitem )
+class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
+    def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
+        ConnectionDataCSV.__init__(self,filename,**kwargs)
+        SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
+    def getitem(self,idx):
+        return self.injected_getitem( idx, ConnectionDataCSV.getitem )
+
+class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
     """
     injects binary data into entity loading, either from SQL or from a url.
     binary_lookup_file is internal type - rows should be ordered exactly the
@@ -33,47 +69,62 @@ class SQLBinaryData(SQLEntityData,ImageDataProcessor):
       - url = get data from this urls
       - db_{name}  get data from connection,  name is the column to select for lookup
     """
-    def __init__(self,
-            filename:str, binary_df:str,
-            sqldb:Connection, table_name:str = None, **kwargs):
-        ImageDataProcessor.__init__(
-            self, check_image=False, n_download_retries=3)
-        super(SQLEntityData,self).__init__(filename, **kwargs)
+#    def __init__(self, filename:str, binary_df:str, sqldb:Connection, table_name:str, primary_key:str, **kwargs):
+    def __init__(self, filename:str, binary_df:str, sql_resource_prefix,
+            primary_key_column_name, **kwargs):
+        EntityDataCSV.__init__(self,filename,**kwargs)
+        SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
+
+        ImageDataProcessor.__init__( self, check_image=False, n_download_retries=3)
 
         self.blob_df = binary_df 
         col_info = self.blob_df.columns[0]
         if col_info == "url":
             self.mode = "url" 
-        elif col_info.startswith("db_"):
+        elif binary_df is not None:
             self.mode = "db"
         else:
-            raise Exception(f"binary table malformed; first column was {col_info}")
+            raise Exception(f"binary table malformed; first column was {col_info} and no binary_df passed")
 
 
-        self.table = table_name
+        #self.table = table_name
         if self.mode =="db":
-            self.column_name = col_info[len("db_"):]
-            for db_col in db_tbl:
-                if db_col.name == self.column_name:
-                    self.column = db_col
+            self.column_name = "data"
         self.command = "AddBlob" 
     def set_image_mode(self,is_image_mode):
         self.command = "AddImage" if is_image_mode else "AddBlob"
+    def get_indices(self):
+        return {
+            "entity": {
+                "_Image": [ "wf_sha1_hash"] 
+            }
+        }   
+    def getitem_binary(self,idx):
+        custom_fields = {}
+        blobs = []
+        q = []
+        #if self.format_given:
+        #    custom_fields["format"] = self.df.loc[idx, IMG_FORMAT]
+        ai = self._basic_command(idx, custom_fields)
+        # Each getitem query should be properly defined with a ref.
+        # A ref shouldb be added to each of the commands from getitem implementation.
+        # This is because a transformer or ref updater in the PQ
+        # will need to know which command to update.
+        ai[self.command]["_ref"] = 1
+        #blobs.append(img)
+        q.append(ai)
+
+        return q, blobs
+
     def getitem(self,idx):
-        query,blobs = super(SQLEntityData,self).getitem(idx) 
+        query,blobs = self.injected_getitem(idx,SQLBinaryDataCSV.getitem_binary) 
 
         idx = self.df.index.start + idx
-        if not img_ok:
-            logger.error("Error loading image: " + image_path)
-            raise Exception("Error loading image: " + image_path)
 
         blob = None
         if self.mode == "db":
-            value = self.blob_df[idx]["db_"+self.column_name]
+            blob = self.blob_df.loc[idx,self.column_name]
             
-            select(self.column).where(self.column==value)
-            result = conn.execute(blob_query.prepare(conn.engine))
-            blob= result.first()[0]
         else: # url
             image_path = os.path.join(
                 self.relative_path_prefix, self.df.loc[idx, self.source_type])
@@ -84,6 +135,8 @@ class SQLBinaryData(SQLEntityData,ImageDataProcessor):
             blobs = []
         blobs.insert(0,blob)
         return query,blobs
+    def validate(self):
+        pass
 
 
 class Provider:
@@ -116,6 +169,11 @@ class SQLProvider:
         new.info = info
         new.table = info.table.name
         return new
+
+    def get_hash_prefix(self):
+        return f"postgres://{self.host}/{self.database}"
+    def get_table_hash_prefix(self):
+        return f"{self.get_hash_prefix()}/{self.table_name()}"
     def get_property_names(self):
         pass
 
@@ -174,6 +232,12 @@ class Ingester:
     def set_workflow_id(self,id):
         self.workflow_id = id
 
+    def set_entity_mapper(self,m):
+        self.emapper = m
+
+    def get_entity_mapper(self):
+        return self.emapper
+
     def prepare(self):
         raise NotImplementedError("Base Class")
     def load(self):
@@ -206,6 +270,28 @@ class EntityIngester(Ingester):
         super(EntityIngester,self).__init__(source,info) 
     def prepare(self):
         print("Prepare Entity")
+        self.df = super(EntityIngester,self).generate_df()
+        print(f"Columns: {self.df.columns}")
+        print(self.df)
+        self.emapper.add_mapping( self.source.table_name(),
+                self.source.table_name())
+    def load(self,db):
+        print("Ready to load")
+        ename = self.emapper.get_mapping(self.info.table.name)
+        self.df.insert(0,"EntityClass", ename)
+        print(self.df)
+        csv_data = SQLEntityDataCSV( filename=None,df=self.df,
+                primary_key_column_name=self.source.get_pk_col(),
+                sql_resource_prefix=self.source.get_table_hash_prefix())
+        loader = ParallelLoader(db)
+        loader.ingest(csv_data, batchsize=100,
+                numthreads=4)
+        cnt = len(self.df.index)
+        noun = "entity" if cnt == 1 else "entities"
+        print(f"Finished uploading {cnt} {noun}")
+
+        print(f"Columns: {self.df.columns}")
+        print(self.df)
 
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
@@ -213,15 +299,24 @@ class ImageIngester(Ingester):
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
         print(self.df)
-        self.binary_df = self.df[[self.source.get_pk_col(),self.source.get_bin_col()]]
+        self.binary_df = \
+            self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
         print(self.df.columns)
         self.df.drop(columns=[self.source.get_bin_col()],inplace=True)
 
         print(self.df)
         print(self.binary_df)
+        self.binary_df.rename(columns={self.source.get_bin_col():"data"},inplace=True)
+        self.emapper.add_mapping( self.source.table_name(),
+                "_Image")
+
     def load(self,db):
         print("Ready to load")
-        csv_data = SQLBinaryDataCSV( filename=None,df=self.df)
+        csv_data = SQLBinaryDataCSV(
+                filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
+                primary_key_column_name=self.source.get_pk_col(),
+                df=self.df,binary_df=self.binary_df)
+        csv_data.set_image_mode(True)
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
                 numthreads=4)
@@ -229,3 +324,46 @@ class ImageIngester(Ingester):
         noun = "image" if cnt == 1 else "images"
         print(f"Finished uploading {cnt} {noun}")
 
+class ConnectionIngester(Ingester):
+    def __init__(self, source: Provider, info:ConnectionSpec): 
+        super(ConnectionIngester,self).__init__(source,info) 
+    def prepare(self):
+        print("Prepare Connection")
+        self.df = super(ConnectionIngester,self).generate_df()
+        from_e = self.emapper.get_mapping(self.info.table.name)
+        to_e = self.emapper.get_mapping(self.info.foreign_table.name)
+        def cap_first(instr):
+            if instr.startswith("_"):
+                return "_" + instr[1:].capitalize()
+            else:
+                return instr.capitalize()
+
+        sql_resource_prefix = self.source.get_hash_prefix()
+        def change_to_sha( prefix, value ):
+            resource_name = "{}/{}".format(prefix, value )
+            return  hash_string(resource_name) 
+        from_prefix = "{sql_resource_prefix}/{from_e}"
+        to_prefix = "{sql_resource_prefix}/{to_e}"
+        print(f"Connection hash from {from_prefix} to {to_prefix}")
+        self.df.insert(0,"ConnectionClass",f"{cap_first(from_e)}to{cap_first(to_e)}")
+        fc = self.info.prop_columns[0]
+        tc = self.info.prop_columns[1]
+        self.df[ fc ] =  self.df[ fc ].apply( lambda val: change_to_sha( from_prefix, val  ))
+        self.df[ tc ] =  self.df[ tc ].apply( lambda val: change_to_sha( to_prefix, val ))
+        self.df.rename( columns={ self.info.prop_columns[0]: f"{from_e}@wf_sha1_hash" } ,inplace=True)
+        self.df.rename( columns={self.info.prop_columns[1]: f"{to_e}@wf_sha1_hash"}, inplace=True)
+        # make first hash@One, hash@Two
+    def load(self,db):
+        print("Ready to load")
+        csv_data = SQLBaseDataCSV( filename=None,df=self.df,
+                sql_resource_prefix=self.source.get_table_hash_prefix(),
+                primary_key_column_name=self.source.get_pk_col())
+        loader = ParallelLoader(db)
+        loader.ingest(csv_data, batchsize=100,
+                numthreads=4)
+        cnt = len(self.df.index)
+        noun = "connection" if cnt == 1 else "connections"
+        print(f"Finished uploading {cnt} {noun}")
+
+        print(f"Columns: {self.df.columns}")
+        print(self.df)

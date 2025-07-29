@@ -1,5 +1,5 @@
 # utils.py - utilities for SQL workflow
-from dataclasses import dataclass
+from dataclasses import dataclass,field
 from typing import List
 from sqlalchemy import Table
 
@@ -20,8 +20,12 @@ class TableSpec:
 
 @dataclass
 class ConnectionSpec:
-    src_table: Table
-    dest_table: Table
+    table: Table
+    foreign_table: Table
+    prop_columns: List[str]
+    entity_type:str = "connection"
+    bin_columns: List[str] = field( default_factory= list )
+    url_columns: List[str] = field( default_factory=list)
 
 class CommandlineType:
     @staticmethod

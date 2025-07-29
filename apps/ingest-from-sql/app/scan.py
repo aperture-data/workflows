@@ -168,12 +168,13 @@ def scan(engine:sql.Engine,
             elif expect_binary and not has_binary:
                 raise Exception(f"Was expecting a binary in {table.name}, but didn't find any.")
 
-            if has_binary or len(url_cols) != 0:
+            #if has_binary or len(url_cols) != 0:
+            if True: # need pk if we are linking with a connection and not going to ask twice
                 table_info = inspect(table).primary_key
                 if len(table_info.columns) != 1:
                     raise Exception("Exactly 1 column is required to be a primary key")
                 pk = table_info.columns[0].name
-                print(f"Primary key is {pk}")
+            print(f"Primary key is {pk}")
             selected_tables.append(
                 utils.TableSpec(table=table,prop_columns=used_cols,
                     url_columns=url_cols,bin_columns=bin_cols,name=entity_name,
@@ -195,8 +196,11 @@ def scan(engine:sql.Engine,
             raise Exception(f"Cannot find target column for {fk_to_connect}: ({target})")
         (ttbl,tcol) = all_cols[target]
         print(f"Creating Connections from {fk_to_connect} to {target}")
+        st =  list(filter( lambda sst: sst.entity_type != "connection" and sst.table.name == fkmap.table.name,
+            selected_tables )) [0] 
         selected_tables.append(
-                utils.ConnectionSpec(src_table=fkmap.table,dest_table=ttbl))
+                utils.ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
+                    fk_to_connect.split(".")[1], st.primary_key]))
 
     return selected_tables
 

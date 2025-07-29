@@ -7,7 +7,7 @@ from aperturedb.CommonLibrary import create_connector, execute_query
 
 from wf_argparse import ArgumentParser
 
-from ingest import ImageIngester,  EntityIngester,SQLProvider
+from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper
 from scan import scan
 from spec import WorkflowSpec
 import utils
@@ -40,13 +40,19 @@ def main(args):
 
     tables = scan(provider.get_engine(),args.image_tables, args.pdf_tables, args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_mapping,
+            args.automatic_foreign_key,args.foreign_key_entity_mapping,
             args.undefined_blob_action == 'error' )
 
     ingestions = [
-            EntityIngester(provider,info) if info.entity_type == "entity" else ImageIngester(provider,info)
+            EntityIngester(provider,info) if info.entity_type == "entity" else
+            ConnectionIngester(provider,info)  if info.entity_type == "connection" else
+            ImageIngester(provider,info)
             for info in tables ]
 
+    emapper = EntityMapper()
+
     [ ing.set_workflow_id( str(run_id) ) if ing else None for ing in ingestions ]
+    [ ing.set_entity_mapper( emapper ) if ing else None for ing in ingestions ]
 
 
     linked_types_to_run = []
@@ -54,9 +60,10 @@ def main(args):
         if ingestion is None:
             continue
         ingestion.prepare()
-        sys.exit(0)
+        #sys.exit(0)
         ingestion.load(db)
 
+    sys.exit(0)
     spec.finish_run(str(run_id), { "wf_linked_types" : linked_types_to_run } )
     spec.finish_spec()
 
@@ -94,9 +101,9 @@ def get_args():
         help="Mapping of table names to entity names") 
 
     # connection options
-    obj.add_argument( '--foriegn-key-entity-mapping', default=None, type=utils.CommandlineType.item_map,
-        help="Mapping of foriegn keys to their source table and column")
-    obj.add_argument( '--automatic-foreign-key', default=False, type=utils.CommandlineType.item_map,
+    obj.add_argument( '--foreign-key-entity-mapping', default=None, type=utils.CommandlineType.item_map,
+        help="Mapping of foreign keys to their source table and column")
+    obj.add_argument( '--automatic-foreign-key', default=False, type=bool,
         help="Enable mapping of regularly named forign keys")
 
     # cleaning options
