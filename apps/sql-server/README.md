@@ -17,7 +17,7 @@ docker run \
 
 Parameters: 
 * **`LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
-* **`POSTGRES_PASSWORD`**: Password for `postgres` user
+* **`WF_AUTH_TOKEN`**: Password for `postgres` user and bearer authentication token for REST API
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 

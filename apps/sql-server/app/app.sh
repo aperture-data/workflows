@@ -6,9 +6,9 @@ DATABASE="aperturedb"
 # Copy selected environment variables to a file
 printenv | grep DB_ > /app/aperturedb.env
 
-# Check if POSTGRES_PASSWORD is set
-if [ -z "$POSTGRES_PASSWORD" ]; then
-  echo "Error: POSTGRES_PASSWORD environment variable is not set."
+# Check if WF_AUTH_TOKEN is set
+if [ -z "$WF_AUTH_TOKEN" ]; then
+  echo "Error: WF_AUTH_TOKEN environment variable is not set."
   exit 1
 fi
 
@@ -23,7 +23,7 @@ done
 
 # Set the password for the default 'postgres' user
 echo "Setting postgres password..."
-su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PASSWORD '${POSTGRES_PASSWORD}';\""
+su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PASSWORD '${WF_AUTH_TOKEN}';\""
 
 su - postgres -c "createdb ${DATABASE}"
 
