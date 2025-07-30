@@ -7,7 +7,7 @@ import os
 import json
 from itertools import zip_longest
 from psycopg2 import Binary
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, Generator, List, Dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True,)
@@ -150,9 +150,81 @@ class FDW(ForeignDataWrapper):
             logger.warning(
                 f"Multiple blob columns requested: {blob_columns}. Only the first will be returned.")
         blob_column = blob_columns[0] if blob_columns else None
-        filtered_columns = [
-            col for col in columns if col not in blob_columns and not self._columns[col].get("special", False)]
+        filtered_columns = {
+            col for col in columns if col not in blob_columns and not self._columns[col].get("special", False)}
         return blob_column, set(filtered_columns)
+
+    def _get_query(self, filtered_columns: Set[str], blob_column: Optional[str], as_format: Optional[str], batch_size: int) -> List[dict]:
+        """
+        Construct the query to execute against ApertureDB.
+        This is used to build the query based on the columns and options.
+        """
+        query = [{
+            self._command: {
+                **({"with_class": self._class} if not self._is_system_class else {}),
+                **({"results": {"list": list(filtered_columns)}} if filtered_columns else {}),
+                "batch": {
+                    "batch_id": 0,
+                    "batch_size": batch_size
+                },
+                **({"blobs": True} if blob_column else {}),
+                **({"as_format": as_format} if as_format else {}),
+            }
+        }]
+        return query
+
+    def _get_next_query(self, query: List[dict], response: List[dict]) -> Optional[List[dict]]:
+        """
+        Get the next query to execute based on the response from the previous query.
+        This is used to handle batching.
+        """
+        if not response or len(response) != 1:
+            logger.warning(
+                f"No results found for query: {query} -> {response}")
+            return None
+
+        if "batch" not in response[0][self._command]:
+            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
+            logger.info(
+                f"Single batch found for query: {query} -> {response[:10]}")
+            return None
+
+        batch_id = response[0][self._command]["batch"]["batch_id"]
+        batches = response[0][self._command]["batch"]["batches"]
+
+        next_batch_id = batch_id + 1
+        if next_batch_id >= batches:  # No more batches to process
+            return None
+
+        next_query = query.copy()
+        next_query[0][self._command]["batch"]["batch_id"] = next_batch_id
+        return next_query
+
+    def _get_query_results(self, query: List[dict]) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
+        logger.debug(f"Executing query: {query}")
+
+        start_time = datetime.now()
+        _, results, blobs = POOL.execute_query(query)
+        elapsed_time = datetime.now() - start_time
+        logger.info(
+            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
+
+        if not results or len(results) != 1:
+            logger.warning(
+                f"No results found for entity query. {query} -> {results}")
+            raise ValueError(
+                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+
+        result_objects = results[0].get(
+            self._command, {}).get(self._result_field, [])
+        if not blobs:
+            for row in result_objects:
+                yield row, None
+        else:
+            for row, blob in zip_longest(result_objects, blobs):
+                yield row or {}, blob
+
+        return results
 
     def execute(self, quals, columns):
         """ Execute the FDW query with the given quals and columns.
@@ -168,113 +240,29 @@ class FDW(ForeignDataWrapper):
 
         blob_column, filtered_columns = self._get_blob_columns(columns)
         batch_size = BATCH_SIZE_WITH_BLOBS if blob_column else BATCH_SIZE
-
         as_format = self._get_as_format(quals)
 
-        # First we run a batch query to get the number of results.
-        query = [
-            {
-                self._command: {
-                    **({"with_class": self._class} if not self._is_system_class else {}),
-                    **({"results": {"list": list(filtered_columns)}} if filtered_columns else {}),
-                    "batch": {},
-                    **({"blobs": True} if blob_column else {}),
-                    **({"as_format": as_format} if as_format else {}),
-                }
-            }
-        ]
+        query = self._get_query(
+            filtered_columns, blob_column, as_format, batch_size)
 
-        logger.debug(f"Executing query: {query}")
+        while query:
+            gen = self._get_query_results(query)
+            try:
+                while True:
+                    row, blob = next(gen)
+                    if blob_column:
+                        row[blob_column] = blob
+                    if as_format:
+                        row["_as_format"] = as_format
+                    result = self._normalize_row(columns, row)
+                    logger.debug(
+                        f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)}"
+                    )
+                    yield result
+            except StopIteration as e:
+                response = e.value
 
-        start_time = datetime.now()
-        _, results, blobs = POOL.execute_query(query)
-        elapsed_time = datetime.now() - start_time
-        logger.info(
-            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
-
-        if not results or len(results) != 1:
-            logger.warning(
-                f"No results found for entity query. {query} -> {results}")
-            raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
-
-        if "batch" not in results[0][self._command]:
-            # Some find commands (FindConnection) don't handle batching, so we assume all results are returned at once.
-            logger.info(
-                f"Single batch found for query: {query} -> {results[:10]}")
-            rows = results[0][self._command][self._result_field] if filtered_columns else [
-            ]
-            logger.debug(
-                f"Found {len(rows)} rows and {len(blobs)} blobs for query: {query}")
-            for row, blob in zip_longest(rows, blobs):
-                row = row or {}
-                if blob_column:
-                    row[blob_column] = blob
-                if as_format:
-                    row["as_format"] = as_format
-                result = self._normalize_row(columns, row)
-                logger.debug(
-                    f"Yielding row: {json.dumps({k:v[:10] if isinstance(v, (str, bytes)) else v for k, v in row.items()}, indent=2)}")
-                yield result
-            return
-
-        try:
-            n_results = results[0][self._command]["batch"]["total_elements"]
-        except KeyError:
-            logger.error(
-                f"Batch total_elements not found in results: {query} -> {results}")
-            raise ValueError(
-                f"Batch total_elements not found in results: {query} -> {results}")
-
-        n_batches = (n_results + batch_size - 1) // batch_size
-        logger.info(
-            f"Found {n_results} results in {n_batches} batches for query: {query}")
-
-        # Now we fetch the results batch by batch.
-        for batch in range(n_batches):
-            logger.info(
-                f"Processing batch {batch + 1}/{n_batches}: {batch * batch_size} to {min((batch + 1) * batch_size, n_results)}")
-            query[0][self._command]["batch"]["batch_id"] = batch
-            query[0][self._command]["batch"]["batch_size"] = batch_size
-
-            start_time = datetime.now()
-            _, results, blobs = POOL.execute_query(query)
-            elapsed_time = datetime.now() - start_time
-            logger.info(
-                f"Batch {batch + 1} executed in {elapsed_time.total_seconds()} seconds. Results: {len(results)}, Blobs: {len(blobs) if blobs else 0}")
-
-            if not results or len(results) != 1:
-                logger.warning(
-                    f"No results found for batch {batch} of entity query. {query} -> {results}")
-                continue
-
-            if not filtered_columns:
-                rows = []
-            else:
-                try:
-                    rows = results[0][self._command][self._result_field]
-                except KeyError:
-                    logger.error(
-                        f"Result field '{self._result_field}' not found in results: {query} -> {results}")
-                    raise ValueError(
-                        f"Result field '{self._result_field}' not found in results: {query} -> {results}")
-
-            if rows is None:
-                logger.warning(f"No rows found in batch {batch}. Continuing.")
-                continue
-
-            logger.debug(
-                f"Found {len(rows)} rows and {len(blobs)} blobs for batch {batch}: {query}")
-            for row, blob in zip_longest(rows, blobs):
-                row = row or {}
-                if blob_column:
-                    row[blob_column] = blob
-                if as_format:
-                    row["_as_format"] = as_format
-                result = self._normalize_row(columns, row)
-                logger.debug(
-                    f"Yielding row: {json.dumps({k:v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes)) else v for k, v in row.items()}, indent=2)}")
-                yield result
+            query = self._get_next_query(query, response)
 
     @staticmethod
     def _encode_options(options):
