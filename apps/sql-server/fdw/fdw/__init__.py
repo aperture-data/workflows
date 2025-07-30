@@ -116,8 +116,6 @@ class FDW(ForeignDataWrapper):
             elif type_ == "json":
                 value = json.dumps(row[col])
             elif type_ == "blob":
-                logger.info(
-                    f"Converting blob {col} , type: {type(row[col])}, length: {len(row[col]) if row[col] else 'None'}")
                 value = row[col]
             else:
                 value = row[col]
@@ -138,16 +136,14 @@ class FDW(ForeignDataWrapper):
 
         blob_columns = [
             col for col in columns if self._columns[col]["type"] == "blob"]
-        if blob_columns:
-            logger.info(f"Found blob columns: {blob_columns}")
-        columns = [col for col in columns if col not in blob_columns]
+        filtered_columns = [col for col in columns if col not in blob_columns]
 
         # First we run a batch query to get the number of results.
         query = [
             {
                 self._command: {
                     **({"with_class": self._class} if not self._is_system_class else {}),
-                    **({"results": {"list": list(columns)}} if columns else {}),
+                    **({"results": {"list": list(filtered_columns)}} if filtered_columns else {}),
                     "batch": {},
                     **({"blobs": True} if blob_columns else {}),
                 }
