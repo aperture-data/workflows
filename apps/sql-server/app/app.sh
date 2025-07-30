@@ -27,15 +27,7 @@ su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PAS
 
 su - postgres -c "createdb ${DATABASE}"
 
-run_psql() {
-  echo "Running SQL command: $1"
-  su - postgres -c "psql -d ${DATABASE} -c \"$1\""
-}
-
-
-run_psql "CREATE EXTENSION IF NOT EXISTS multicorn;"
-run_psql "CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');"
-run_psql "IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;"
+su - postgres -c "psql -a -d ${DATABASE} -f /app/init.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
 tail -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log

@@ -5,6 +5,8 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
+from itertools import zip_longest
+from psycopg2 import Binary
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True,)
@@ -113,6 +115,10 @@ class FDW(ForeignDataWrapper):
                 value = row[col]["_date"]
             elif type_ == "json":
                 value = json.dumps(row[col])
+            elif type_ == "blob":
+                logger.info(
+                    f"Converting blob {col} , type: {type(row[col])}, length: {len(row[col]) if row[col] else 'None'}")
+                value = row[col]
             else:
                 value = row[col]
             result[col] = value
@@ -130,18 +136,31 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
 
+        blob_columns = [
+            col for col in columns if self._columns[col]["type"] == "blob"]
+        if blob_columns:
+            logger.info(f"Found blob columns: {blob_columns}")
+        columns = [col for col in columns if col not in blob_columns]
+
         # First we run a batch query to get the number of results.
         query = [
             {
                 self._command: {
                     **({"with_class": self._class} if not self._is_system_class else {}),
-                    **({"results": {"list": list(columns)}}),
+                    **({"results": {"list": list(columns)}} if columns else {}),
                     "batch": {},
+                    **({"blobs": True} if blob_columns else {}),
                 }
             }
         ]
 
-        _, results, _ = POOL.execute_query(query)
+        logger.debug(f"Executing query: {query}")
+
+        start_time = datetime.now()
+        _, results, blobs = POOL.execute_query(query)
+        elapsed_time = datetime.now() - start_time
+        logger.info(
+            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
 
         if not results or len(results) != 1:
             logger.warning(
@@ -154,7 +173,13 @@ class FDW(ForeignDataWrapper):
             logger.info(
                 f"Single batch found for query: {query} -> {results[:10]}")
             rows = results[0][self._command][self._result_field]
-            for row in rows:
+            logger.debug(
+                f"Found {len(rows)} rows and {len(blobs)} blobs for query: {query}")
+            for row, blob in zip_longest(rows, blobs):
+                if blob_columns:
+                    logger.info(
+                        f"{blob_columns[0]=}, {type(blob)=}, {len(blob)=}")
+                    row[blob_columns[0]] = blob
                 yield self._normalize_row(columns, row)
             return
 
@@ -176,25 +201,40 @@ class FDW(ForeignDataWrapper):
                 f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
             query[0][self._command]["batch"]["batch_id"] = batch
             query[0][self._command]["batch"]["batch_size"] = BATCH_SIZE
-            _, results, _ = POOL.execute_query(query)
+
+            start_time = datetime.now()
+            _, results, blobs = POOL.execute_query(query)
+            elapsed_time = datetime.now() - start_time
+            logger.info(
+                f"Batch {batch + 1} executed in {elapsed_time.total_seconds()} seconds. Results: {len(results)}, Blobs: {len(blobs) if blobs else 0}")
+
             if not results or len(results) != 1:
                 logger.warning(
                     f"No results found for batch {batch} of entity query. {query} -> {results}")
                 continue
 
-            try:
-                rows = results[0][self._command][self._result_field]
-            except KeyError:
-                logger.error(
-                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
-                raise ValueError(
-                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
+            if not columns:
+                rows = []
+            else:
+                try:
+                    rows = results[0][self._command][self._result_field]
+                except KeyError:
+                    logger.error(
+                        f"Result field '{self._result_field}' not found in results: {query} -> {results}")
+                    raise ValueError(
+                        f"Result field '{self._result_field}' not found in results: {query} -> {results}")
 
-            if not rows:
+            if rows is None:
                 logger.warning(f"No rows found in batch {batch}. Continuing.")
                 continue
 
-            for row in rows:
+            logger.debug(
+                f"Found {len(rows)} rows and {len(blobs)} blobs for batch {batch}: {query}")
+            for row, blob in zip_longest(rows, blobs):
+                if blob_columns:
+                    logger.info(
+                        f"{blob_columns[0]=}, {type(blob)=}, {len(blob)=}")
+                    row[blob_columns[0]] = blob
                 yield self._normalize_row(columns, row)
 
     @staticmethod
@@ -219,6 +259,71 @@ class FDW(ForeignDataWrapper):
             return {}
 
     @classmethod
+    def _entity_table(cls, entity: str, data: dict) -> TableDefinition:
+        """
+        Create a TableDefinition for an entity.
+        This is used to create the foreign table in PostgreSQL.
+        """
+        columns = []
+
+        if data["properties"] is not None:
+            for prop, prop_data in data["properties"].items():
+                count, indexed, type_ = prop_data
+                columns.append(ColumnDefinition(
+                    column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+
+        # Add the _uniqueid column
+        columns.append(ColumnDefinition(
+            column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+
+        if entity == "_Blob":
+            # Special case for _Blob entity
+            columns.append(ColumnDefinition(
+                column_name="_blob", type_name="bytea", options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob"})))
+
+        return TableDefinition(
+            table_name=entity,
+            columns=columns,
+            options=cls._encode_options({
+                "class": entity,
+                "type": "entity",
+                "matched": data["matched"],
+            })
+        )
+
+    @classmethod
+    def _connection_table(cls, connection: str, data: dict) -> TableDefinition:
+        """
+        Create a TableDefinition for a connection.
+        This is used to create the foreign table in PostgreSQL.
+        """
+        columns = []
+
+        if data["properties"] is not None:
+            for prop, prop_data in data["properties"].items():
+                count, indexed, type_ = prop_data
+                columns.append(ColumnDefinition(
+                    column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+
+        # Add the _uniqueid, _src, and _dst columns
+        columns.append(ColumnDefinition(
+            column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+        columns.append(ColumnDefinition(
+            column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
+        columns.append(ColumnDefinition(
+            column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
+
+        return TableDefinition(
+            table_name=connection,
+            columns=columns,
+            options=cls._encode_options({
+                "class": connection,
+                "type": "connection",
+                "matched": data["matched"],
+            })
+        )
+
+    @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
         """
         Import the schema from ApertureDB and return a list of TableDefinitions.
@@ -231,57 +336,11 @@ class FDW(ForeignDataWrapper):
         results = []
         if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
             for entity, data in SCHEMA["entities"]["classes"].items():
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid column
-                # This is a special column that is always present in entities, but does not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                logger.info(f"Adding entity {entity} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=entity,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": entity,
-                        "type": "entity",
-                        "matched": data["matched"],
-                    })
-
-                ))
+                results.append(cls._entity_table(entity, data))
 
         if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
             for connection, data in SCHEMA["connections"]["classes"].items():
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid, _src, and _dst columns
-                # These are special columns that are always present in connections, but do not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
-                logger.info(
-                    f"Adding connection {connection} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=connection,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": connection,
-                        "type": "connection",
-                        "src": data["src"],
-                        "dst": data["dst"],
-                        "matched": data["matched"]
-                    })
-                ))
+                results.append(cls._connection_table(connection, data))
 
         return results
 
