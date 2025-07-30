@@ -62,7 +62,7 @@ TYPE_MAP = {
 }
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
-BATCH_SIZE = 1000
+BATCH_SIZE = 100
 
 
 class FDW(ForeignDataWrapper):
