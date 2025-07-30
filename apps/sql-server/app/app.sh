@@ -30,4 +30,4 @@ su - postgres -c "createdb ${DATABASE}"
 su - postgres -c "psql -a -d ${DATABASE} -f /app/init.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
-tail -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log
+tail -n 1000 -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log

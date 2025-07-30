@@ -7,6 +7,7 @@ import os
 import json
 from itertools import zip_longest
 from psycopg2 import Binary
+from typing import Optional, Set, Tuple
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True,)
@@ -61,10 +62,12 @@ TYPE_MAP = {
     "boolean": "boolean",
     "datetime": "timestamptz",
     "json": "jsonb",
+    "blob": "bytea",
 }
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
+BATCH_SIZE_WITH_BLOBS = 10
 
 
 class FDW(ForeignDataWrapper):
@@ -106,6 +109,10 @@ class FDW(ForeignDataWrapper):
             return "FindEntity"
 
     def _normalize_row(self, columns, row: dict) -> dict:
+        """
+        Normalize a row to ensure it has the correct types for PostgreSQL.
+        This is used to convert ApertureDB types to PostgreSQL types.
+        """
         result = {}
         for col in columns:
             if col not in row:
@@ -122,6 +129,31 @@ class FDW(ForeignDataWrapper):
             result[col] = value
         return result
 
+    def _get_as_format(self, quals) -> Optional[str]:
+        """
+        Get the 'as_format' from the quals if it exists.
+        This is used to determine how to return image data.
+        """
+        for qual in quals:
+            if qual.field_name == "_as_format":
+                assert qual.operator == "=", f"Unexpected operator for _as_format: {qual.operator}  Expected '='"
+                return qual.value
+        return None
+
+    def _get_blob_columns(self, columns: Set[str]) -> Tuple[Optional[str], Set[str]]:
+        """
+        Get the first blob column from the columns set, and the remaining columns.
+        """
+        blob_columns = [
+            col for col in columns if self._columns[col]["type"] == "blob"]
+        if len(blob_columns) > 1:
+            logger.warning(
+                f"Multiple blob columns requested: {blob_columns}. Only the first will be returned.")
+        blob_column = blob_columns[0] if blob_columns else None
+        filtered_columns = [
+            col for col in columns if col not in blob_columns and not self._columns[col].get("special", False)]
+        return blob_column, set(filtered_columns)
+
     def execute(self, quals, columns):
         """ Execute the FDW query with the given quals and columns.
 
@@ -134,9 +166,10 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
 
-        blob_columns = [
-            col for col in columns if self._columns[col]["type"] == "blob"]
-        filtered_columns = [col for col in columns if col not in blob_columns]
+        blob_column, filtered_columns = self._get_blob_columns(columns)
+        batch_size = BATCH_SIZE_WITH_BLOBS if blob_column else BATCH_SIZE
+
+        as_format = self._get_as_format(quals)
 
         # First we run a batch query to get the number of results.
         query = [
@@ -145,7 +178,8 @@ class FDW(ForeignDataWrapper):
                     **({"with_class": self._class} if not self._is_system_class else {}),
                     **({"results": {"list": list(filtered_columns)}} if filtered_columns else {}),
                     "batch": {},
-                    **({"blobs": True} if blob_columns else {}),
+                    **({"blobs": True} if blob_column else {}),
+                    **({"as_format": as_format} if as_format else {}),
                 }
             }
         ]
@@ -168,15 +202,20 @@ class FDW(ForeignDataWrapper):
             # Some find commands (FindConnection) don't handle batching, so we assume all results are returned at once.
             logger.info(
                 f"Single batch found for query: {query} -> {results[:10]}")
-            rows = results[0][self._command][self._result_field]
+            rows = results[0][self._command][self._result_field] if filtered_columns else [
+            ]
             logger.debug(
                 f"Found {len(rows)} rows and {len(blobs)} blobs for query: {query}")
             for row, blob in zip_longest(rows, blobs):
-                if blob_columns:
-                    logger.info(
-                        f"{blob_columns[0]=}, {type(blob)=}, {len(blob)=}")
-                    row[blob_columns[0]] = blob
-                yield self._normalize_row(columns, row)
+                row = row or {}
+                if blob_column:
+                    row[blob_column] = blob
+                if as_format:
+                    row["as_format"] = as_format
+                result = self._normalize_row(columns, row)
+                logger.debug(
+                    f"Yielding row: {json.dumps({k:v[:10] if isinstance(v, (str, bytes)) else v for k, v in row.items()}, indent=2)}")
+                yield result
             return
 
         try:
@@ -187,16 +226,16 @@ class FDW(ForeignDataWrapper):
             raise ValueError(
                 f"Batch total_elements not found in results: {query} -> {results}")
 
-        n_batches = (n_results + BATCH_SIZE - 1) // BATCH_SIZE
+        n_batches = (n_results + batch_size - 1) // batch_size
         logger.info(
             f"Found {n_results} results in {n_batches} batches for query: {query}")
 
         # Now we fetch the results batch by batch.
         for batch in range(n_batches):
             logger.info(
-                f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
+                f"Processing batch {batch + 1}/{n_batches}: {batch * batch_size} to {min((batch + 1) * batch_size, n_results)}")
             query[0][self._command]["batch"]["batch_id"] = batch
-            query[0][self._command]["batch"]["batch_size"] = BATCH_SIZE
+            query[0][self._command]["batch"]["batch_size"] = batch_size
 
             start_time = datetime.now()
             _, results, blobs = POOL.execute_query(query)
@@ -209,7 +248,7 @@ class FDW(ForeignDataWrapper):
                     f"No results found for batch {batch} of entity query. {query} -> {results}")
                 continue
 
-            if not columns:
+            if not filtered_columns:
                 rows = []
             else:
                 try:
@@ -227,11 +266,15 @@ class FDW(ForeignDataWrapper):
             logger.debug(
                 f"Found {len(rows)} rows and {len(blobs)} blobs for batch {batch}: {query}")
             for row, blob in zip_longest(rows, blobs):
-                if blob_columns:
-                    logger.info(
-                        f"{blob_columns[0]=}, {type(blob)=}, {len(blob)=}")
-                    row[blob_columns[0]] = blob
-                yield self._normalize_row(columns, row)
+                row = row or {}
+                if blob_column:
+                    row[blob_column] = blob
+                if as_format:
+                    row["_as_format"] = as_format
+                result = self._normalize_row(columns, row)
+                logger.debug(
+                    f"Yielding row: {json.dumps({k:v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes)) else v for k, v in row.items()}, indent=2)}")
+                yield result
 
     @staticmethod
     def _encode_options(options):
@@ -262,29 +305,57 @@ class FDW(ForeignDataWrapper):
         """
         columns = []
 
-        if data["properties"] is not None:
-            for prop, prop_data in data["properties"].items():
-                count, indexed, type_ = prop_data
-                columns.append(ColumnDefinition(
-                    column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+        try:
+            if data["properties"] is not None:
+                for prop, prop_data in data["properties"].items():
+                    try:
+                        count, indexed, type_ = prop_data
+                        columns.append(ColumnDefinition(
+                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+                    except Exception as e:
+                        logger.exception(
+                            f"Error processing property '{prop}' for entity {entity}: {e}")
+                        raise
 
-        # Add the _uniqueid column
-        columns.append(ColumnDefinition(
-            column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-
-        if entity == "_Blob":
-            # Special case for _Blob entity
+            # Add the _uniqueid column
             columns.append(ColumnDefinition(
-                column_name="_blob", type_name="bytea", options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob"})))
+                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+
+            # Blob-like entities get special columns specific to the type
+            if entity == "_Blob":
+                # _Blob gets _blob column
+                columns.append(ColumnDefinition(
+                    column_name="_blob", type_name="bytea",
+                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
+            elif entity == "_Image":
+                # _image gets _image, _as_format, _operations columns
+                columns.append(ColumnDefinition(
+                    column_name="_image", type_name="bytea",
+                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
+                columns.append(ColumnDefinition(
+                    column_name="_as_format", type_name="image_format_enum",
+                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "string", "special": True})))
+                columns.append(ColumnDefinition(
+                    column_name="_operations", type_name="jsonb",
+                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "json", "special": True})))
+        except Exception as e:
+            logger.exception(
+                f"Error processing properties for entity {entity}: {e}")
+            raise
+
+        options = {
+            "class": entity,
+            "type": "entity",
+            "matched": data["matched"],
+        }
+
+        logger.debug(
+            f"Creating entity table for {entity} with columns: {columns} and options: {options}")
 
         return TableDefinition(
             table_name=entity,
             columns=columns,
-            options=cls._encode_options({
-                "class": entity,
-                "type": "entity",
-                "matched": data["matched"],
-            })
+            options=cls._encode_options(options)
         )
 
     @classmethod
@@ -295,28 +366,44 @@ class FDW(ForeignDataWrapper):
         """
         columns = []
 
-        if data["properties"] is not None:
-            for prop, prop_data in data["properties"].items():
-                count, indexed, type_ = prop_data
-                columns.append(ColumnDefinition(
-                    column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+        try:
+            if data["properties"] is not None:
+                for prop, prop_data in data["properties"].items():
+                    try:
+                        count, indexed, type_ = prop_data
+                        columns.append(ColumnDefinition(
+                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
 
-        # Add the _uniqueid, _src, and _dst columns
-        columns.append(ColumnDefinition(
-            column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-        columns.append(ColumnDefinition(
-            column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-        columns.append(ColumnDefinition(
-            column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
+                    except Exception as e:
+                        logger.exception(
+                            f"Error processing property '{prop}' for connection {connection}: {e}")
+                        raise
+
+            # Add the _uniqueid, _src, and _dst columns
+            columns.append(ColumnDefinition(
+                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+            columns.append(ColumnDefinition(
+                column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
+            columns.append(ColumnDefinition(
+                column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
+        except Exception as e:
+            logger.exception(
+                f"Error processing properties for connection {connection}: {e}")
+            raise
+
+        options = {
+            "class": connection,
+            "type": "connection",
+            "matched": data["matched"],
+        }
+
+        logger.debug(
+            f"Creating connection table for {connection} with columns: {columns} and options: {options}")
 
         return TableDefinition(
             table_name=connection,
             columns=columns,
-            options=cls._encode_options({
-                "class": connection,
-                "type": "connection",
-                "matched": data["matched"],
-            })
+            options=cls._encode_options(options)
         )
 
     @classmethod

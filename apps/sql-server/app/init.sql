@@ -1,3 +1,9 @@
+-- Enums
+
+CREATE TYPE image_format_enum AS ENUM ('png', 'jpg');
+
+-- FDW Setup
+
 CREATE EXTENSION IF NOT EXISTS multicorn;
 
 CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');
@@ -69,7 +75,8 @@ RETURNS jsonb AS $$
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- Interval
-CREATE OR REPLACE FUNCTION INTERVAL(
+-- Note that INTERVAL is a reserved keyword in SQL, so we use OP_INTERVAL instead.
+CREATE OR REPLACE FUNCTION OP_INTERVAL(
     start integer,
     stop integer,
     step integer
