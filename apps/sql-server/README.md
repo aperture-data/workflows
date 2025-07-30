@@ -12,7 +12,7 @@ docker run \
            -e DB_PASS=password \
            -e WF_LOG_LEVEL=INFO \
            -e POSTGRES_PASSWORD=secretsquirrel \
-           aperturedata/workflows-postgresql-server
+           aperturedata/workflows-sql-server
 ```
 
 Parameters: 

@@ -1,7 +1,7 @@
 # Pull base image with Python and ApertureDB tools
 FROM aperturedata/workflows-base
 
-ENV APP_NAME=workflows-postgresql-server
+ENV APP_NAME=workflows-sql-server
 ENV POSTGRES_VERSION=17
 ARG MULTICORN_VERSION=3.0
 
