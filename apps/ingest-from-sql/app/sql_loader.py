@@ -1,4 +1,4 @@
-#bucket_loader.py - ApertureData's bucket loading workflow
+#sql_loader.py - ApertureData's SQL loading workflow
 import logging
 import sys
 from uuid import uuid4
@@ -10,7 +10,7 @@ from wf_argparse import ArgumentParser
 from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper,PDFIngester
 from scan import scan
 from spec import WorkflowSpec
-import utils
+from utils import TableType, TableSpec,ConnectionSpec,CommandlineType
 
 
 logger = logging.getLogger(__name__)
@@ -26,46 +26,54 @@ def main(args):
         sys.exit(1)
 
 
-    #spec = WorkflowSpec( db, "sql-loader", args.spec_id, clean=args.clean )
+    spec = WorkflowSpec( db, "sql-loader", args.spec_id, clean=args.clean )
 
     run_id = uuid4()
-    #spec.add_run( run_id )
+    spec.add_run( run_id )
     provider = SQLProvider(args.sql_host, args.sql_user, args.sql_password, args.sql_database, port = args.sql_port)
 
     if not provider.verify():
         logger.error("Workflow cannot continue, configuration incorrect")
-        #spec.finish_run(run_id)
-        #spec.finish_spec()
+        spec.finish_run(run_id)
+        spec.finish_spec()
         sys.exit(1)
 
-    tables = scan(provider.get_engine(),args.image_tables, args.pdf_tables, args.tables_to_ignore,args.columns_to_ignore,
+    tables = scan( provider.get_engine(),
+            args.image_tables, args.pdf_tables, args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_mapping,
-            args.automatic_foreign_key,args.foreign_key_entity_mapping,
+            args.automatic_foreign_key, args.foreign_key_entity_mapping,
             args.undefined_blob_action == 'error' )
-
-    ingestions = [
-            EntityIngester(provider,info) if info.entity_type == "entity" else
-            ConnectionIngester(provider,info)  if info.entity_type == "connection" else
-            PDFIngester(provider,info)  if info.entity_type == "pdf" else
-            ImageIngester(provider,info)
-            for info in tables ]
 
     emapper = EntityMapper()
 
-    [ ing.set_workflow_id( str(run_id) ) if ing else None for ing in ingestions ]
-    [ ing.set_entity_mapper( emapper ) if ing else None for ing in ingestions ]
+    def create_ingester(table_info):
+        ingester = None
+        if table_info.entity_type is TableType.ENTITY:
+            ingester = EntityIngester(provider,table_info)
+        elif table_info.entity_type is TableType.CONNECTION:
+            ingester = ConnectionIngester(provider,table_info)
+        elif table_info.entity_type is TableType.PDF:
+            ingester = PDFIngester(provider,table_info)
+        elif table_info.entity_type is TableType.IMAGE:
+            ingester = ImageIngester(provider,table_info)
+        else:
+            raise Exception(f"Unhandled table type in create_ingester: {table_info.entity_type}")
+        ingester.set_workflow_id( str(run_id))
+        ingester.set_entity_mapper( emapper )
+        return ingester
+
+    ingestions = [ create_ingester(info) for info in tables ]
 
 
-    linked_types_to_run = []
+    linked_types_to_run = set()
     for ingestion in ingestions:
         if ingestion is None:
             continue
         ingestion.prepare()
-        #sys.exit(0)
         ingestion.load(db)
+        linked_types_to_run.update( ingestion.get_types_added() )
 
-    sys.exit(0)
-    spec.finish_run(str(run_id), { "wf_linked_types" : linked_types_to_run } )
+    spec.finish_run(str(run_id), { "wf_linked_types" : list(linked_types_to_run) } )
     spec.finish_spec()
 
 def get_args():
@@ -92,17 +100,17 @@ def get_args():
         help="Tables to generate Images from")
     obj.add_argument('--undefined-blob-action',choices=['ignore','error'], default='ignore', 
         help="Handling of blob columns that aren't expected. Ignore doesn't include them. Error aborts ingest.") 
-    obj.add_argument('--url-columns-for-binary-data',default=None,type=utils.CommandlineType.column_list,
+    obj.add_argument('--url-columns-for-binary-data',default=None,type=CommandlineType.column_list,
         help="Column names which are url links to binary data") 
-    obj.add_argument( '--tables-to-ignore', default=None, type=utils.CommandlineType.table_list,
+    obj.add_argument( '--tables-to-ignore', default=None, type=CommandlineType.table_list,
         help="Tables to ignore") 
-    obj.add_argument( '--columns-to-ignore', default=None, type=utils.CommandlineType.column_list,
+    obj.add_argument( '--columns-to-ignore', default=None, type=CommandlineType.column_list,
         help="Columns to ignore") 
-    obj.add_argument( '--table-to-entity-mapping', default=None, type=utils.CommandlineType.item_map,
+    obj.add_argument( '--table-to-entity-mapping', default=None, type=CommandlineType.item_map,
         help="Mapping of table names to entity names") 
 
     # connection options
-    obj.add_argument( '--foreign-key-entity-mapping', default=None, type=utils.CommandlineType.item_map,
+    obj.add_argument( '--foreign-key-entity-mapping', default=None, type=CommandlineType.item_map,
         help="Mapping of foreign keys to their source table and column")
     obj.add_argument( '--automatic-foreign-key', default=False, type=bool,
         help="Enable mapping of regularly named forign keys")

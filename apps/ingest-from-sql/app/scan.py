@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 import subprocess
 import sys
+import logging
 import fnmatch
 from typing import List
 from dataclasses import dataclass
@@ -12,11 +13,12 @@ from sqlalchemy import URL,create_engine
 from sqlalchemy import inspect
 import sqlalchemy as sql
 
-import utils
+from utils import TableType, TableSpec,ConnectionSpec,CommandlineType
 
 from typing import TypedDict 
 
 
+logger = logging.getLogger(__name__)
 
 def scan(engine:sql.Engine,
         image_tables:list, pdf_tables:list,
@@ -24,7 +26,40 @@ def scan(engine:sql.Engine,
         url_columns:list, table_to_entity_map:dict,
         automatic_fk_mapping:bool,
         fk_map:dict,
-        error_on_unused_binary:bool ) -> List[utils.TableSpec] :
+        error_on_unused_binary:bool ) -> List[TableSpec] :
+    """
+    Scans the database given user configuration, and produces a list of
+    specifications for tables to import.
+
+    Arguments:
+    engine: A SQLAlchemy engine representing the SQL server. Should be already verified to work.
+    image_tables: a list of table names ( just the table, not the schema/db with it) that should be treated as a source for image entities
+    pdf_tables: a list of table names ( just the table, not the schema/db with it ) that should be treated as a source for pdf entities.
+    )
+    table_ignore_list: a list of glob-compatable tables to ignore.
+    column_ignore_list: a list of glob-compatable columns to ignore. Must include table portion to match.
+    url_columns:  a list of glob-compatable columns to treat as urls that have a binary.
+    table_to_entity_map: a dictionary which maps table names to entity names.
+    automatic_fk_mapping: boolean to enable automatic identification of foreign keys. Must be in recognized format.
+    fk_map: map of source to foreign key. Source is "table that does not own the key" String to String.
+    error_on_unused_binary: boolean to enable throwing an error if a table has a binary column that is unused.
+
+
+    Returns:
+        List of 0 or more TableSpec or ConnectionSpec
+
+        ConnectionSpecs will always be last to enable loading by walking through the
+        list in order.
+
+    Automatic Foreign Key mapping
+
+    There are serveral ways to automatically map foreign keys.
+    * fk_{table}_{col}
+    * foreign key definitions in the db
+    * unique table names across the db.
+
+    We implement the first here.
+    """
 
     selected_tables = []
     if image_tables is None:
@@ -66,18 +101,18 @@ def scan(engine:sql.Engine,
             url_cols = []
             bin_cols = []
             pk = None
-            print(f"* Table = {table.name}",end="")
+            table_log = f"* Table = {table.name}"
             skip=False
             for pat in table_ignore_list: 
                 if fnmatch.fnmatch( table.name, pat ):
-                    print("- Skipped")
+                    logger.info( table_log + "- Skipped")
                     skip=True
                     break
             if skip:
                 continue
-            print("")
+            logger.info(table_log)
 
-            table_type = "entity"
+            table_type = TableType.ENTITY
             entity_name = table.name
             expect_binary = False
             has_binary = False
@@ -85,15 +120,16 @@ def scan(engine:sql.Engine,
 
             if table.name in table_to_entity_map:
                 entity_name = table_to_entity_map[table.name]
+                logger.info(f" @ Mapped {table.name} to {entity_name}")
 
             if table.name in image_tables:
-                print(f" ! Table is an image table")
+                logger.info(f" ! Table is an image table")
                 expect_binary = True
-                table_type = "image"
+                table_type = TableType.IMAGE 
             elif table.name in pdf_tables:
-                print(f" ! Table is an pdf table")
+                logger.info(f" ! Table is an pdf table")
                 expect_binary = True
-                table_type = "pdf"
+                table_type = TableType.PDF
 
 
             for col in table.columns:
@@ -101,14 +137,14 @@ def scan(engine:sql.Engine,
                 gen = col.type.as_generic()
                 col_is_binary = isinstance(gen,LargeBinary)
                 full_col_name = "{}.{}".format(table.name, col.name)
-                print(f"  * Column = {col.name} {col.type} {gen}",end="") 
+                col_log = f"  * Column = {col.name} {col.type} {gen}"
 
                 for pat in column_ignore_list:
                     if fnmatch.fnmatch( full_col_name, pat):
                         skip=True
                         break
                 if skip:
-                    print(" - Skipped")
+                    logger.info(col_log + " - Skipped")
                     continue
 
                 fk_is_ignored = False
@@ -120,7 +156,7 @@ def scan(engine:sql.Engine,
                         if fk_map[name] == "":
                             fk_is_ignored = True
                         else:
-                            print(" - Foriegn Key")
+                            logger.info(col_log + " - Foriegn Key")
                             fkm = FkColMapping(table=table, col=col, is_automatic=False)
                             fkm.target = fk_map[name]
                             potential_fks[full_col_name] = fkm 
@@ -131,7 +167,7 @@ def scan(engine:sql.Engine,
                     if col.name.startswith("fk_"):
                         potential_fks[full_col_name] = FkColMapping(table=table,
                                 col=col, is_automatic=True)
-                        print(" - Foriegn Key (Auto)")
+                        logger.info(col_log + " - Foriegn Key (Auto)")
                         continue
                     # could do auto on foriegn key def in db.
 
@@ -145,18 +181,18 @@ def scan(engine:sql.Engine,
                         raise Exception(f"Column for url isn't a string; {full_col_name} is binary.")
                     elif not isinstance(gen,String):
                         raise Exception(f"Column for url isn't a string; {full_col_name} is {type(gen)} .")
-                    print(" - URL")
+                    logger.info(col_log+" - URL")
                     url_cols.append(col.name)
                     has_binary = True
                 elif col_is_binary: 
-                    print("- Binary")
+                    logger.info(col_log+"- Binary")
                     if has_binary:
                         print(f"Ignoring additional binary column in table = {ful_col_name}")
                     else:
                         bin_cols.append(col.name)
                     has_binary = True
                 else: 
-                    print("")
+                    logger.info(col_log) 
                     used_cols.append(col.name)
 
                 all_cols[full_col_name] = [ table, col ]
@@ -166,6 +202,8 @@ def scan(engine:sql.Engine,
                 if not expect_binary:
                     if error_on_unused_binary:
                         raise Exception(f"Table {table.name} had a binary column but it was not expected.")
+                    else:
+                        logger.warning(f"Ignoring binary column in {table.name}")
             elif expect_binary and not has_binary:
                 raise Exception(f"Was expecting a binary in {table.name}, but didn't find any.")
 
@@ -175,9 +213,9 @@ def scan(engine:sql.Engine,
                 if len(table_info.columns) != 1:
                     raise Exception("Exactly 1 column is required to be a primary key")
                 pk = table_info.columns[0].name
-            print(f"Primary key is {pk}")
+            logger.info(f"Primary key is {pk}")
             selected_tables.append(
-                utils.TableSpec(table=table,prop_columns=used_cols,
+                TableSpec(table=table,prop_columns=used_cols,
                     url_columns=url_cols,bin_columns=bin_cols,name=entity_name,
                     entity_type = table_type,primary_key=pk))
 
@@ -196,12 +234,12 @@ def scan(engine:sql.Engine,
         if target not in all_cols.keys():
             raise Exception(f"Cannot find target column for {fk_to_connect}: ({target})")
         (ttbl,tcol) = all_cols[target]
-        print(f"Creating Connections from {fk_to_connect} to {target}")
+        logger.info(f"Creating Connections from {fk_to_connect} to {target}")
         st =  list(filter( lambda sst: sst.entity_type != "connection" and sst.table.name == fkmap.table.name,
             selected_tables )) [0] 
         pk=fk_to_connect.split(".")[1]
         selected_tables.append(
-                utils.ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
+                ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
                     pk, st.primary_key],
                     primary_key=pk)) 
 
@@ -219,22 +257,23 @@ def get_opts():
         help="Tables to generate Images from")
     parser.add_argument('-X','--undefined-blob-action',choices=['ignore','error'], default='ignore', 
         help="Handling of blob columns that aren't expected. Ignore doesn't include them. Error aborts ingest.") 
-    parser.add_argument('-U','--url-columns-for-binary-data',default=None,type=utils.CommandlineType.column_list,
+    parser.add_argument('-U','--url-columns-for-binary-data',default=None,type=CommandlineType.column_list,
         help="Column names which are url links to binary data") 
-    parser.add_argument( '-T', '--tables-to-ignore', default=None, type=utils.CommandlineType.table_list,
+    parser.add_argument( '-T', '--tables-to-ignore', default=None, type=CommandlineType.table_list,
         help="Tables to ignore") 
-    parser.add_argument( '-C', '--columns-to-ignore', default=None, type=utils.CommandlineType.column_list,
+    parser.add_argument( '-C', '--columns-to-ignore', default=None, type=CommandlineType.column_list,
         help="Columns to ignore") 
-    parser.add_argument('-M', '--table-to-entity-map', default=None, type=utils.CommandlineType.item_map,
+    parser.add_argument('-M', '--table-to-entity-map', default=None, type=CommandlineType.item_map,
         help="Mapping of table names to entity names") 
     parser.add_argument('-A', '--automatic-fk-map', default=False,type=bool,
         help="Automatically map fks") 
-    parser.add_argument('-F', '--fk-map', default=None, type=utils.CommandlineType.item_map,
+    parser.add_argument('-F', '--fk-map', default=None, type=CommandlineType.item_map,
         help="FK mapping")
+    parser.add_argument('--log-level', type=str, default='INFO')
     args= parser.parse_args()
-    print(args.columns_to_ignore)
-    print(args.tables_to_ignore)
-    print(args.table_to_entity_map)
+    print(f"Column Ignore: {args.columns_to_ignore}")
+    print(f"Table Ignore: {args.tables_to_ignore}")
+    print(f"Table-Entity Map: {args.table_to_entity_map}")
     return args
 
 
@@ -242,10 +281,12 @@ if __name__ == '__main__':
 
     args = get_opts()
     engine = create_engine(args.connection_string)
+    logging.basicConfig(level=args.log_level.upper(), force=True)
     res = scan(engine, args.image_tables, args.pdf_tables,
             args.tables_to_ignore,args.columns_to_ignore,
             args.url_columns_for_binary_data, args.table_to_entity_map,
             args.automatic_fk_map, args.fk_map,
             args.undefined_blob_action == 'error' )
+    print("Specifications")
     for r in res:
         print(f"++ {r}")

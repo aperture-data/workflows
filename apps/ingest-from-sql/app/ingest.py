@@ -1,17 +1,21 @@
 # ingest.py - for ingest from SQL
 
+import logging
 from aperturedb.EntityDataCSV import EntityDataCSV
 from aperturedb.ImageDataCSV import ImageDataProcessor,ImageDataCSV
 from aperturedb.ConnectionDataCSV import ConnectionDataCSV
 from aperturedb.Sources import Sources
+from aperturedb.Query import ObjectType
 import pandas as pd
 from utils import hash_string,TableSpec,ConnectionSpec
 from sqlalchemy import URL,create_engine,Connection,MetaData,select
 import copy
 import datetime as dt
+import magic
 
 from aperturedb.ParallelLoader import ParallelLoader
 
+logger = logging.getLogger(__name__)
 class EntityMapper:
     def __init__(self):
         self.map = {}
@@ -21,23 +25,29 @@ class EntityMapper:
 
     def get_mapping(self,table_name):
         if not table_name in self.map:
-            print(f"{table_name} not in entity map!")
+            logger.warning(f"{table_name} not in entity map!")
         return self.map[table_name]
 
+###
+# We 
 
 class SQLBaseDataCSV():
-    #def __init__(self, filename:str, sql_resource_name, primary_key_column_name,  sqldb:Connection, **kwargs):
+    """
+    SQLBaseDataCSV can't be based on EntityDataCSV, because our Binary data classes 
+     can't use Entity's getitem, but our EntityData can.
+     So we have a single function which takes a core getitem and applies our
+     common SQL ingest actions.
+
+     Note that this requires `self.command` - so it expects to be in an object
+     that is also an EntityDataCSV.
+    """
     def __init__(self, sql_resource_prefix, primary_key_column_name, **kwargs):
-        print("*****************SBD**********************")
-        print(f" {sql_resource_prefix} // {primary_key_column_name}")
-        #super().__init__(filename, **kwargs)
+        logger.info(f"SQLBaseDataCSV: {sql_resource_prefix} // {primary_key_column_name}")
         self.sql_resource_prefix = sql_resource_prefix
         self.primary_key_column_name = primary_key_column_name
-    def injected_getitem(self,idx,pre_func):
-        query,blobs = pre_func(self,idx)
-        #print(f"IJGI {query}")
+    def injected_getitem(self,idx,base_getitem):
+        query,blobs = base_getitem(self,idx)
         idx = self.df.index.start + idx
-       # print(self.df.loc[idx])
         resource_name = "{}/{}".format(self.sql_resource_prefix,
                 self.df.loc[idx,self.primary_key_column_name])
         object_hash = hash_string(resource_name) 
@@ -46,17 +56,24 @@ class SQLBaseDataCSV():
         props["wf_sha1_hash"] = object_hash
         query[0][self.command]["if_not_found"]= { "wf_sha1_hash" : ["==", object_hash ]}
 
-        print(f"Object {resource_name} -> {object_hash}")
-        #print(f"IJGI {query}")
+        logger.info(f"SQL Object {resource_name} -> {object_hash}")
+        logger.debug("Query = {query}")
         return query,blobs
 
 class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
+    """
+    Creates a CSV for a table which is an Entity.
+    """
     def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
         EntityDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
     def getitem(self,idx):
         return self.injected_getitem( idx, EntityDataCSV.getitem )
+
 class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
+    """
+    Creates a CSV for a relationship between two tables.
+    """
     def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
         ConnectionDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
@@ -66,7 +83,7 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
             return q[list(q.keys())[0]]['constraints']['wf_sha1_hash'][1]
         hash1 = query_hash( query[0] )
         hash2 = query_hash( query[1] )
-        print(f"Connecting {hash1} and {hash2}")
+        logger.debug(f"Connecting {hash1} and {hash2}")
         object_hash = hash_string(f"{hash1}{hash2}") 
         props = query[2]["AddConnection"]["properties"]
         query[2]["AddConnection"]["if_not_found"] = { "wf_sha1_hash":
@@ -76,55 +93,44 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
 
 class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
     """
-    injects binary data into entity loading, either from SQL or from a url.
+    Creates a CSV for a table which has binary data associated.
+
+    Can be Image or Blob.
+
+    The binary data is injected into entity loading, either from SQL or from a url.
     binary_lookup_file is internal type - rows should be ordered exactly the
     same as input file.  expects first column to be:
       - url = get data from this urls
       - db_{name}  get data from connection,  name is the column to select for lookup
     """
-#    def __init__(self, filename:str, binary_df:str, sqldb:Connection, table_name:str, primary_key:str, **kwargs):
     def __init__(self, filename:str, binary_df:str, sql_resource_prefix,
             primary_key_column_name, **kwargs):
         EntityDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
-
         ImageDataProcessor.__init__( self, check_image=False, n_download_retries=3)
 
         self.blob_df = binary_df 
-        col_info = self.blob_df.columns[0]
-        if col_info == "url":
-            self.mode = "url" 
-        elif binary_df is not None:
-            self.mode = "db"
-        else:
-            raise Exception(f"binary table malformed; first column was {col_info} and no binary_df passed")
 
-
-        #self.table = table_name
-        if self.mode =="db":
-            self.column_name = "data"
+        self.column_name = "data"
         self.command = "AddBlob" 
+
     def set_image_mode(self,is_image_mode):
         self.command = "AddImage" if is_image_mode else "AddBlob"
+
     def get_indices(self):
+        entity_type = "_Blob" if self.command == "AddBlob" else "_Image"
         return {
             "entity": {
-                "_Image": [ "wf_sha1_hash"] 
+                entity_type: [ "wf_sha1_hash"] 
             }
-        }   
+        }
+
     def getitem_binary(self,idx):
         custom_fields = {}
         blobs = []
         q = []
-        #if self.format_given:
-        #    custom_fields["format"] = self.df.loc[idx, IMG_FORMAT]
         ai = self._basic_command(idx, custom_fields)
-        # Each getitem query should be properly defined with a ref.
-        # A ref shouldb be added to each of the commands from getitem implementation.
-        # This is because a transformer or ref updater in the PQ
-        # will need to know which command to update.
         ai[self.command]["_ref"] = 1
-        #blobs.append(img)
         q.append(ai)
 
         return q, blobs
@@ -134,32 +140,30 @@ class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
 
         idx = self.df.index.start + idx
 
-        blob = None
-        if self.mode == "db":
-            blob = self.blob_df.loc[idx,self.column_name]
-            
-        else: # url
-            image_path = os.path.join(
-                self.relative_path_prefix, self.df.loc[idx, self.source_type])
-            img_ok, img = self.source_loader["url"](image_path)
-            blob = img
+        blob = self.blob_df.loc[idx,self.column_name]
+        query[0][self.command]["properties"]["adb_mime_type"] = magic.from_buffer(blob,mime=True)
 
         if blobs is None:
             blobs = []
         blobs.insert(0,blob)
         return query,blobs
+
     def validate(self):
         pass
 
 
 class Provider:
+    """
+    for eventual merging with load from bucket
+    """
     pass
 
-class SQLProvider:
+class SQLProvider(Provider):
+    """
+    Wraps access to SQL database.
+    """
     def __init__(self,host:str, user:str, password:str, database:str,
             port:int=None, table:str=None):
-    #conn:sqlalchemy.Connection , table: sqlalchemy.Table,
-            #columns_to_load):
         self.user = user
         self.password = password
         self.host =host
@@ -208,14 +212,14 @@ class SQLProvider:
         t = meta.sorted_tables[0]
         to_select=[]
         all_ret_cols = self.info.prop_columns + self.info.bin_columns + self.info.url_columns 
-        print(all_ret_cols)
+        logger.debug(f"SQLProvider.get_data: {all_ret_cols}")
         for c in t.columns:
             if c.name in all_ret_cols:
                 to_select.append(c)
         stmt = select(*to_select)
         data=[]
         with self.engine.connect() as conn:
-            print(stmt)
+            logger.debug(f"SQLProvider:{stmt}")
             rows = conn.execute(stmt.compile(self.engine))
             for r in rows:
                 data.append(r)
@@ -232,16 +236,20 @@ class SQLProvider:
             self.get_engine()
             return True;
         except Exception as e:
-            print(f"Failed to connect to SQL server:{e}")
+            logger.error(f"Failed to connect to SQL server:{e}")
             return False
 
 class Ingester:
+    """
+    Wraps interfacing between a provider and a adb csv parser
+    """
     def __init__(self,  source: Provider, info:TableSpec): 
         self.multiple_objects = None
         self.source = source.as_table(info)
         self.dataframe = None
         self.workflow_id = None
         self.info = info
+        self.types_added = None
 
 
     def set_workflow_id(self,id):
@@ -252,6 +260,9 @@ class Ingester:
 
     def get_entity_mapper(self):
         return self.emapper
+
+    def get_types_added(self):
+        return [] if self.types_added is None else self.types_added
 
     def prepare(self):
         raise NotImplementedError("Base Class")
@@ -272,10 +283,12 @@ class Ingester:
         return pd.DataFrame(columns=[pk,url_col],data=new_data)
 
     def generate_df(self ):
+        """
+        Creates the basic data by reading from the source. Injects some workflow data.
+        """
         table_name = self.source.table_name()
         scheme = "sql://{}/{} ".format(
                 self.source.host_name() , self.source.database_name())
-        #url_column_name = self.info.url_columns
         load_time = dt.datetime.now().isoformat()
         full = []
         objects = []
@@ -286,7 +299,6 @@ class Ingester:
                 data=full)
         df['wf_creator'] =  "sql_ingestor" 
         df['wf_creator_key'] = hash_string( "{}/{}".format(scheme,table_name)) 
-        #df['adb_mime_type'] = "TODO"
         if self.workflow_id:
             df['wf_workflow_id'] = self.workflow_id
 
@@ -297,17 +309,19 @@ class EntityIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(EntityIngester,self).__init__(source,info) 
     def prepare(self):
-        print("Prepare Entity")
+        logger.info("Prepare Entity")
         self.df = super(EntityIngester,self).generate_df()
-        print(f"Columns: {self.df.columns}")
-        print(self.df)
+        logger.debug("Entity DataFrame input")
+        logger.debug(f"Columns: {self.df.columns}")
+        logger.debug(self.df)
         self.emapper.add_mapping( self.source.table_name(),
-                self.source.table_name())
+                self.info.name)
     def load(self,db):
-        print("Ready to load")
+        logger.info("Ready to load entities")
         ename = self.emapper.get_mapping(self.info.table.name)
         self.df.insert(0,"EntityClass", ename)
-        print(self.df)
+        logger.debug("Entity DataFrame output")
+        logger.debug(self.df)
         csv_data = SQLEntityDataCSV( filename=None,df=self.df,
                 primary_key_column_name=self.source.get_pk_col(),
                 sql_resource_prefix=self.source.get_table_hash_prefix())
@@ -316,17 +330,17 @@ class EntityIngester(Ingester):
                 numthreads=4)
         cnt = len(self.df.index)
         noun = "entity" if cnt == 1 else "entities"
-        print(f"Finished uploading {cnt} {noun}")
+        logger.info(f"Finished uploading {cnt} {noun}")
 
-        print(f"Columns: {self.df.columns}")
-        print(self.df)
+        self.types_added = [self.info.name]
 
 class PDFIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(PDFIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(PDFIngester,self).generate_df()
-        print(self.df)
+        logger.debug("PDF DataFrame input")
+        logger.debug(self.df)
         drop_col=None
         if not self.source.get_bin_col():
             self.binary_df = self.load_urls( self.df )
@@ -335,19 +349,20 @@ class PDFIngester(Ingester):
             self.binary_df = \
                 self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
             drop_col = self.source.get_bin_col()
-        print(self.df.columns)
+        logger.debug(self.df.columns)
         self.df.drop(columns=[drop_col],inplace=True)
         self.df["document_type"] = "pdf"
 
 
-        print(self.df)
-        print(self.binary_df)
+        logger.debug("PDF DataFrame output")
+        logger.debug(self.df)
+        logger.debug(self.binary_df)
         self.binary_df.rename(columns={drop_col:"data"},inplace=True)
         self.emapper.add_mapping( self.source.table_name(),
                 "_Blob")
 
     def load(self,db):
-        print("Ready to load")
+        logger.info("Ready to load PDFs")
         csv_data = SQLBinaryDataCSV(
                 filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
                 primary_key_column_name=self.source.get_pk_col(),
@@ -357,14 +372,16 @@ class PDFIngester(Ingester):
                 numthreads=4)
         cnt = len(self.df.index)
         noun = "blob" if cnt == 1 else "blobs"
-        print(f"Finished uploading {cnt} {noun}")
+        logger.info(f"Finished uploading {cnt} {noun}")
+        self.types_added = [ObjectType.BLOB.value]
 
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(ImageIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
-        print(self.df)
+        logger.debug("Image DataFrame input")
+        logger.debug(self.df)
         drop_col=None
         if not self.source.get_bin_col():
             self.binary_df = self.load_urls( self.df )
@@ -373,17 +390,18 @@ class ImageIngester(Ingester):
             self.binary_df = \
                 self.df[[self.source.get_pk_col(),self.source.get_bin_col()]].copy()
             drop_col = self.source.get_bin_col()
-        print(self.df.columns)
+        logger.debug(self.df.columns)
         self.df.drop(columns=[drop_col],inplace=True)
 
-        print(self.df)
-        print(self.binary_df)
+        logger.debug("Image DataFrame output")
+        logger.debug(self.df)
+        logger.debug(self.binary_df)
         self.binary_df.rename(columns={drop_col:"data"},inplace=True)
         self.emapper.add_mapping( self.source.table_name(),
                 "_Image")
 
     def load(self,db):
-        print("Ready to load")
+        logger.info("Ready to load images")
         csv_data = SQLBinaryDataCSV(
                 filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
                 primary_key_column_name=self.source.get_pk_col(),
@@ -394,13 +412,14 @@ class ImageIngester(Ingester):
                 numthreads=4)
         cnt = len(self.df.index)
         noun = "image" if cnt == 1 else "images"
-        print(f"Finished uploading {cnt} {noun}")
+        logger.info(f"Finished uploading {cnt} {noun}")
+        self.types_added = [ObjectType.IMAGE.value]
 
 class ConnectionIngester(Ingester):
     def __init__(self, source: Provider, info:ConnectionSpec): 
         super(ConnectionIngester,self).__init__(source,info) 
     def prepare(self):
-        print("Prepare Connection")
+        logger.info("Prepare Connection")
         self.df = super(ConnectionIngester,self).generate_df()
         from_t = self.info.table.name
         from_e = self.emapper.get_mapping(self.info.table.name)
@@ -414,12 +433,12 @@ class ConnectionIngester(Ingester):
 
         sql_resource_prefix = self.source.get_hash_prefix()
         def change_to_sha( prefix, value ):
-            print(f"changing {prefix} {value}")
+            logger.info(f"connection creating sha for \"{prefix}/{value}\"")
             resource_name = "{}/{}".format(prefix, value )
             return  hash_string(resource_name) 
         from_prefix = f"{sql_resource_prefix}/{from_t}"
         to_prefix = f"{sql_resource_prefix}/{to_t}"
-        print(f"Connection hash from {from_prefix} to {to_prefix}")
+        logger.info(f"Connection hash from {from_prefix} to {to_prefix}")
         self.df.insert(0,"ConnectionClass",f"{cap_first(from_e)}to{cap_first(to_e)}")
         fc = self.info.prop_columns[0]
         tc = self.info.prop_columns[1]
@@ -427,10 +446,13 @@ class ConnectionIngester(Ingester):
         self.df[ tc ] =  self.df[ tc ].apply( lambda val: change_to_sha( to_prefix, val ))
         self.df.rename( columns={ self.info.prop_columns[0]: f"{from_e}@wf_sha1_hash" } ,inplace=True)
         self.df.rename( columns={self.info.prop_columns[1]: f"{to_e}@wf_sha1_hash"}, inplace=True)
+        logger.debug("Connection DataFrame output")
+        logger.debug(f"Columns: {self.df.columns}")
+        logger.debug(self.df)
 
         ## TODO - handle missing fk *HERE* ( since we have the data in a df )
     def load(self,db):
-        print("Ready to load")
+        logger.info("Ready to load connection")
         csv_data = SQLConnectionDataCSV( filename=None,df=self.df,
                 sql_resource_prefix=self.source.get_table_hash_prefix(),
                 primary_key_column_name=self.source.get_pk_col())
@@ -439,7 +461,6 @@ class ConnectionIngester(Ingester):
                 numthreads=4)
         cnt = len(self.df.index)
         noun = "connection" if cnt == 1 else "connections"
-        print(f"Finished uploading {cnt} {noun}")
+        logger.info(f"Finished uploading {cnt} {noun}")
 
-        print(f"Columns: {self.df.columns}")
-        print(self.df)
+        self.types_added = [ObjectType.CONNECTION.value]

@@ -2,11 +2,18 @@
 from dataclasses import dataclass,field
 from typing import List
 from sqlalchemy import Table
+from enum import Enum
 
 import hashlib
 
 def hash_string(string):
     return hashlib.sha1(string.encode('utf-8')).hexdigest()
+
+class TableType(Enum):
+    ENTITY = 1
+    IMAGE = 2
+    PDF = 3
+    CONNECTION = 4
 
 @dataclass
 class TableSpec:
@@ -15,7 +22,7 @@ class TableSpec:
     bin_columns: List[str]
     url_columns: List[str]
     name: str
-    entity_type:str
+    entity_type: TableType
     primary_key:str
 
 @dataclass
@@ -24,7 +31,7 @@ class ConnectionSpec:
     foreign_table: Table
     prop_columns: List[str]
     primary_key:str # of table
-    entity_type:str = "connection"
+    entity_type:TableType = TableType.CONNECTION
     bin_columns: List[str] = field( default_factory= list )
     url_columns: List[str] = field( default_factory=list)
 
