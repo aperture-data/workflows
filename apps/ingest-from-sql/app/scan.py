@@ -187,7 +187,7 @@ def scan(engine:sql.Engine,
                 elif col_is_binary: 
                     logger.info(col_log+"- Binary")
                     if has_binary:
-                        print(f"Ignoring additional binary column in table = {ful_col_name}")
+                        print(f"Ignoring additional binary column in table = {full_col_name}")
                     else:
                         bin_cols.append(col.name)
                     has_binary = True

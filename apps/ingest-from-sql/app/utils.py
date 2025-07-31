@@ -42,6 +42,8 @@ class CommandlineType:
     def table_list(input_str):
         items = input_str.split(',')
         return items
+
+    @staticmethod
     def column_list(input_str):
         items = input_str.split(',')
         for item in items:
@@ -49,6 +51,8 @@ class CommandlineType:
             if len(parts) != 2:
                 raise Exception(f"Column list item {item} does not have 2 parts; expect table.column")
         return items
+
+    @staticmethod
     def item_map(input_str):
         output = {}
         items = input_str.split(',')
