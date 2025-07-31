@@ -6,8 +6,8 @@ import logging
 import os
 import json
 from itertools import zip_longest
-from psycopg2 import Binary
 from typing import Optional, Set, Tuple, Generator, List, Dict
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -27,13 +27,7 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     """
     if not os.path.exists(path):
         raise RuntimeError(f"Missing environment file: {path}")
-    with open(path) as f:
-        for line in f:
-            if not line.strip() or line.startswith("#"):
-                continue
-            k, v = line.strip().split("=", 1)
-            os.environ[k] = v
-            logger.debug(f"Loaded environment variable: {k}")
+    load_dotenv(dotenv_path=path, override=True)
 
 
 def main():
