@@ -151,7 +151,7 @@ def scan(engine:sql.Engine,
                 fk_used = False
 
                 for name in fk_map.keys():
-                    if name == col.name:
+                    if name == full_col_name:
                         # force fk key to be 
                         if fk_map[name] == "":
                             fk_is_ignored = True
@@ -234,13 +234,37 @@ def scan(engine:sql.Engine,
         if target not in all_cols.keys():
             raise Exception(f"Cannot find target column for {fk_to_connect}: ({target})")
         (ttbl,tcol) = all_cols[target]
+        # we require target column to be the primary key right now.
+        #  ultimately we could support any kind of linkage, but we would need to
+        #  map back to a way to create a link, which requires a unique key of
+        #  some sort; for situations where it linked to like fk_category_group that was not
+        #  unique, as long as we could generate a jump to the unique items, (
+        #  like say category.id ( which multiple entries would share a group ) )
+        # - we can do it, but making a testcase for this is potentially complicated.
         logger.info(f"Creating Connections from {fk_to_connect} to {target}")
-        st =  list(filter( lambda sst: sst.entity_type != "connection" and sst.table.name == fkmap.table.name,
-            selected_tables )) [0] 
+        filtered_source_specs = list(filter(lambda spec: spec.entity_type is not TableType.CONNECTION
+                    and spec.table.name == fkmap.table.name, selected_tables))
+        if len(filtered_source_specs) != 1:
+            raise Exception(f"Expected 1 matching source table named "\
+                    f"{fkmap.table.name} for {fk_to_connect}, but had {len(filtered_source_specs)}")
+        source_spec = filtered_source_specs[0]
+
+        filtered_tgt_specs = list(filter(lambda spec: spec.entity_type is not TableType.CONNECTION
+                    and spec.table.name == ttbl.name, selected_tables))
+        if len(filtered_tgt_specs) != 1:
+            raise Exception(f"Expected 1 matching target table named "\
+                    f"{ttbl} for {target}, but had {len(filtered_tgt_specs)}")
+        tgt_spec = filtered_tgt_specs[0]
+
+        if tgt_spec.primary_key != tcol.name:
+            raise Exception(f"Target column for {fk_to_connect} is not primary"\
+            f"key of table {ttbl} ( target is {tcol}, primary key is {tgt_spec.primary_key}")
+
+
         pk=fk_to_connect.split(".")[1]
         selected_tables.append(
                 ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
-                    pk, st.primary_key],
+                    pk, source_spec.primary_key],
                     primary_key=pk)) 
 
     return selected_tables

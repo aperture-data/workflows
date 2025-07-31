@@ -1,5 +1,5 @@
 #!/bin/bash
-ARGS=$(getopt -o i:p:e:n:h:o:U:P:D:L:XE: -l images:,pdfs:,table-ignore:,column-ignore:,host:,port:,username:,password:,database:,url-columns:,automate-foreign-keys,entity-map: -- "$@")
+ARGS=$(getopt -o i:p:e:n:h:o:U:P:D:L:XE:F: -l images:,pdfs:,table-ignore:,column-ignore:,host:,port:,username:,password:,database:,url-columns:,automate-foreign-keys,entity-map:,fk-map: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -18,6 +18,7 @@ SQL_PASSWORD=''
 SQL_DATABASE=''
 AUTO_FK=''
 ENTITY_MAP=''
+FK_MAP=''
 eval set -- "$ARGS"
 while [ : ]; do
   case "$1" in
@@ -65,8 +66,12 @@ while [ : ]; do
         AUTO_FK="TRUE"
         shift
         ;;
-        -E | --entity-map)
+      -E | --entity-map)
         ENTITY_MAP=$2
+        shift 2
+        ;;
+      -F | --fk-map)
+        FK_MAP=$2
         shift 2
         ;;
     *)
@@ -101,6 +106,7 @@ vars+=(-e WF_SQL_USER="$SQL_USERNAME")
 vars+=(-e WF_SQL_PASSWORD="$SQL_PASSWORD")
 vars+=(-e WF_SQL_DATABASE="$SQL_DATABASE")
 
+# append commandline arguments that are set into env vars for docker.
 if [ ! -z "$TIGNORES" ]; then
     vars+=(-e WF_TABLES_TO_IGNORE="$TIGNORES")
 fi
@@ -116,14 +122,21 @@ fi
 if [ ! -z "$PDFS" ]; then
     vars+=(-e WF_PDF_TABLES="$PDFS")
 fi
+
 if [ ! -z "$URLS" ]; then
     vars+=(-e WF_URL_COLUMNS_FOR_BINARY_DATA="$URLS")
 fi
+
 if [ ! -z "$AUTO_FK" ]; then
     vars+=(-e WF_AUTOMATIC_FOREIGN_KEY="$AUTO_FK")
 fi
+
 if [ ! -z "$ENTITY_MAP" ]; then
     vars+=(-e WF_TABLE_TO_ENTITY_MAPPING="$ENTITY_MAP")
+fi
+
+if [ ! -z "$FK_MAP" ]; then
+    vars+=(-e WF_FOREIGN_KEY_ENTITY_MAPPING="$FK_MAP")
 fi
 
 vars+=(-e WF_LOG_LEVEL="INFO")
