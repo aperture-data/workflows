@@ -107,7 +107,18 @@ class FDW(ForeignDataWrapper):
         for qual in quals:
             if qual.field_name == "_operations":
                 assert qual.operator == "=", f"Unexpected operator for _operations: {qual.operator}  Expected '='"
-                return json.loads(qual.value)
+                operations = json.loads(qual.value)
+                for op in operations:
+                    if not isinstance(op, dict):
+                        raise ValueError(
+                            f"Invalid operation format: {op}. Expected a dictionary.")
+                    if "type" not in op:
+                        raise ValueError(
+                            f"Operation must have 'type': {op}")
+                    if op["type"] not in self._options.operation_types:
+                        raise ValueError(
+                            f"Invalid operation type: {op['type']}. Expected one of {self._options.operation_types}")
+                return operations
         return None
 
     def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
