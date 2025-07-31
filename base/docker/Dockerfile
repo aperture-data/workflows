@@ -19,6 +19,9 @@ RUN tar -xf google-cloud-cli-linux-x86_64.tar.gz
 RUN ./google-cloud-sdk/install.sh
 ENV PATH=$PATH:/google-cloud-sdk/bin
 
+# git is required for CLIP
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt /
 RUN pip install --upgrade -r /requirements.txt
 
@@ -35,6 +38,7 @@ COPY scripts/status_server.py app/
 COPY scripts/status.py app/
 COPY scripts/log_processor.py app/
 COPY scripts/text_extraction app/text_extraction/
+COPY scripts/embeddings app/embeddings/
 
 COPY scripts/start.sh /
 

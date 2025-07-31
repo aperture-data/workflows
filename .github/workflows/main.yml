@@ -96,6 +96,7 @@ jobs:
           ingest-croissant,
           ingest-from-bucket,
           ingest-from-sql,
+          sql-server,
         ]
     runs-on:
       - ubuntu-latest
