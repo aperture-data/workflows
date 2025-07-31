@@ -8,6 +8,13 @@ import json
 from itertools import zip_longest
 from typing import Optional, Set, Tuple, Generator, List, Dict
 from dotenv import load_dotenv
+from collections import defaultdict
+
+from .common import decode_options, POOL
+from .system import system_schema
+from .entity import entity_schema
+from .connection import connection_schema
+from .descriptor import descriptor_schema
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -18,46 +25,6 @@ handler.setFormatter(logging.Formatter(
     "%(asctime)s %(levelname)s %(message)s"))
 logger.addHandler(handler)
 logger.propagate = False
-
-
-def load_aperturedb_env(path="/app/aperturedb.env"):
-    """Load environment variables from a file.
-    This is used because FDW is executed in a "secure" environment where
-    environment variables cannot be set directly.
-    """
-    if not os.path.exists(path):
-        raise RuntimeError(f"Missing environment file: {path}")
-    load_dotenv(dotenv_path=path, override=True)
-
-
-def main():
-    try:
-        load_aperturedb_env()
-        sys.path.append('/app')
-        from connection_pool import ConnectionPool
-        global POOL
-        POOL = ConnectionPool()
-        global SCHEMA
-        with POOL.get_utils() as utils:
-            SCHEMA = utils.get_schema()
-        logger.info(
-            f"ApertureDB schema loaded successfully. \n{json.dumps(SCHEMA, indent=2)}")
-    except Exception as e:
-        logger.exception("Error during initialization: %s", e)
-        sys.exit(1)
-
-
-main()
-
-# Mapping from ApertureDB types to PostgreSQL types.
-TYPE_MAP = {
-    "number": "double precision",
-    "string": "text",
-    "boolean": "boolean",
-    "datetime": "timestamptz",
-    "json": "jsonb",
-    "blob": "bytea",
-}
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
@@ -75,32 +42,15 @@ class FDW(ForeignDataWrapper):
 
     def __init__(self, fdw_options, fdw_columns):
         super().__init__(fdw_options, fdw_columns)
-        self._options = self._decode_options(fdw_options)
-        self._columns = {name: self._decode_options(
+        self._options = decode_options(fdw_options)
+        self._columns = {name: decode_options(
             col.options) for name, col in fdw_columns.items()}
         self._class = self._options["class"]
         self._type = self._options["type"]
-        self._is_system_class = self._class[0] == "_"
-        if self._type == "entity":
-            self._command = self._get_command(self._class)
-            self._result_field = "entities"
-        elif self._type == "connection":
-            self._command = "FindConnection"
-            self._result_field = "connections"
-        else:
-            raise ValueError(f"Unknown type: {self._type}")
+        self._extra = self._options.get("extra", {})
+        self._command = self._options["command"]
+        self._result_field = self._options["result_field"]
         logger.info("FDW initialized with options: %s", fdw_options)
-
-    @staticmethod
-    def _get_command(class_: str) -> str:
-        """
-        Get the command to use for the given class.
-        This is used to determine how to query ApertureDB.
-        """
-        if class_[0] == "_":
-            return f"Find{class_[1:]}"
-        else:
-            return "FindEntity"
 
     def _normalize_row(self, columns, row: dict) -> dict:
         """
@@ -113,7 +63,7 @@ class FDW(ForeignDataWrapper):
                 continue
             type_ = self._columns[col]["type"]
             if type_ == "datetime":
-                value = row[col]["_date"]
+                value = row[col]["_date"] if row[col] else None
             elif type_ == "json":
                 value = json.dumps(row[col])
             elif type_ == "blob":
@@ -166,7 +116,7 @@ class FDW(ForeignDataWrapper):
         """
         query = [{
             self._command: {
-                **({"with_class": self._class} if not self._is_system_class else {}),
+                **self._extra,
                 **({"results": {"list": list(columns)}} if columns else {}),
                 "batch": {
                     "batch_id": 0,
@@ -290,136 +240,6 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Executed FDW {self._type}/{self._class} with {n_results} results")
 
-    @staticmethod
-    def _encode_options(options):
-        """
-        Convert options so that all values are strings.
-        Although PostgreSQL does nothing with these options, the value type must be string.
-        """
-        return {"fdw_config": json.dumps(options, default=str)}
-
-    @staticmethod
-    def _decode_options(options):
-        """
-        Convert options from a string back to a dictionary.
-        """
-        if not options:
-            return {}
-        try:
-            return json.loads(options["fdw_config"])
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode options: {e}")
-            return {}
-
-    @classmethod
-    def _entity_table(cls, entity: str, data: dict) -> TableDefinition:
-        """
-        Create a TableDefinition for an entity.
-        This is used to create the foreign table in PostgreSQL.
-        """
-        columns = []
-
-        try:
-            if data["properties"] is not None:
-                for prop, prop_data in data["properties"].items():
-                    try:
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                    except Exception as e:
-                        logger.exception(
-                            f"Error processing property '{prop}' for entity {entity}: {e}")
-                        raise
-
-            # Add the _uniqueid column
-            columns.append(ColumnDefinition(
-                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-
-            # Blob-like entities get special columns specific to the type
-            if entity == "_Blob":
-                # _Blob gets _blob column
-                columns.append(ColumnDefinition(
-                    column_name="_blob", type_name="bytea",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
-            elif entity == "_Image":
-                # _image gets _image, _as_format, _operations columns
-                columns.append(ColumnDefinition(
-                    column_name="_image", type_name="bytea",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
-                columns.append(ColumnDefinition(
-                    column_name="_as_format", type_name="image_format_enum",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "string", "special": True})))
-                columns.append(ColumnDefinition(
-                    column_name="_operations", type_name="jsonb",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "json", "special": True})))
-        except Exception as e:
-            logger.exception(
-                f"Error processing properties for entity {entity}: {e}")
-            raise
-
-        options = {
-            "class": entity,
-            "type": "entity",
-            "matched": data["matched"],
-        }
-
-        logger.debug(
-            f"Creating entity table for {entity} with columns: {columns} and options: {options}")
-
-        return TableDefinition(
-            table_name=entity,
-            columns=columns,
-            options=cls._encode_options(options)
-        )
-
-    @classmethod
-    def _connection_table(cls, connection: str, data: dict) -> TableDefinition:
-        """
-        Create a TableDefinition for a connection.
-        This is used to create the foreign table in PostgreSQL.
-        """
-        columns = []
-
-        try:
-            if data["properties"] is not None:
-                for prop, prop_data in data["properties"].items():
-                    try:
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-
-                    except Exception as e:
-                        logger.exception(
-                            f"Error processing property '{prop}' for connection {connection}: {e}")
-                        raise
-
-            # Add the _uniqueid, _src, and _dst columns
-            columns.append(ColumnDefinition(
-                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-            columns.append(ColumnDefinition(
-                column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-            columns.append(ColumnDefinition(
-                column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
-        except Exception as e:
-            logger.exception(
-                f"Error processing properties for connection {connection}: {e}")
-            raise
-
-        options = {
-            "class": connection,
-            "type": "connection",
-            "matched": data["matched"],
-        }
-
-        logger.debug(
-            f"Creating connection table for {connection} with columns: {columns} and options: {options}")
-
-        return TableDefinition(
-            table_name=connection,
-            columns=columns,
-            options=cls._encode_options(options)
-        )
-
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
         """
@@ -428,18 +248,20 @@ class FDW(ForeignDataWrapper):
         The result of this is to create the foreign tables in PostgreSQL.
 
         Note that we cannot add comments, foreign keys, or other constraints here.
+
+        This method is called once per schema.
         """
-        logger.info("Importing schema with options: %s", options)
-        results = []
-        if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
-            for entity, data in SCHEMA["entities"]["classes"].items():
-                results.append(cls._entity_table(entity, data))
-
-        if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
-            for connection, data in SCHEMA["connections"]["classes"].items():
-                results.append(cls._connection_table(connection, data))
-
-        return results
+        logger.info(f"Importing schema {schema} with options: {options}")
+        if schema == "system":
+            return system_schema()
+        elif schema == "entity":
+            return entity_schema()
+        elif schema == "connection":
+            return connection_schema()
+        elif schema == "descriptor":
+            return descriptor_schema()
+        else:
+            raise ValueError(f"Unknown schema: {schema}")
 
 
 print("FDW class defined successfully")

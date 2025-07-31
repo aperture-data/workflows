@@ -1,14 +1,5 @@
--- Enums
-
-CREATE TYPE image_format_enum AS ENUM ('png', 'jpg');
-
--- FDW Setup
-
-CREATE EXTENSION IF NOT EXISTS multicorn;
-
-CREATE SERVER IF NOT EXISTS aperturedb FOREIGN DATA WRAPPER multicorn options (wrapper 'fdw.FDW');
-
-IMPORT FOREIGN SCHEMA ignored_placeholder FROM SERVER aperturedb INTO public;
+-- These functions mostly pack up the parameters into a JSON object
+-- This JSON object is intended to be directly compatible with the ApertureDB query language
 
 -- Operations
 

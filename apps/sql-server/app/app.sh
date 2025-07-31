@@ -27,7 +27,10 @@ su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PAS
 
 su - postgres -c "createdb ${DATABASE}"
 
-su - postgres -c "psql -a -d ${DATABASE} -f /app/init.sql"
+su - postgres -c "psql -a -d ${DATABASE} -f /app/sql/types.sql"
+su - postgres -c "psql -a -d ${DATABASE} -f /app/sql/import.sql"
+su - postgres -c "psql -a -d ${DATABASE} -f /app/sql/functions.sql"
+su - postgres -c "psql -a -d ${DATABASE} -f /app/sql/access.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
 tail -n 1000 -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log
