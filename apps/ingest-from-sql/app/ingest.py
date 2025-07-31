@@ -16,35 +16,37 @@ import magic
 from aperturedb.ParallelLoader import ParallelLoader
 
 logger = logging.getLogger(__name__)
+
 class EntityMapper:
+    """
+    Provider interface between Ingestors for data translation and sharing
+    """
     def __init__(self):
         self.map = {}
         self.requests = {}
         self.results = {}
 
-    def add_mapping(self,table_name,entity_name):
+    def add_mapping(self, table_name, entity_name):
         self.map[table_name]=entity_name
 
-    def get_mapping(self,table_name):
+    def get_mapping(self, table_name):
         if not table_name in self.map:
             logger.warning(f"{table_name} not in entity map!")
         return self.map[table_name]
-    def set_column_request(self,table_name,column_name):
+    def set_column_request(self, table_name, column_name):
         if table_name not in self.requests:
             self.requests[table_name] = set()
         
         self.requests[table_name].add(column_name)
-    def fulfill_requests(self,table_name,df):
+    def fulfill_requests(self, table_name, df):
         if table_name in self.requests:
             if table_name not in self.results:
                 self.results[table_name] = {}
             self.results[table_name] = df[ list(self.requests[table_name]) ].copy()
 
-    def get_request_data(self,table_name,column_name):
+    def get_request_data(self, table_name, column_name):
         return self.results[table_name][column_name]
 
-###
-# We 
 
 class SQLBaseDataCSV():
     """
@@ -61,7 +63,7 @@ class SQLBaseDataCSV():
         self.sql_resource_prefix = sql_resource_prefix
         self.primary_key_column_name = primary_key_column_name
 
-    def injected_getitem(self,idx,base_getitem):
+    def injected_getitem(self, idx, base_getitem):
         query,blobs = base_getitem(self,idx)
         idx = self.df.index.start + idx
         resource_name = "{}/{}".format(self.sql_resource_prefix,
@@ -76,7 +78,8 @@ class SQLBaseDataCSV():
         logger.debug("Query = {query}")
         return query,blobs
 
-class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
+
+class SQLEntityDataCSV(SQLBaseDataCSV, EntityDataCSV):
     """
     Creates a CSV for a table which is an Entity.
     """
@@ -84,10 +87,11 @@ class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
         EntityDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
 
-    def getitem(self,idx):
+    def getitem(self, idx):
         return self.injected_getitem( idx, EntityDataCSV.getitem )
 
-class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
+
+class SQLConnectionDataCSV(SQLBaseDataCSV, ConnectionDataCSV):
     """
     Creates a CSV for a relationship between two tables.
     """
@@ -95,7 +99,7 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
         ConnectionDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
 
-    def getitem(self,idx):
+    def getitem(self, idx):
         query,blobs = super().getitem(idx)
         def query_hash(q):
             return q[list(q.keys())[0]]['constraints']['wf_sha1_hash'][1]
@@ -109,7 +113,7 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
         props["wf_sha1_hash"] = object_hash
         return query,blobs
 
-class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
+class SQLBinaryDataCSV(SQLBaseDataCSV, EntityDataCSV, ImageDataProcessor):
     """
     Creates a CSV for a table which has binary data associated.
 
@@ -132,7 +136,7 @@ class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
         self.column_name = "data"
         self.command = "AddBlob" 
 
-    def set_image_mode(self,is_image_mode):
+    def set_image_mode(self, is_image_mode):
         self.command = "AddImage" if is_image_mode else "AddBlob"
 
     def get_indices(self):
@@ -143,7 +147,7 @@ class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
             }
         }
 
-    def getitem_binary(self,idx):
+    def getitem_binary(self, idx):
         custom_fields = {}
         blobs = []
         q = []
@@ -153,7 +157,7 @@ class SQLBinaryDataCSV(SQLBaseDataCSV,EntityDataCSV,ImageDataProcessor):
 
         return q, blobs
 
-    def getitem(self,idx):
+    def getitem(self, idx):
         query,blobs = self.injected_getitem(idx,SQLBinaryDataCSV.getitem_binary) 
 
         idx = self.df.index.start + idx
@@ -180,7 +184,7 @@ class SQLProvider(Provider):
     """
     Wraps access to SQL database.
     """
-    def __init__(self,host:str, user:str, password:str, database:str,
+    def __init__(self, host:str, user:str, password:str, database:str,
             port:int=None, table:str=None):
         self.user = user
         self.password = password
@@ -268,6 +272,7 @@ class SQLProvider(Provider):
             logger.error(f"Failed to connect to SQL server:{e}")
             return False
 
+
 class Ingester:
     """
     Wraps interfacing between a provider and a adb csv parser
@@ -280,10 +285,10 @@ class Ingester:
         self.info = info
         self.types_added = None
 
-    def set_workflow_id(self,id):
+    def set_workflow_id(self, id):
         self.workflow_id = id
 
-    def set_entity_mapper(self,m):
+    def set_entity_mapper(self, m):
         self.emapper = m
 
     def get_entity_mapper(self):
@@ -357,7 +362,7 @@ class EntityIngester(Ingester):
         self.emapper.add_mapping( self.source.table_name(),
                 self.info.name)
 
-    def load(self,db):
+    def load(self, db):
         logger.info("Ready to load entities")
         ename = self.emapper.get_mapping(self.info.table.name)
         self.df.insert(0,"EntityClass", ename)
@@ -408,7 +413,7 @@ class PDFIngester(Ingester):
         self.emapper.add_mapping( self.source.table_name(),
                 "_Blob")
 
-    def load(self,db):
+    def load(self, db):
         logger.info("Ready to load PDFs")
         csv_data = SQLBinaryDataCSV(
                 filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
@@ -454,7 +459,7 @@ class ImageIngester(Ingester):
         self.emapper.add_mapping( self.source.table_name(),
                 "_Image")
 
-    def load(self,db):
+    def load(self, db):
         logger.info("Ready to load images")
         csv_data = SQLBinaryDataCSV(
                 filename=None,sql_resource_prefix=self.source.get_table_hash_prefix(),
@@ -469,13 +474,14 @@ class ImageIngester(Ingester):
         logger.info(f"Finished uploading {cnt} {noun}")
         self.types_added = [ObjectType.IMAGE.value]
 
+
 class ConnectionIngester(Ingester):
     """
     Ingests Table Connections into ApertureDB
     """
     def __init__(self, source: Provider, info:ConnectionSpec): 
-
         super(ConnectionIngester,self).__init__(source,info) 
+
     def process_requests(self):
         # we need the pk column from target table to potentially filter any
         # values that are missing.
@@ -537,7 +543,7 @@ class ConnectionIngester(Ingester):
         logger.debug(f"Columns: {self.df.columns}")
         logger.debug(self.df)
 
-    def load(self,db):
+    def load(self, db):
         logger.info("Ready to load connection")
         csv_data = SQLConnectionDataCSV( filename=None,df=self.df,
                 sql_resource_prefix=self.source.get_table_hash_prefix(),
