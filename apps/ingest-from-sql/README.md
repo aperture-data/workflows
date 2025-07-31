@@ -8,7 +8,6 @@ This workflow can ingest tables from a PostgreSQL database.
 
 After a successful SQL ingestion, the following types of objects are added to ApertureDB:
 
-Objects created:
 * `WorkflowSpec`: Records the intention of the ingest.
 * `WorkflowRun`: Records the specific run.
 * `Image`,  `Blob`, `Entity`: Added from SQL, linked to `WorkflowRun` by `WorkflowAdded` connection.
@@ -132,7 +131,7 @@ This would create connections between person and business entities, and
 connections between business entities and address entities.
 
 ### Automatic Foreign Key Mapping
-The automatic generation toggled on by **`WF_AUTOMATIC_FOREIGN_KEY``** only
+The automatic generation toggled on by **`WF_AUTOMATIC_FOREIGN_KEY`** only
 supports foriegn keys that are composed of the style `fk_{table}_{column}`
 
 ## Ignoring Data
