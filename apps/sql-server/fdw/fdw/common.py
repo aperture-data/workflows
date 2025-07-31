@@ -76,7 +76,7 @@ def property_columns(data: dict) -> List[ColumnDefinition]:
     This is used to create the foreign table in PostgreSQL.
     """
     columns = []
-    if data["properties"] is not None:
+    if "properties" in data and data["properties"] is not None:
         for prop, prop_data in data["properties"].items():
             try:
                 count, indexed, type_ = prop_data

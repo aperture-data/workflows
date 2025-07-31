@@ -39,6 +39,7 @@ def system_table(entity: str, data: dict) -> TableDefinition:
     assert entity[0] == "_", f"System entity name '{entity}' should start with an underscore."
 
     columns = []
+    blob_column = None
 
     try:
         columns.extend(property_columns(data))
@@ -49,6 +50,7 @@ def system_table(entity: str, data: dict) -> TableDefinition:
             columns.append(ColumnDefinition(
                 column_name="_blob", type_name="bytea",
                 options=encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
+            blob_column = "_blob"
         elif entity == "_Image":
             # _Image gets _image, _as_format, _operations columns
             columns.append(ColumnDefinition(
@@ -60,6 +62,7 @@ def system_table(entity: str, data: dict) -> TableDefinition:
             columns.append(ColumnDefinition(
                 column_name="_operations", type_name="jsonb",
                 options=encode_options({"count": data["matched"], "indexed": False, "type": "json", "special": True})))
+            blob_column = "_image"
         # elif entity == "_BoundingBox":
         #     # _BoundingBox gets _area, _image, _as_format, _image_ref, _coordinates, _in_rectangle
         #     # Area has a parameter "areas", but it isn't required as it can be simply added to the result list
@@ -100,6 +103,7 @@ def system_table(entity: str, data: dict) -> TableDefinition:
         "matched": data["matched"],
         "command": f"Find{entity[1:]}",  # e.g. FindBlob, FindImage, etc.
         "result_field": "entities",
+        "blob_column": blob_column,
     }
 
     logger.debug(
@@ -164,9 +168,9 @@ def system_connection_table() -> TableDefinition:
 
     # Add the _src, and _dst columns
     columns.append(ColumnDefinition(
-        column_name="_src", type_name="text", options=encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
+        column_name="_src", type_name="text", options=encode_options({"indexed": True, "type": "string"})))
     columns.append(ColumnDefinition(
-        column_name="_dst", type_name="text", options=encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
+        column_name="_dst", type_name="text", options=encode_options({"indexed": True, "type": "string"})))
 
     table_name = "Connection"
 

@@ -1,6 +1,6 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, encode_options, SCHEMA
+from .common import property_columns, encode_options, SCHEMA, POOL
 import logging
 
 logger = logging.getLogger(__name__)
