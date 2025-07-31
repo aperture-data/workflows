@@ -1,3 +1,12 @@
+from .descriptor import descriptor_schema
+from .connection import connection_schema
+from .entity import entity_schema
+from .system import system_schema
+from .common import decode_options, POOL
+from collections import defaultdict
+from dotenv import load_dotenv
+from typing import Optional, Set, Tuple, Generator, List, Dict
+from itertools import zip_longest
 from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
 import sys
 from datetime import datetime
@@ -5,16 +14,7 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
-from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict
-from dotenv import load_dotenv
-from collections import defaultdict
 
-from .common import decode_options, POOL
-from .system import system_schema
-from .entity import entity_schema
-from .connection import connection_schema
-from .descriptor import descriptor_schema
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -42,6 +42,7 @@ class FDW(ForeignDataWrapper):
 
     def __init__(self, fdw_options, fdw_columns):
         super().__init__(fdw_options, fdw_columns)
+
         self._options = decode_options(fdw_options)
         self._columns = {name: decode_options(
             col.options) for name, col in fdw_columns.items()}
@@ -50,6 +51,7 @@ class FDW(ForeignDataWrapper):
         self._extra = self._options.get("extra", {})
         self._command = self._options["command"]
         self._result_field = self._options["result_field"]
+        self._blob_column = self._options.get("blob_column", None)
         logger.info("FDW initialized with options: %s", fdw_options)
 
     def _normalize_row(self, columns, row: dict) -> dict:
@@ -95,19 +97,12 @@ class FDW(ForeignDataWrapper):
                 return json.loads(qual.value)
         return None
 
-    def _get_blob_columns(self, columns: Set[str]) -> Tuple[Optional[str], Set[str]]:
+    def _get_blob_columns(self, columns: Set[str]) -> Optional[str]:
         """
         Get the first blob column from the columns set, and the remaining columns.
         """
-        blob_columns = [
-            col for col in columns if self._columns[col]["type"] == "blob"]
-        if len(blob_columns) > 1:
-            logger.warning(
-                f"Multiple blob columns requested: {blob_columns}. Only the first will be returned.")
-        blob_column = blob_columns[0] if blob_columns else None
-        filtered_columns = {
-            col for col in columns if col not in blob_columns and not self._columns[col].get("special", False)}
-        return blob_column, set(filtered_columns)
+        blob_column = self._blob_column if self._blob_column and self._blob_column in columns else None
+        return blob_column
 
     def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
         """
@@ -194,7 +189,10 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
 
-        blob_column, filtered_columns = self._get_blob_columns(columns)
+        blob_column = self._get_blob_columns(columns)
+        filtered_columns = {
+            col for col in columns if not self._columns[col].get("special", False)}
+
         batch_size = BATCH_SIZE_WITH_BLOBS if blob_column else BATCH_SIZE
         as_format = self._get_as_format(quals)
         operations = self._get_operations(quals)
