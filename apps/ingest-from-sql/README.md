@@ -119,14 +119,17 @@ urls for each row and pass it as the binary data for the entity.
 
 ## Foreign Keys
 By default the workflow will ignore foriegn keys. If you turn on
-**`WF_AUTOMATIC_FOREIGN_KEY``** or supply mappings to
+**`WF_AUTOMATIC_FOREIGN_KEY`** or supply mappings to
 **`WF_FOREIGN_KEY_ENTITY_MAPPING`**, it will generate Connections between the
 entities that matched the fk mapping in the SQL database.
 
 The mapping is supplied in a dictionary format:
 ```
-person.fk_company_id:business.id,business.fk_main_address_id:addresses.id
+person.fk_company_id:business.id,business.fk_main_address_id:address.id
 ```
+
+This would create connections between person and business entities, and
+connections between business entities and address entities.
 
 ### Automatic Foreign Key Mapping
 The automatic generation toggled on by **`WF_AUTOMATIC_FOREIGN_KEY``** only
