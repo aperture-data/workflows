@@ -1,6 +1,6 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, encode_options, SCHEMA, POOL
+from .common import property_columns, SCHEMA, POOL, TableOptions
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,21 +33,25 @@ def descriptor_schema() -> List[TableDefinition]:
     results = []
     descriptor_sets = get_descriptor_sets()
     columns = property_columns(SCHEMA.get("_DescriptorSet", {}))
+    assert isinstance(descriptor_sets, dict), \
+        f"Expected descriptor_sets to be a dict, got {type(descriptor_sets)}"
     for name, properties in descriptor_sets.items():
-        options = {
-            "class": "_Descriptor",
-            "type": "entity",
-            "matched": properties["_count"],
-            "command": "FindDescriptor",
-            "result_field": "entities",
-            "extra": {"with_name": name},
-            "descriptor_set_properties": properties,
-        }
+        table_name = name
+
+        options = TableOptions(
+            class_="_Descriptor",
+            type="entity",
+            count=properties["_count"],
+            command="FindDescriptor",
+            result_field="entities",
+            extra={"with_name": name},
+            descriptor_set_properties=properties,
+        )
 
         table = TableDefinition(
-            table_name=name,
+            table_name=table_name,
             columns=columns,
-            options=encode_options(options)
+            options=options.to_string()
         )
         results.append(table)
     return results

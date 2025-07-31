@@ -1,8 +1,4 @@
-from .descriptor import descriptor_schema
-from .connection import connection_schema
-from .entity import entity_schema
-from .system import system_schema
-from .common import decode_options, POOL
+from .common import POOL, TableOptions, ColumnOptions
 from collections import defaultdict
 from dotenv import load_dotenv
 from typing import Optional, Set, Tuple, Generator, List, Dict
@@ -14,17 +10,39 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
+from pydantic import BaseModel
+import atexit
 
 
 # Configure logging
+handler = logging.FileHandler("/tmp/fdw.log", delay=False)
+handler.setFormatter(logging.Formatter(
+    "%(asctime)s %(levelname)s %(message)s"))
+handler.setLevel(logging.DEBUG)
+handler.stream.flush = lambda: None  # Ensure flush is always available
+
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler("/tmp/fdw.log")
-handler.setFormatter(logging.Formatter(
-    "%(asctime)s %(levelname)s %(message)s"))
 logger.addHandler(handler)
 logger.propagate = False
+
+
+def flush_logs():
+    for h in logger.handlers:
+        try:
+            h.flush()
+        except Exception:
+            pass
+
+
+atexit.register(flush_logs)
+
+
+def exit_with_flush(code=1):
+    flush_logs()
+    os._exit(code)
+
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
@@ -43,15 +61,10 @@ class FDW(ForeignDataWrapper):
     def __init__(self, fdw_options, fdw_columns):
         super().__init__(fdw_options, fdw_columns)
 
-        self._options = decode_options(fdw_options)
-        self._columns = {name: decode_options(
-            col.options) for name, col in fdw_columns.items()}
-        self._class = self._options["class"]
-        self._type = self._options["type"]
-        self._extra = self._options.get("extra", {})
-        self._command = self._options["command"]
-        self._result_field = self._options["result_field"]
-        self._blob_column = self._options.get("blob_column", None)
+        self._options = TableOptions.from_string(fdw_options)
+        self._columns = {
+            name: ColumnOptions.from_string(col.options)
+            for name, col in fdw_columns.items()}
         logger.info("FDW initialized with options: %s", fdw_options)
 
     def _normalize_row(self, columns, row: dict) -> dict:
@@ -63,7 +76,7 @@ class FDW(ForeignDataWrapper):
         for col in columns:
             if col not in row:
                 continue
-            type_ = self._columns[col]["type"]
+            type_ = self._columns[col].type
             if type_ == "datetime":
                 value = row[col]["_date"] if row[col] else None
             elif type_ == "json":
@@ -97,21 +110,14 @@ class FDW(ForeignDataWrapper):
                 return json.loads(qual.value)
         return None
 
-    def _get_blob_columns(self, columns: Set[str]) -> Optional[str]:
-        """
-        Get the first blob column from the columns set, and the remaining columns.
-        """
-        blob_column = self._blob_column if self._blob_column and self._blob_column in columns else None
-        return blob_column
-
     def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
         """
         Construct the query to execute against ApertureDB.
         This is used to build the query based on the columns and options.
         """
         query = [{
-            self._command: {
-                **self._extra,
+            self._options.command: {
+                **self._options.extra,
                 **({"results": {"list": list(columns)}} if columns else {}),
                 "batch": {
                     "batch_id": 0,
@@ -134,21 +140,21 @@ class FDW(ForeignDataWrapper):
                 f"No results found for query: {query} -> {response}")
             return None
 
-        if "batch" not in response[0][self._command]:
+        if "batch" not in response[0][self._options.command]:
             # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
             logger.info(
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None
 
-        batch_id = response[0][self._command]["batch"]["batch_id"]
-        total_elements = response[0][self._command]["batch"]["total_elements"]
-        end = response[0][self._command]["batch"]["end"]
+        batch_id = response[0][self._options.command]["batch"]["batch_id"]
+        total_elements = response[0][self._options.command]["batch"]["total_elements"]
+        end = response[0][self._options.command]["batch"]["end"]
 
         if end >= total_elements:  # No more batches to process
             return None
 
         next_query = query.copy()
-        next_query[0][self._command]["batch"]["batch_id"] += 1
+        next_query[0][self._options.command]["batch"]["batch_id"] += 1
         return next_query
 
     def _get_query_results(self, query: List[dict]) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
@@ -167,7 +173,7 @@ class FDW(ForeignDataWrapper):
                 f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
 
         result_objects = results[0].get(
-            self._command, {}).get(self._result_field, [])
+            self._options.command, {}).get(self._options.result_field, [])
         if not blobs:
             for row in result_objects:
                 yield row, None
@@ -187,19 +193,18 @@ class FDW(ForeignDataWrapper):
         """
 
         logger.info(
-            f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
+            f"Executing FDW {self._options.type}/{self._options.class_} with quals: {quals} and columns: {columns}")
 
-        blob_column = self._get_blob_columns(columns)
-        filtered_columns = {
-            col for col in columns if not self._columns[col].get("special", False)}
+        blobs = self._options.blob_column is not None and self._options.blob_column in columns
+        list_columns = {col for col in columns if self._columns[col].listable}
 
-        batch_size = BATCH_SIZE_WITH_BLOBS if blob_column else BATCH_SIZE
+        batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
         as_format = self._get_as_format(quals)
         operations = self._get_operations(quals)
 
         query = self._get_query(
-            columns=filtered_columns,
-            blobs=bool(blob_column),
+            columns=list_columns,
+            blobs=blobs,
             as_format=as_format,
             operations=operations,
             batch_size=batch_size)
@@ -212,8 +217,8 @@ class FDW(ForeignDataWrapper):
                     row, blob = next(gen)
 
                     # Add blob to the row if it exists
-                    if blob_column:
-                        row[blob_column] = blob
+                    if blobs:
+                        row[self._options.blob_column] = blob
 
                     # Add special columns if they exist so that Postgres doesn't filter out rows
                     if as_format:
@@ -229,14 +234,14 @@ class FDW(ForeignDataWrapper):
                     n_results += 1
                     if n_results % 1000 == 0:
                         logger.info(
-                            f"Yielded {n_results} results so far for FDW {self._type}/{self._class}")
+                            f"Yielded {n_results} results so far for FDW {self._options.type}/{self._options.class_}")
                     yield result
             except StopIteration as e:
                 response = e.value  # return value from _get_query_results
 
             query = self._get_next_query(query, response)
         logger.info(
-            f"Executed FDW {self._type}/{self._class} with {n_results} results")
+            f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results")
 
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
@@ -249,17 +254,31 @@ class FDW(ForeignDataWrapper):
 
         This method is called once per schema.
         """
-        logger.info(f"Importing schema {schema} with options: {options}")
-        if schema == "system":
-            return system_schema()
-        elif schema == "entity":
-            return entity_schema()
-        elif schema == "connection":
-            return connection_schema()
-        elif schema == "descriptor":
-            return descriptor_schema()
-        else:
-            raise ValueError(f"Unknown schema: {schema}")
+        try:
+            # Put these here for better error handling
+            from .system import system_schema
+            from .entity import entity_schema
+            from .connection import connection_schema
+            from .descriptor import descriptor_schema
+
+            logger.info(f"Importing schema {schema} with options: {options}")
+            if schema == "system":
+                return system_schema()
+            elif schema == "entity":
+                return entity_schema()
+            elif schema == "connection":
+                return connection_schema()
+            elif schema == "descriptor":
+                return descriptor_schema()
+            else:
+                raise ValueError(f"Unknown schema: {schema}")
+        except:
+            logger.exception(
+                f"Error importing schema {schema}: {sys.exc_info()[1]}")
+            flush_logs()
+            # exit_with_flush()
+            raise
+        logger.info(f"Schema {schema} imported successfully")
 
 
 print("FDW class defined successfully")
