@@ -140,6 +140,17 @@ class FDW(ForeignDataWrapper):
                 return qual.value
         return None
 
+    def _get_operations(self, quals) -> Optional[List[dict]]:
+        """
+        Get the 'operations' from the quals if it exists.
+        This is used to determine what operations to perform on the image data.
+        """
+        for qual in quals:
+            if qual.field_name == "_operations":
+                assert qual.operator == "=", f"Unexpected operator for _operations: {qual.operator}  Expected '='"
+                return json.loads(qual.value)
+        return None
+
     def _get_blob_columns(self, columns: Set[str]) -> Tuple[Optional[str], Set[str]]:
         """
         Get the first blob column from the columns set, and the remaining columns.
@@ -154,7 +165,7 @@ class FDW(ForeignDataWrapper):
             col for col in columns if col not in blob_columns and not self._columns[col].get("special", False)}
         return blob_column, set(filtered_columns)
 
-    def _get_query(self, filtered_columns: Set[str], blob_column: Optional[str], as_format: Optional[str], batch_size: int) -> List[dict]:
+    def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
         """
         Construct the query to execute against ApertureDB.
         This is used to build the query based on the columns and options.
@@ -162,13 +173,14 @@ class FDW(ForeignDataWrapper):
         query = [{
             self._command: {
                 **({"with_class": self._class} if not self._is_system_class else {}),
-                **({"results": {"list": list(filtered_columns)}} if filtered_columns else {}),
+                **({"results": {"list": list(columns)}} if columns else {}),
                 "batch": {
                     "batch_id": 0,
                     "batch_size": batch_size
                 },
-                **({"blobs": True} if blob_column else {}),
+                **({"blobs": True} if blobs else {}),
                 **({"as_format": as_format} if as_format else {}),
+                **({"operations": operations} if operations else {}),
             }
         }]
         return query
@@ -190,14 +202,14 @@ class FDW(ForeignDataWrapper):
             return None
 
         batch_id = response[0][self._command]["batch"]["batch_id"]
-        batches = response[0][self._command]["batch"]["batches"]
+        total_elements = response[0][self._command]["batch"]["total_elements"]
+        end = response[0][self._command]["batch"]["end"]
 
-        next_batch_id = batch_id + 1
-        if next_batch_id >= batches:  # No more batches to process
+        if end >= total_elements:  # No more batches to process
             return None
 
         next_query = query.copy()
-        next_query[0][self._command]["batch"]["batch_id"] = next_batch_id
+        next_query[0][self._command]["batch"]["batch_id"] += 1
         return next_query
 
     def _get_query_results(self, query: List[dict]) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
@@ -241,28 +253,48 @@ class FDW(ForeignDataWrapper):
         blob_column, filtered_columns = self._get_blob_columns(columns)
         batch_size = BATCH_SIZE_WITH_BLOBS if blob_column else BATCH_SIZE
         as_format = self._get_as_format(quals)
+        operations = self._get_operations(quals)
 
         query = self._get_query(
-            filtered_columns, blob_column, as_format, batch_size)
+            columns=filtered_columns,
+            blobs=bool(blob_column),
+            as_format=as_format,
+            operations=operations,
+            batch_size=batch_size)
 
+        n_results = 0
         while query:
             gen = self._get_query_results(query)
             try:
                 while True:
                     row, blob = next(gen)
+
+                    # Add blob to the row if it exists
                     if blob_column:
                         row[blob_column] = blob
+
+                    # Add special columns if they exist so that Postgres doesn't filter out rows
                     if as_format:
                         row["_as_format"] = as_format
+                    if operations:
+                        row["_operations"] = operations
+
                     result = self._normalize_row(columns, row)
+
                     logger.debug(
                         f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)}"
                     )
+                    n_results += 1
+                    if n_results % 1000 == 0:
+                        logger.info(
+                            f"Yielded {n_results} results so far for FDW {self._type}/{self._class}")
                     yield result
             except StopIteration as e:
-                response = e.value
+                response = e.value  # return value from _get_query_results
 
             query = self._get_next_query(query, response)
+        logger.info(
+            f"Executed FDW {self._type}/{self._class} with {n_results} results")
 
     @staticmethod
     def _encode_options(options):
