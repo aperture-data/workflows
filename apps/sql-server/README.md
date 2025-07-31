@@ -11,7 +11,7 @@ docker run \
            -e DB_HOST=workflowstesting.cloud.aperturedata.io \
            -e DB_PASS=password \
            -e WF_LOG_LEVEL=INFO \
-           -e POSTGRES_PASSWORD=secretsquirrel \
+           -e WF_AUTH_TOKEN=secretsquirrel \
            aperturedata/workflows-sql-server
 ```
 
