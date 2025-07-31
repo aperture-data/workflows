@@ -505,57 +505,6 @@ class FDW(ForeignDataWrapper):
         if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
             for connection, data in SCHEMA["connections"]["classes"].items():
                 results.append(cls._connection_table(connection, data))
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid column
-                # This is a special column that is always present in entities, but does not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                logger.info(f"Adding entity {entity} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=entity,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": entity,
-                        "type": "entity",
-                        "matched": data["matched"],
-                    })
-
-                ))
-
-        if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
-            for connection, data in SCHEMA["connections"]["classes"].items():
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid, _src, and _dst columns
-                # These are special columns that are always present in connections, but do not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
-                logger.info(
-                    f"Adding connection {connection} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=connection,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": connection,
-                        "type": "connection",
-                        "src": data["src"],
-                        "dst": data["dst"],
-                        "matched": data["matched"]
-                    })
-                ))
 
         return results
 
