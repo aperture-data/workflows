@@ -74,6 +74,7 @@ def main(args):
     # not "own" a column.
     # If we got to this point we could either do dep resolution or just do a
     # prepare which pulls data first for all.
+
     for ingestion in ingestions:
         if ingestion is None:
             continue
@@ -81,6 +82,7 @@ def main(args):
         ingestion.load(db)
         linked_types_to_run.update( ingestion.get_types_added() )
 
+    spec.link_objects(str(run_id), linked_types_to_run )
     spec.finish_run(str(run_id), { "wf_linked_types" : list(linked_types_to_run) } )
     spec.finish_spec()
 
