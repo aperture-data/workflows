@@ -265,7 +265,7 @@ def scan(engine:sql.Engine,
         selected_tables.append(
                 ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
                     pk, source_spec.primary_key],
-                    primary_key=pk)) 
+                    primary_key=pk,foreign_col=tcol.name)) 
 
     return selected_tables
 

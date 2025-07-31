@@ -31,6 +31,7 @@ class ConnectionSpec:
     foreign_table: Table
     prop_columns: List[str]
     primary_key:str # of table
+    foreign_col:str # of target table ( just name )
     entity_type:TableType = TableType.CONNECTION
     bin_columns: List[str] = field( default_factory= list )
     url_columns: List[str] = field( default_factory=list)

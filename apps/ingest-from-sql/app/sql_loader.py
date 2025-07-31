@@ -60,12 +60,20 @@ def main(args):
             raise Exception(f"Unhandled table type in create_ingester: {table_info.entity_type}")
         ingester.set_workflow_id( str(run_id))
         ingester.set_entity_mapper( emapper )
+        # sets requests for data which can come from external sources.
+        ingester.process_requests()
         return ingester
 
     ingestions = [ create_ingester(info) for info in tables ]
 
 
     linked_types_to_run = set()
+    # in theory requests could be done which could create dependencies in run
+    # order.
+    # right now we only need data for connections which are always last, and do
+    # not "own" a column.
+    # If we got to this point we could either do dep resolution or just do a
+    # prepare which pulls data first for all.
     for ingestion in ingestions:
         if ingestion is None:
             continue
@@ -122,7 +130,7 @@ def get_args():
             help="Whether the workflow should clean data associated with provided spec_id, then stop.")
     obj.add_argument("--delete-all",type=bool,default=False,
             help="Whether the workflow should clean all data from this workflow, then stop.")
-    obj.add_argument("--clean-database",type=bool,default=False,
+    obj.add_argument("--delete-from-sql-db",type=bool,default=False,
             help="Whether the workflow should clean previous data loaded from this database")
     obj.add_argument('--log-level', type=str,
                  default='WARNING')

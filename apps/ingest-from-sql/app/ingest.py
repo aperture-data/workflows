@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 class EntityMapper:
     def __init__(self):
         self.map = {}
+        self.requests = {}
+        self.results = {}
 
     def add_mapping(self,table_name,entity_name):
         self.map[table_name]=entity_name
@@ -27,6 +29,23 @@ class EntityMapper:
         if not table_name in self.map:
             logger.warning(f"{table_name} not in entity map!")
         return self.map[table_name]
+    def set_column_request(self,table_name,column_name):
+        if table_name not in self.requests:
+            self.requests[table_name] = set()
+        
+        self.requests[table_name].add(column_name)
+    def fulfill_requests(self,table_name,df):
+        if table_name in self.requests:
+            if table_name not in self.results:
+                self.results[table_name] = {}
+            print("========================FR========================")
+            print(df)
+            print(self.requests)
+            print("========================FR========================")
+            self.results[table_name] = df[ list(self.requests[table_name]) ].copy()
+
+    def get_request_data(self,table_name,column_name):
+        return self.results[table_name][column_name]
 
 ###
 # We 
@@ -282,6 +301,13 @@ class Ingester:
 
         return pd.DataFrame(columns=[pk,url_col],data=new_data)
 
+    def process_requests(self):
+        """
+        notify entity mapper of column data requests.
+        """
+        # default has no requests.
+        pass
+
     def generate_df(self ):
         """
         Creates the basic data by reading from the source. Injects some workflow data.
@@ -311,6 +337,9 @@ class EntityIngester(Ingester):
     def prepare(self):
         logger.info("Prepare Entity")
         self.df = super(EntityIngester,self).generate_df()
+        # these are data requests for mostly unmanipulated stuff, so
+        # want to hand them off first.
+        self.emapper.fulfill_requests( self.source.table_name(), self.df )
         logger.debug("Entity DataFrame input")
         logger.debug(f"Columns: {self.df.columns}")
         logger.debug(self.df)
@@ -339,6 +368,9 @@ class PDFIngester(Ingester):
         super(PDFIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(PDFIngester,self).generate_df()
+        # these are data requests for mostly unmanipulated stuff, so
+        # want to hand them off first.
+        self.emapper.fulfill_requests( self.source.table_name(), self.df )
         logger.debug("PDF DataFrame input")
         logger.debug(self.df)
         drop_col=None
@@ -380,6 +412,9 @@ class ImageIngester(Ingester):
         super(ImageIngester,self).__init__(source,info) 
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
+        # these are data requests for mostly unmanipulated stuff, so
+        # want to hand them off first.
+        self.emapper.fulfill_requests( self.source.table_name(), self.df )
         logger.debug("Image DataFrame input")
         logger.debug(self.df)
         drop_col=None
@@ -418,9 +453,22 @@ class ImageIngester(Ingester):
 class ConnectionIngester(Ingester):
     def __init__(self, source: Provider, info:ConnectionSpec): 
         super(ConnectionIngester,self).__init__(source,info) 
+    def process_requests(self):
+        # we need the pk column from target table to potentially filter any
+        # values that are missing.
+        self.emapper.set_column_request(self.info.foreign_table.name,
+                self.info.foreign_col )
     def prepare(self):
         logger.info("Prepare Connection")
         self.df = super(ConnectionIngester,self).generate_df()
+
+        # we know that since connections are last that our requests will be
+        # done.
+        fk_vals = self.emapper.get_request_data( self.info.foreign_table.name,
+                self.info.foreign_col )
+        print('=====================================CONN')
+        print(fk_vals)
+        sys.exit(1)
         from_t = self.info.table.name
         from_e = self.emapper.get_mapping(self.info.table.name)
         to_t = self.info.foreign_table.name
