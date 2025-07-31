@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+from typing import Optional, Set, Tuple, Generator, List, Dict
+from itertools import zip_longest
 from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
 import sys
 from datetime import datetime
@@ -5,9 +8,6 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
-from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict
-from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -113,7 +113,7 @@ class FDW(ForeignDataWrapper):
                 continue
             type_ = self._columns[col]["type"]
             if type_ == "datetime":
-                value = row[col]["_date"]
+                value = row[col]["_date"] if row[col] else None
             elif type_ == "json":
                 value = json.dumps(row[col])
             elif type_ == "blob":
@@ -290,6 +290,73 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Executed FDW {self._type}/{self._class} with {n_results} results")
 
+        # First we run a batch query to get the number of results.
+        query = [
+            {
+                self._command: {
+                    **({"with_class": self._class} if not self._is_system_class else {}),
+                    **({"results": {"list": list(columns)}}),
+                    "batch": {},
+                }
+            }
+        ]
+
+        _, results, _ = POOL.execute_query(query)
+
+        if not results or len(results) != 1:
+            logger.warning(
+                f"No results found for entity query. {query} -> {results}")
+            raise ValueError(
+                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+
+        if "batch" not in results[0][self._command]:
+            # Some find commands (FindConnection) don't handle batching, so we assume all results are returned at once.
+            logger.info(
+                f"Single batch found for query: {query} -> {results[:10]}")
+            rows = results[0][self._command][self._result_field]
+            for row in rows:
+                yield self._normalize_row(columns, row)
+            return
+
+        try:
+            n_results = results[0][self._command]["batch"]["total_elements"]
+        except KeyError:
+            logger.error(
+                f"Batch total_elements not found in results: {query} -> {results}")
+            raise ValueError(
+                f"Batch total_elements not found in results: {query} -> {results}")
+
+        n_batches = (n_results + BATCH_SIZE - 1) // BATCH_SIZE
+        logger.info(
+            f"Found {n_results} results in {n_batches} batches for query: {query}")
+
+        # Now we fetch the results batch by batch.
+        for batch in range(n_batches):
+            logger.info(
+                f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
+            query[0][self._command]["batch"]["batch_id"] = batch
+            query[0][self._command]["batch"]["batch_size"] = BATCH_SIZE
+            _, results, _ = POOL.execute_query(query)
+            if not results or len(results) != 1:
+                logger.warning(
+                    f"No results found for batch {batch} of entity query. {query} -> {results}")
+                continue
+
+            try:
+                rows = results[0][self._command][self._result_field]
+            except KeyError:
+                logger.error(
+                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
+                raise ValueError(
+                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
+
+            if not rows:
+                logger.warning(f"No rows found in batch {batch}. Continuing.")
+                continue
+
+            for row in rows:
+                yield self._normalize_row(columns, row)
+
     @staticmethod
     def _encode_options(options):
         """
@@ -438,6 +505,57 @@ class FDW(ForeignDataWrapper):
         if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
             for connection, data in SCHEMA["connections"]["classes"].items():
                 results.append(cls._connection_table(connection, data))
+                columns = []
+                if data["properties"] is not None:
+                    for prop, prop_data in data["properties"].items():
+                        count, indexed, type_ = prop_data
+                        columns.append(ColumnDefinition(
+                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+                # Add the _uniqueid column
+                # This is a special column that is always present in entities, but does not appear in the schema.
+                columns.append(ColumnDefinition(
+                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+                logger.info(f"Adding entity {entity} with columns: {columns}")
+                results.append(TableDefinition(
+                    table_name=entity,
+                    columns=columns,
+                    options=cls._encode_options({
+                        "class": entity,
+                        "type": "entity",
+                        "matched": data["matched"],
+                    })
+
+                ))
+
+        if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
+            for connection, data in SCHEMA["connections"]["classes"].items():
+                columns = []
+                if data["properties"] is not None:
+                    for prop, prop_data in data["properties"].items():
+                        count, indexed, type_ = prop_data
+                        columns.append(ColumnDefinition(
+                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
+                # Add the _uniqueid, _src, and _dst columns
+                # These are special columns that are always present in connections, but do not appear in the schema.
+                columns.append(ColumnDefinition(
+                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
+                columns.append(ColumnDefinition(
+                    column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
+                columns.append(ColumnDefinition(
+                    column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
+                logger.info(
+                    f"Adding connection {connection} with columns: {columns}")
+                results.append(TableDefinition(
+                    table_name=connection,
+                    columns=columns,
+                    options=cls._encode_options({
+                        "class": connection,
+                        "type": "connection",
+                        "src": data["src"],
+                        "dst": data["dst"],
+                        "matched": data["matched"]
+                    })
+                ))
 
         return results
 
