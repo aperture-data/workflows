@@ -433,7 +433,7 @@ class FDW(ForeignDataWrapper):
         This method is called when the foreign data wrapper is created.
         The result of this is to create the foreign tables in PostgreSQL.
 
-        Note that we cannot
+        Note that we cannot add comments, foreign keys, or other constraints here.
         """
         logger.info("Importing schema with options: %s", options)
         results = []

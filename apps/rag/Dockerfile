@@ -2,22 +2,17 @@
 FROM aperturedata/workflows-base
 
 ENV APP_NAME=workflows-rag
-ENV POSTGRES_PASSWORD=test
 
-# Install PostgreSQL
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql postgresql-contrib && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
+# Install dependencies; git is required for CLIP
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
-RUN service postgresql start && \
-    su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '${POSTGRES_PASSWORD}';\"" && \
-    echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/*/main/pg_hba.conf && \
-    echo "listen_addresses='*'" >> /etc/postgresql/*/main/postgresql.conf
-
-EXPOSE 5432
+# We prefer to cache models in the docker image rather than load them
+# at run time. 
+COPY app/llm.py /app/llm.py
+RUN python3 /app/llm.py
+EXPOSE 8000
 
 # Copy the rest of the application code
 COPY app /app/
