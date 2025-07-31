@@ -5,6 +5,7 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, force=True,)
@@ -24,13 +25,7 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     """
     if not os.path.exists(path):
         raise RuntimeError(f"Missing environment file: {path}")
-    with open(path) as f:
-        for line in f:
-            if not line.strip() or line.startswith("#"):
-                continue
-            k, v = line.strip().split("=", 1)
-            os.environ[k] = v
-            logger.debug(f"Loaded environment variable: {k}")
+    load_dotenv(dotenv_path=path, override=True)
 
 
 def main():
@@ -59,6 +54,7 @@ TYPE_MAP = {
     "boolean": "boolean",
     "datetime": "timestamptz",
     "json": "jsonb",
+    "blob": "bytea",
 }
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
