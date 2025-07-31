@@ -4,9 +4,7 @@ This workflow can ingest tables from a PostgreSQL database.
 
 ## Database details
 
-ingest-from-sql creates tries to replicate the Dataset in a one-to-one manner as available from mlcroissant library.
-
-#### Objects Added to the Database
+`ingest-from-sql` tries to replicate the Dataset in a one-to-one manner, aided by user configuration.
 
 After a successful SQL ingestion, the following types of objects are added to ApertureDB:
 
