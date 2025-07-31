@@ -25,14 +25,13 @@ done
 echo "Setting postgres password..."
 su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PASSWORD '${WF_AUTH_TOKEN}';\""
 
+echo "Creating database ${DATABASE}..."
 su - postgres -c "createdb ${DATABASE}"
 
+echo "Setting up multicorn extension"
 su - postgres -c "psql -U postgres -d ${DATABASE} -c \"CREATE EXTENSION IF NOT EXISTS multicorn;\""
-run_psql() {
-  echo "Running SQL command: $1"
-  su - postgres -c "psql -d ${DATABASE} -c \"$1\""
-}
 
+echo "Running SQL initialization script..."
 su - postgres -c "psql -a -d ${DATABASE} -f /app/init.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
