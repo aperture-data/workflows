@@ -1,0 +1,2 @@
+# Add Python requirements here
+prometheus-client
