@@ -38,10 +38,6 @@ class EntityMapper:
         if table_name in self.requests:
             if table_name not in self.results:
                 self.results[table_name] = {}
-            print("========================FR========================")
-            print(df)
-            print(self.requests)
-            print("========================FR========================")
             self.results[table_name] = df[ list(self.requests[table_name]) ].copy()
 
     def get_request_data(self,table_name,column_name):
@@ -64,6 +60,7 @@ class SQLBaseDataCSV():
         logger.info(f"SQLBaseDataCSV: {sql_resource_prefix} // {primary_key_column_name}")
         self.sql_resource_prefix = sql_resource_prefix
         self.primary_key_column_name = primary_key_column_name
+
     def injected_getitem(self,idx,base_getitem):
         query,blobs = base_getitem(self,idx)
         idx = self.df.index.start + idx
@@ -86,6 +83,7 @@ class SQLEntityDataCSV(SQLBaseDataCSV,EntityDataCSV):
     def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
         EntityDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
+
     def getitem(self,idx):
         return self.injected_getitem( idx, EntityDataCSV.getitem )
 
@@ -96,6 +94,7 @@ class SQLConnectionDataCSV(SQLBaseDataCSV,ConnectionDataCSV):
     def __init__(self, filename:str, sql_resource_prefix, primary_key_column_name, **kwargs):
         ConnectionDataCSV.__init__(self,filename,**kwargs)
         SQLBaseDataCSV.__init__(self, sql_resource_prefix,primary_key_column_name)
+
     def getitem(self,idx):
         query,blobs = super().getitem(idx)
         def query_hash(q):
@@ -189,14 +188,18 @@ class SQLProvider(Provider):
         self.database = database
         self.engine = None
         self.table = table
+
     def get_engine(self):
         if self.engine is None:
             self.engine = create_engine(self.as_connection_string())
         return self.engine
+
     def host_name(self):
         return self.host
+
     def database_name(self):
         return self.database
+
     def table_name(self):
         return self.table
 
@@ -208,8 +211,10 @@ class SQLProvider(Provider):
 
     def get_hash_prefix(self):
         return f"postgres://{self.host}/{self.database}"
+
     def get_table_hash_prefix(self):
         return f"{self.get_hash_prefix()}/{self.table_name()}"
+
     def get_property_names(self):
         pass
 
@@ -218,10 +223,13 @@ class SQLProvider(Provider):
 
     def get_data_cols(self):
         return self.info.prop_columns + self.info.bin_columns + self.info.url_columns 
+
     def get_pk_col(self):
         return self.info.primary_key
+
     def get_bin_col(self):
         return None if len(self.info.bin_columns) == 0 else self.info.bin_columns[0]
+
     def get_url_col(self):
         return None if len(self.info.url_columns) == 0 else self.info.url_columns[0]
 
@@ -232,9 +240,12 @@ class SQLProvider(Provider):
         to_select=[]
         all_ret_cols = self.info.prop_columns + self.info.bin_columns + self.info.url_columns 
         logger.debug(f"SQLProvider.get_data: {all_ret_cols}")
-        for c in t.columns:
-            if c.name in all_ret_cols:
-                to_select.append(c)
+        available_cols = { c.name:c for c in t.columns }
+        for c in all_ret_cols:
+            if c in available_cols.keys(): 
+                to_select.append(available_cols[c])
+            else:
+                raise Exception(f"SQLProvider.get_data: Tried to get data for {c}, but wasn't in table for {t.name} on server?")
         stmt = select(*to_select)
         data=[]
         with self.engine.connect() as conn:
@@ -244,7 +255,6 @@ class SQLProvider(Provider):
                 data.append(r)
 
         return data
-
 
     def as_connection_string(self):
         return "postgresql+psycopg://{}:{}@{}/{}".format(
@@ -270,7 +280,6 @@ class Ingester:
         self.info = info
         self.types_added = None
 
-
     def set_workflow_id(self,id):
         self.workflow_id = id
 
@@ -285,6 +294,7 @@ class Ingester:
 
     def prepare(self):
         raise NotImplementedError("Base Class")
+
     def load(self):
         raise NotImplementedError("Base Class")
 
@@ -334,6 +344,7 @@ class Ingester:
 class EntityIngester(Ingester):
     def __init__(self, source: Provider, info:TableSpec): 
         super(EntityIngester,self).__init__(source,info) 
+
     def prepare(self):
         logger.info("Prepare Entity")
         self.df = super(EntityIngester,self).generate_df()
@@ -345,6 +356,7 @@ class EntityIngester(Ingester):
         logger.debug(self.df)
         self.emapper.add_mapping( self.source.table_name(),
                 self.info.name)
+
     def load(self,db):
         logger.info("Ready to load entities")
         ename = self.emapper.get_mapping(self.info.table.name)
@@ -364,8 +376,12 @@ class EntityIngester(Ingester):
         self.types_added = [self.info.name]
 
 class PDFIngester(Ingester):
+    """
+    Ingests PDFs into ApertureDB
+    """
     def __init__(self, source: Provider, info:TableSpec): 
         super(PDFIngester,self).__init__(source,info) 
+
     def prepare(self):
         self.df = super(PDFIngester,self).generate_df()
         # these are data requests for mostly unmanipulated stuff, so
@@ -384,7 +400,6 @@ class PDFIngester(Ingester):
         logger.debug(self.df.columns)
         self.df.drop(columns=[drop_col],inplace=True)
         self.df["document_type"] = "pdf"
-
 
         logger.debug("PDF DataFrame output")
         logger.debug(self.df)
@@ -408,8 +423,12 @@ class PDFIngester(Ingester):
         self.types_added = [ObjectType.BLOB.value]
 
 class ImageIngester(Ingester):
+    """
+    Ingests Images into ApertureDB
+    """
     def __init__(self, source: Provider, info:TableSpec): 
         super(ImageIngester,self).__init__(source,info) 
+
     def prepare(self):
         self.df = super(ImageIngester,self).generate_df()
         # these are data requests for mostly unmanipulated stuff, so
@@ -451,28 +470,48 @@ class ImageIngester(Ingester):
         self.types_added = [ObjectType.IMAGE.value]
 
 class ConnectionIngester(Ingester):
+    """
+    Ingests Table Connections into ApertureDB
+    """
     def __init__(self, source: Provider, info:ConnectionSpec): 
+
         super(ConnectionIngester,self).__init__(source,info) 
     def process_requests(self):
         # we need the pk column from target table to potentially filter any
         # values that are missing.
-        self.emapper.set_column_request(self.info.foreign_table.name,
-                self.info.foreign_col )
+        self.emapper.set_column_request(self.info.target_table.name,
+                self.info.target_col )
+
     def prepare(self):
         logger.info("Prepare Connection")
         self.df = super(ConnectionIngester,self).generate_df()
 
         # we know that since connections are last that our requests will be
         # done.
-        fk_vals = self.emapper.get_request_data( self.info.foreign_table.name,
-                self.info.foreign_col )
-        print('=====================================CONN')
-        print(fk_vals)
-        sys.exit(1)
-        from_t = self.info.table.name
-        from_e = self.emapper.get_mapping(self.info.table.name)
-        to_t = self.info.foreign_table.name
-        to_e = self.emapper.get_mapping(self.info.foreign_table.name)
+        fk_vals = self.emapper.get_request_data( self.info.target_table.name,
+                self.info.target_col ).to_frame()
+        fk_vals["remote_side"] ="True"
+        logging.info(f"Connection: mapping {self.info.target_col}:{self.info.source_link_col}")
+        #  data from foreign table comes in with it's name.
+        #  we rename it to be the 
+        fk_vals.rename(columns={ self.info.target_col:self.info.source_link_col},inplace=True)
+        merged = self.df.merge(fk_vals,on=self.info.source_link_col,indicator=True,how='left')
+        existing= merged[merged["_merge"] != "both" ]
+        missing= merged[merged["_merge"] == "left_only" ]
+        if missing.shape[0] != 0:
+            logging.warning(f"Had {missing.shape[0]} missing.")
+            for i,r in missing.iterrows():
+                logging.warning("For {} = {}, {} = {}: No Match.".format( 
+                        self.info.primary_key, r[self.info.primary_key],
+                        self.info.source_link_col, r[self.info.source_link_col]))
+            merged = merged[ merged["_merge"] == "both" ]
+            self.df = merged.drop("_merge",axis=1).reset_index(drop=True)
+
+
+        from_tbl = self.info.table.name
+        from_ele = self.emapper.get_mapping(self.info.table.name)
+        to_tbl = self.info.target_table.name
+        to_ele = self.emapper.get_mapping(self.info.target_table.name)
         def cap_first(instr):
             if instr.startswith("_"):
                 return  instr[1:].capitalize()
@@ -484,21 +523,20 @@ class ConnectionIngester(Ingester):
             logger.info(f"connection creating sha for \"{prefix}/{value}\"")
             resource_name = "{}/{}".format(prefix, value )
             return  hash_string(resource_name) 
-        from_prefix = f"{sql_resource_prefix}/{from_t}"
-        to_prefix = f"{sql_resource_prefix}/{to_t}"
+        from_prefix = f"{sql_resource_prefix}/{from_tbl}"
+        to_prefix = f"{sql_resource_prefix}/{to_tbl}"
         logger.info(f"Connection hash from {from_prefix} to {to_prefix}")
-        self.df.insert(0,"ConnectionClass",f"{cap_first(from_e)}to{cap_first(to_e)}")
-        fc = self.info.prop_columns[0]
-        tc = self.info.prop_columns[1]
-        self.df[ fc ] =  self.df[ fc ].apply( lambda val: change_to_sha( from_prefix, val  ))
-        self.df[ tc ] =  self.df[ tc ].apply( lambda val: change_to_sha( to_prefix, val ))
-        self.df.rename( columns={ self.info.prop_columns[0]: f"{from_e}@wf_sha1_hash" } ,inplace=True)
-        self.df.rename( columns={self.info.prop_columns[1]: f"{to_e}@wf_sha1_hash"}, inplace=True)
+        self.df.insert(0,"ConnectionClass",f"{cap_first(from_ele)}to{cap_first(to_ele)}")
+        from_col = self.info.primary_key
+        to_col = self.info.source_link_col 
+        self.df[ from_col ] =  self.df[ from_col ].apply( lambda val: change_to_sha( from_prefix, val  ))
+        self.df[ to_col ] =  self.df[ to_col ].apply( lambda val: change_to_sha( to_prefix, val ))
+        self.df.rename( columns={ from_col: f"{from_ele}@wf_sha1_hash" } ,inplace=True)
+        self.df.rename( columns={ to_col: f"{to_ele}@wf_sha1_hash"}, inplace=True)
         logger.debug("Connection DataFrame output")
         logger.debug(f"Columns: {self.df.columns}")
         logger.debug(self.df)
 
-        ## TODO - handle missing fk *HERE* ( since we have the data in a df )
     def load(self,db):
         logger.info("Ready to load connection")
         csv_data = SQLConnectionDataCSV( filename=None,df=self.df,

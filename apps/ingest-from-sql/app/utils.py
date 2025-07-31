@@ -28,10 +28,11 @@ class TableSpec:
 @dataclass
 class ConnectionSpec:
     table: Table  # should be tablespec?
-    foreign_table: Table
+    target_table: Table
     prop_columns: List[str]
-    primary_key:str # of table
-    foreign_col:str # of target table ( just name )
+    primary_key:str # of source table
+    source_link_col: str # the 'foreign key' column in the source table
+    target_col:str # simple column name of the target, on the target side.
     entity_type:TableType = TableType.CONNECTION
     bin_columns: List[str] = field( default_factory= list )
     url_columns: List[str] = field( default_factory=list)

@@ -261,11 +261,12 @@ def scan(engine:sql.Engine,
             f"key of table {ttbl} ( target is {tcol}, primary key is {tgt_spec.primary_key}")
 
 
-        pk=fk_to_connect.split(".")[1]
+        fk_on_source_side=fk_to_connect.split(".")[1]
         selected_tables.append(
-                ConnectionSpec(table=fkmap.table,foreign_table=ttbl,prop_columns=[
-                    pk, source_spec.primary_key],
-                    primary_key=pk,foreign_col=tcol.name)) 
+                ConnectionSpec(table=fkmap.table,target_table=ttbl,prop_columns=[
+                    fk_on_source_side, source_spec.primary_key],
+                    source_link_col=fk_on_source_side,
+                    primary_key=source_spec.primary_key,target_col=tcol.name)) 
 
     return selected_tables
 
