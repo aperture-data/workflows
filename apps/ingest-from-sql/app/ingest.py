@@ -496,7 +496,6 @@ class ConnectionIngester(Ingester):
         # done.
         fk_vals = self.emapper.get_request_data( self.info.target_table.name,
                 self.info.target_col ).to_frame()
-        fk_vals["remote_side"] ="True"
         logging.info(f"Connection: mapping {self.info.target_col}:{self.info.source_link_col}")
         #  data from foreign table comes in with it's name.
         #  we rename it to be the 

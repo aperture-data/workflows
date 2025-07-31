@@ -207,7 +207,6 @@ def scan(engine:sql.Engine,
             elif expect_binary and not has_binary:
                 raise Exception(f"Was expecting a binary in {table.name}, but didn't find any.")
 
-            #if has_binary or len(url_cols) != 0:
             if True: # need pk if we are linking with a connection and not going to ask twice
                 table_info = inspect(table).primary_key
                 if len(table_info.columns) != 1:

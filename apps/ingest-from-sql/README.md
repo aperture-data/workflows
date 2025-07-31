@@ -77,14 +77,14 @@ Parameters:
 * **`WF_SQL_USER`**: Username for the supllied SQL Host. [ Required ]
 * **`WF_SQL_PASSWORD`**: Password to login with the supplied SQL user. [ Required ]
 * **`WF_SQL_DATABASE`**: Database on the SQL server to ingestPassword to login with the supplied SQL user. [ Required ]
-* **`WF_IMAGE_TABLES`**: Tables to Ingest images from. [ Default None ]
-* **`WF_PDF_TABLES`**: Tables to Ingest PDFs from. [ Default None ]
-* **`WF_TABLES_TO_IGNORE`**: Ingest videos (`TRUE` or `FALSE`). [ Default FALSE ]
-* **`WF_COLUMNS_TO_IGNORE`**: Ingest PDFs (`TRUE` or `FALSE`). [ Default FALSE ]
+* **`WF_IMAGE_TABLES`**: A [list](#parameter-formats) of Tables to Ingest images from. [ Default None ]
+* **`WF_PDF_TABLES`**: A [list](#parameter-formats) of Tables to Ingest PDFs from. [ Default None ]
+* **`WF_TABLES_TO_IGNORE`**: Tables to ignore. Takes a [glob list](#parameter-formats) [ Default None ]
+* **`WF_COLUMNS_TO_IGNORE`**: Columns to ignore. Takes a [glob list](#parameter-formats). [ Default FALSE ]
 * **`WF_UNDEFINED_BLOB_ACTION`**: What action to take when a undefined blob is encountered. Choices are "ignore" or "error". [ Default is ignore ]
-* **`WF_URL_COLUMNS_FOR_BINARY_DATA`**: A list of fully specificed columns that are urls for binary data. [ Default None ]
-* **`WF_TABLE_TO_ENTITY_MAPPING`**: A mapping of table names to output entity names. [ Default None ]
-* **`WF_FOREIGN_KEY_ENTITIY_MAPPING`**:A mapping of foriegn keys to their target columns. [ Default None ]
+* **`WF_URL_COLUMNS_FOR_BINARY_DATA`**: A [list](#parameter-formats) of fully specificed columns that are urls for binary data. [ Default None ]
+* **`WF_TABLE_TO_ENTITY_MAPPING`**: A [mapping](#parameter-formats) of table names to output entity names. [ Default None ]
+* **`WF_FOREIGN_KEY_ENTITIY_MAPPING`**:A [mapping](#parameter-formats) of foriegn keys to their target columns. [ Default None ]
 * **`WF_AUTOMATIC_FOREIGN_KEY`**: Whether to automatically generate foreign key mappings  (`TRUE` or `FALSE`). [ Default FALSE ].
 * **`WF_SPEC_ID`**: Workflow run identifier (if not supplied, a UUID is generated) [ Default automatically generated UUID].
 * **`WF_DELETE`**: Delete the `WorkflowSpec` specified in `WF_OUTPUT` and its artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
@@ -93,6 +93,24 @@ Parameters:
 * **`WF_CLEAN`**: If `WF_SPEC_ID` exists, delete the existing `WorkflowSpec` before running (`TRUE` or `FALSE`) [ Default FALSE ].
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
+
+## Database Requirements
+All tables ingested must have a primary key and it must be a non-compound key.
+
+## Parameter Formats
+
+Formats that have globs follow [Glob rules](#glob-filtering).
+
+### Lists
+List are
+```
+item1,item2,item3
+```
+### Mappings
+Mappings are
+```
+key1:value1,key2:value2
+```
 
 ## How Binary Ingestion Works
 
