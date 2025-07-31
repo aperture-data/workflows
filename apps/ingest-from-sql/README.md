@@ -1,6 +1,6 @@
-# Ingesting from a MYSQL database
+# Ingesting from a PostgreSQL database
 
-This workflow can ingest tables from a MYSQL database.
+This workflow can ingest tables from a PostgreSQL database.
 
 ## Database details
 
@@ -8,118 +8,169 @@ ingest-from-sql creates tries to replicate the Dataset in a one-to-one manner as
 
 #### Objects Added to the Database
 
-After a successful Croissant ingestion, the following types of objects are typically added to ApertureDB:
+After a successful SQL ingestion, the following types of objects are typically added to ApertureDB:
 
-- **DatasetModel**: Represents the ingested dataset as a whole.
-- **RecordsetModel**: Groups records belonging to the dataset.
-- **Entity**: Each data item (e.g., row, record) is stored as an entity.
-- **Image**: If the dataset contains images, these are stored as image objects.
-- **Blob**: Any binary data (e.g., files, documents) is stored as blobs.
+Objects created:
+* `WorkflowSpec`: Records the intention of the ingest.
+* `WorkflowRun`: Records the specific run.
+* `Image`,  `Blob`, `Entity`: Added from SQL, linked to `WorkflowRun` by `WorkflowAdded` connection.
 
+```mermaid
+erDiagram
+    Blob {}
+    WorkflowSpec {
+        string workflow_name
+        string workflow_id
+        string workflow_create_date
+        string workflow_end_date
+    }
+    WorkflowRun {
+        string workflow_id
+        string workflow_create_date
+        string workflow_end_date
+    }
+    Image {
+        string adb_mime_type
+        string wf_creator
+        string wf_creator_key
+        string wf_workflow_id
+        string wf_sha1_hash
+    }
+    Blob {
+        string document_type "'pdf'"
+        string adb_mime_type
+        string wf_creator
+        string wf_creator_key
+        string wf_workflow_id
+        string wf_sha1_hash
+    }
+    Entity {
+        string adb_mime_type
+        string wf_creator
+        string wf_creator_key
+        string wf_workflow_id
+        string wf_sha1_hash
+    }
+    WorkflowSpec ||--o{ WorkflowRun : WorkflowCreated
+    WorkflowRun ||--o{ Image : WorkflowAdded
+    WorkflowRun ||--o{ Blob : WorkflowAdded
+    WorkflowRun ||--o{ Entity : WorkflowAdded
+```
 
-The exact set of objects depends on the structure and content of the Croissant dataset. For more details, see the [ApertureDB ingestion documentation](https://docs.aperturedata.io/HowToGuides/Ingestion/Ingestion/Ingestion).
-
+The exact items added depend on the configuration supplied to the workflow. (
+`WF_IMAGE_TABLES` is required to generate any Image entities, for example. )
 
 ## Running in docker
 
 ```
 docker run \
-           -e RUN_NAME=ingestion \
-           -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
-           -e DB_PASS="password" \
-           aperturedata/workflows-ingest-croissant
+           -e RUN_NAME=from_my_sql \
+           -e DB_HOST=aperturedb.gcp.cloud.aperturedata.dev \
+           -e DB_PASS="adb-password" \
+           -e WF_SQL_HOST=postgresql.gcp.cloud.aperturedata.dev \
+           -e WF_SQL_DATABASE=myuserdatabase \
+           -e WF_SQL_USER=readonly_user \
+           -e WF_SQL_PASSWORD="sql-password" \
+           aperturedata/workflows-ingest-from-sql
 ```
 
 Parameters:
-* **`WF_CROISSANT_URL`**: Croissant URL of the published dataset.
-* **`WF_SAMPLE_COUNT`**: The number of records from each record set that should be ingested. The actual records would be min(actual count, WF_SAMPLE_COUNT). A value of -1 would imply all the records. Default value is -1.
-* **`WF_FLATTEN_JSON`**: Persists a list in record value as a set of connected entities. Defaults to false.
+* **`WF_SQL_HOST`**: SQL Host to ingest from. [ Required ]
+* **`WF_SQL_PORT`**: Port of the SQL Host. [ Only required if on a non-standard port for the SQL server type. ]
+* **`WF_SQL_USER`**: Username for the supllied SQL Host. [ Required ]
+* **`WF_SQL_PASSWORD`**: Password to login with the supplied SQL user. [ Required ]
+* **`WF_SQL_DATABASE`**: Database on the SQL server to ingestPassword to login with the supplied SQL user. [ Required ]
+* **`WF_IMAGE_TABLES`**: Tables to Ingest images from. [ Default None ]
+* **`WF_PDF_TABLES`**: Tables to Ingest PDFs from. [ Default None ]
+* **`WF_TABLES_TO_IGNORE`**: Ingest videos (`TRUE` or `FALSE`). [ Default FALSE ]
+* **`WF_COLUMNS_TO_IGNORE`**: Ingest PDFs (`TRUE` or `FALSE`). [ Default FALSE ]
+* **`WF_UNDEFINED_BLOB_ACTION`**: What action to take when a undefined blob is encountered. Choices are "ignore" or "error". [ Default is ignore ]
+* **`WF_TABLE_TO_ENTITY_MAPPING`**: A mapping of table names to output entity names. [ Default None ]
+* **`WF_FOREIGN_KEY_ENTITIY_MAPPING`**:A mapping of foriegn keys to their target columns. [ Default None ]
+* **`WF_AUTOMATIC_FOREIGN_KEY`**: Whether to automatically generate foreign key mappings  (`TRUE` or `FALSE`). [ Default FALSE ].
+* **`WF_SPEC_ID`**: Workflow run identifier (if not supplied, a UUID is generated) [ Default automatically generated UUID].
+* **`WF_DELETE`**: Delete the `WorkflowSpec` specified in `WF_OUTPUT` and its artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_DELETE_ALL`**: Delete all `WorkflowSpec` in DB and their artefacts (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_DELETE_FROM_SQL`**: Remove all items in the database created by this workflow from the supplied sql host and database (`TRUE` or `FALSE`) [ Default FALSE ].
+* **`WF_CLEAN`**: If `WF_SPEC_ID` exists, delete the existing `WorkflowSpec` before running (`TRUE` or `FALSE`) [ Default FALSE ].
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
-## How Croissant Ingestion Works
+## How Binary Ingestion Works
 
-The ingestion process leverages the `adb ingest from-croissant` command from the [aperturedb-python](https://github.com/aperture-data/aperturedb-python) CLI. The workflow performs the following steps:
+This workflow inspects all tables and finds tables that have binary columns.
+If a table is marked as a Image ( via `WF_IMAGE_TABLES` ) or PDF ( via `WF_PDF_TABLES` ) table,
+the first encountered binary column in that table will be used as the source of
+the binary data. The sort order of columns is not well defined though, so in
+cases of mulitple binary columns we suggest using `WF_COLUMNS_TO_INGORE` (
+explained in [#ignoring-data] )
 
-1. **Cleanup**: Before ingesting, it runs a cleanup script (`execute_query.py`) to remove any existing dataset in ApertureDB with the same Croissant URL.
-2. **Ingestion**: It then calls the CLI command to ingest the dataset from the provided Croissant URL into ApertureDB.
-3. **Completion**: Once complete, the dataset is available in the database for querying and further processing.
+If a table is expected to have binary data and none is found, the workflow will
+fail the scanning step with a fatal error.
 
-### Workflow Diagram
+If a table has binary data, but it was not identified what type it was - it will
+be *ignored* by default - `WF_UNDEFINED_BLOB_ACTION
 
-```mermaid
-flowchart TD
-    A["Start: Provide Croissant URL"] --> B["Run app.sh"]
-    B --> C["execute_query.py: Clean up existing dataset"]
-    C --> D["adb ingest from-croissant: Ingest new dataset"]
-    D --> E["Dataset available in ApertureDB"]
-    E --> F["End"]
-```
 
-For more details on the CLI and ingestion process, see the [aperturedb-python ingest.py source](https://github.com/aperture-data/aperturedb-python/blob/28ef0e13c9581568e435a893238eb384ecd29578/aperturedb/cli/ingest.py#L240).
+## Ignoring Data
+
+There are 3 types of data ignoring filters in this workflow.
+* Table Ignoring
+* Column Ignoring
+* Foreign Key Ignoring
+
+### Table Ignoring
+Table ignoring is the largest filter, controlled by `WF_TABLES_TO_IGNORE`. It is
+a glob compatable filter ( read more in [#glob-filtering] ). Multiple items can
+be ignored by passing them as `table1,table2`.  When a table is
+ignored, it cannot be used for a foreign key target.
+
+### Column Ignoring
+Column ignoring is the medium level filter, controlled by
+`WF_COLUMNS_TO_IGNORE`. It it also a glob compatable filter ( read more in [#glob-filtering] ).
+It requires full definitions of columns, e.g: `table_a.column_3`. Multiple items can be ignoned as well.
+To ignore all foriegn keys and a product color: `*.fk_*,product.color`. When a
+column is ignored, it cannot be used for a foreign key target.
+
+### Foreign Key Ignoring
+Foriegn key ignoring is the most fine filter, and is controlled in
+`WF_FOREIGN_KEY_ENTITY_MAPPING`. When a mapping is configured to be a empty
+string, it will not be used in automatic mapping.
+
+## Glob Filtering
+Arguments that support glob filtering accept pattern used in traditional unix
+filename pattern matching - "globbing". This means
+- `\*` matches everything
+- `?` matches any single character
+- `[seq]` matches any character in seq
+- '[!seq]` matches any character not in seq.
+
+Note that for this workflow, `.` is a **special** character - it defines the
+separation between tables and columns.
+
 
 
 ## Cleaning up
 
-Executing the [query](https://github.com/aperture-data/workflows/blob/main/apps/ingest-croissant/app/delete_dataset_by_url.json) against the instance of ApertureDB will selectively clean the DB of the ingested Croissant dataset, if the constraint is specified in selection of the DatasetModel Entity. Here's an example:
+If there is a need to remove data created by this workflow, several options
+exist.
 
-```json
-[
-    {
-        "FindEntity": {
-            "_ref": 1,
-            "with_class": "DatasetModel",
-            "constraints": {
-                "url": ["==", "Croissant URL supplied at ingestion time"]
-            }
-        }
-    },
-    {
-        "FindEntity": {
-            "_ref": 2,
-            "is_connected_to": {
-                "ref": 1
-            },
-            "with_class": "RecordsetModel"
-        }
-    },
-    {
-        "FindEntity": {
-            "_ref": 3,
-            "is_connected_to": {
-                "ref": 2,
-                "direction": "out"
-            }
-        }
-    },
-    {
-        "FindEntity": {
-            "_ref": 4,
-            "is_connected_to": {
-                "ref": 3,
-                "direction": "out"
-            }
-        }
-    },
-    {
-        "DeleteEntity": {
-            "ref": 1
-        }
-    },
-    {
-        "DeleteEntity": {
-            "ref": 2
-        }
-    },
-    {
-        "DeleteEntity": {
-            "ref": 3
-        }
-    },
-    {
-        "DeleteEntity": {
-            "ref": 4
-        }
-    }
-]
+- `WF_DELETE` - Removes data from a `WorkflowSpec`
+- `WF_DELETE_ALL` - Remove all `WorkflowSpec` generated by this Workflow.
+- `WF_DELETE_FROM_SQL_DB` - Removes all entities generated from the configured SQL database.
+
+If you don't know the `WorkflowSpec` of a run, it will exist in the database as an object which you can query:
 ```
+[{"FindEntity": {
+   "with_class": "WorkflowSpec",
+   "constraints": {
+       "workflow_name": "sql-loader"
+   },
+   "results": {
+     "list": ["workflow_id"]
+   }
+}
+}]
+```
+
+For `WF_DELETE_FROM_SQL_DB` the pattern with match the host and database, and will delete all objects that match.   
