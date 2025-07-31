@@ -95,6 +95,7 @@ jobs:
           text-embeddings,
           ingest-croissant,
           ingest-from-bucket,
+          sql-server,
         ]
     runs-on:
       - ubuntu-latest
