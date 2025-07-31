@@ -10,7 +10,7 @@ from psycopg2 import Binary
 from typing import Optional, Set, Tuple, Generator, List, Dict
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, force=True,)
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler("/tmp/fdw.log")
