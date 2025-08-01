@@ -1,0 +1,12 @@
+apt install csvkit
+
+can't use os mysql-connector-python-py ? maybe.
+
+apt install postgresql-client-common postgresql-client
+
+
+mysql+mysqlconnector://root:root@127.0.0.1/aperturedb
+
+
+pip install mysql-connector-python
+for doing MYSQL
