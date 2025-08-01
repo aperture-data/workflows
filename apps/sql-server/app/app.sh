@@ -8,7 +8,12 @@ DATABASE="aperturedb"
 
 # Multicorn runs in a secure Python without access to environment variables
 # This will allow it to access the ApertureDB instance.
-echo APERTUREDB_KEY=$(python -c "from aperturedb.CommonLibrary import create_connector; c = create_connector(); print(c.config.deflate())") >/app/aperturedb.env
+APERTUREDB_KEY=$(python -c "from aperturedb.CommonLibrary import create_connector; c = create_connector(); print(c.config.deflate())")
+if [ $? -ne 0 ] || [ -z "$APERTUREDB_KEY" ]; then
+  echo "Error: Failed to generate APERTUREDB_KEY using Python command."
+  exit 1
+fi
+echo "APERTUREDB_KEY=$APERTUREDB_KEY" >/app/aperturedb.env
 
 # Check if WF_AUTH_TOKEN is set
 if [ -z "$WF_AUTH_TOKEN" ]; then
