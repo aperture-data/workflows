@@ -60,7 +60,7 @@ async def sql_query(
     token: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> SQLQueryResponse:
     logger.info(f"Executing SQL query: {body.query}")
-    check_bearer_auth(token.credentials)
+    check_bearer_auth(token)
 
     async with DB_POOL.acquire() as conn:
         try:
@@ -110,10 +110,14 @@ async def sql_query(
             )
 
 
-def check_bearer_auth(token: str):
-    if token != AUTH_TOKEN:
+def check_bearer_auth(token: HTTPAuthorizationCredentials):
+    """Check if the provided token matches the expected AUTH_TOKEN."""
+    if not token or not token.credentials:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="Invalid or missing authentication token")
+                            detail="Missing authentication token")
+    if token.credentials != AUTH_TOKEN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Invalid authentication token")
 
 
 async def init_pool():

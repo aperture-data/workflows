@@ -190,8 +190,8 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
                 assert isinstance(data["properties"], dict), \
                     f"Expected properties to be a dict, got {type(data['properties'])}"
                 for prop, prop_data in data["properties"].items():
-                    count, indexed, type_ = prop_data
-                    property_types[prop].add(type_.lower())
+                    count, indexed, prop_type = prop_data
+                    property_types[prop].add(prop_type.lower())
 
     columns = []
     for prop, types in property_types.items():
