@@ -103,3 +103,41 @@ CREATE OR REPLACE FUNCTION OPERATIONS(VARIADIC ops jsonb[])
 RETURNS jsonb AS $$
   SELECT jsonb_agg(op) FROM unnest($1) AS op
 $$ LANGUAGE SQL IMMUTABLE;
+
+
+-- Find similar
+
+CREATE OR REPLACE FUNCTION FIND_SIMILAR(
+    text TEXT DEFAULT NULL,
+    image BYTEA DEFAULT NULL,
+    vector JSONB DEFAULT NULL,
+    k INT DEFAULT 10,
+    knn_first BOOLEAN DEFAULT TRUE
+) RETURNS JSONB AS $$
+DECLARE
+    mode_count INT;
+BEGIN
+    -- Count how many modes are specified
+    mode_count := (CASE WHEN text IS NOT NULL THEN 1 ELSE 0 END) +
+                  (CASE WHEN image IS NOT NULL THEN 1 ELSE 0 END) +
+                  (CASE WHEN vector IS NOT NULL THEN 1 ELSE 0 END);
+
+    IF mode_count != 1 THEN
+        RAISE EXCEPTION 'FIND_SIMILAR requires exactly one of text, image, or vector';
+    END IF;
+
+    IF k IS NULL OR k <= 0 THEN
+        RAISE EXCEPTION 'k must be a positive integer';
+    END IF;
+
+    RETURN jsonb_build_object(
+        'text', text,
+        'image', image,
+        'vector', vector,
+        'k', k,
+        'knn_first', knn_first
+    );
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+COMMENT ON FUNCTION FIND_SIMILAR IS 'Find similar items based on one of text, image, or vector.';
