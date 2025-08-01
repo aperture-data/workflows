@@ -3,8 +3,9 @@ set -e
 
 DATABASE="aperturedb"
 
-# Copy selected environment variables to a file
-printenv | grep DB_ > /app/aperturedb.env
+# Multicorn runs in a secure Python without access to environment variables
+# This will allow it to access the ApertureDB instance.
+echo APERTUREDB_KEY=$(python -c "from aperturedb.CommonLibrary import create_connector; c = create_connector(); print(c.config.deflate())") >/app/aperturedb.env
 
 # Check if WF_AUTH_TOKEN is set
 if [ -z "$WF_AUTH_TOKEN" ]; then
