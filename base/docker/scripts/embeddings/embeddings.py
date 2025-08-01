@@ -157,6 +157,23 @@ class Embedder():
         }
 
     @classmethod
+    def check_properties(cls, properties: dict) -> bool:
+        """
+        Check if the properties are valid for this embedder.
+        This attempts to verify that the properties contain the required keys for an embedder.
+
+        Args:
+            properties (dict): The properties to check, as returned by `FindDescriptorSet`.
+
+        Returns:
+            bool: True if the properties are valid for this embedder, False otherwise.
+        """
+        required_keys = ["embeddings_provider",
+                         "embeddings_model", "embeddings_pretrained"]
+        # TODO: Consider adding more checks, e.g., for the provider and model name.
+        return all(key in properties for key in required_keys)
+
+    @classmethod
     def from_properties(cls,
                         properties: dict,
                         descriptor_set: str,
