@@ -72,7 +72,6 @@ def system_table(entity: str, data: dict) -> TableDefinition:
                 options=ColumnOptions(
                     count=data.get("matched", 0), indexed=False, type="blob", listable=False).to_string())
             )
-            options.blob_column = "_image"
             columns.append(ColumnDefinition(
                 column_name="_as_format", type_name="image_format_enum",
                 options=ColumnOptions(
@@ -195,17 +194,17 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     columns = []
     for prop, types in property_types.items():
         if len(types) == 1:
-            type_ = types.pop()
-            if type_ in TYPE_MAP:
+            prop_type = types.pop()
+            if prop_type in TYPE_MAP:
                 options = ColumnOptions(
-                    count=0, indexed=False, type=type_)
+                    count=0, indexed=False, type=prop_type)
                 columns.append(ColumnDefinition(
                     column_name=prop,
-                    type_name=TYPE_MAP[type_],
+                    type_name=TYPE_MAP[prop_type],
                     options=options.to_string()))
             else:
                 logger.warning(
-                    f"Unknown type '{type_}' for property '{prop}' in system {type_} table.")
+                    f"Unknown type '{prop_type}' for property '{prop}' in system {type_} table.")
         else:
             logger.warning(
                 f"Property '{prop}' has multiple types: {types}. Skipping.")

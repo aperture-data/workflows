@@ -39,11 +39,6 @@ def flush_logs():
 atexit.register(flush_logs)
 
 
-def exit_with_flush(code=1):
-    flush_logs()
-    os._exit(code)
-
-
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
 BATCH_SIZE_WITH_BLOBS = 10
@@ -287,7 +282,6 @@ class FDW(ForeignDataWrapper):
             logger.exception(
                 f"Error importing schema {schema}: {sys.exc_info()[1]}")
             flush_logs()
-            # exit_with_flush()
             raise
         logger.info(f"Schema {schema} imported successfully")
 
