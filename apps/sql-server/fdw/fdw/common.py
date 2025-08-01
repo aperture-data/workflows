@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import json
 import os
 import sys
@@ -9,6 +10,23 @@ from collections import defaultdict
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def import_path(path):
+        original = list(sys.path)
+    sys.path.insert(0, path)
+    try:
+        yield
+    finally:
+        sys.path = original
+
+
+@contextmanager
+def import_from_app():
+    """We don't control the import path, so we need to ensure the app directory is in the path."""
+    with import_path('/app'):
+        yield
 
 
 def load_aperturedb_env(path="/app/aperturedb.env"):
@@ -35,8 +53,8 @@ def get_log_level() -> int:
 def get_pool() -> "ConnectionPool":
     """Get the global connection pool. Lazy initialization."""
     load_aperturedb_env()
-    sys.path.append('/app')
-    from connection_pool import ConnectionPool
+    with import_from_app():
+        from connection_pool import ConnectionPool
     global _POOL
     if _POOL is None:
         _POOL = ConnectionPool()
@@ -110,6 +128,8 @@ class TableOptions(BaseModel):
     descriptor_set_properties: Optional[dict] = None
     # operation types for the descriptor set, if applicable
     operation_types: Optional[List[str]] = None
+    # whether this table support "find similar" queries
+    find_similar: Optional[bool] = None
 
     @classmethod
     def from_string(cls, options_str: Dict[str, str]) -> "TableOptions":

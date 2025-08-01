@@ -131,6 +131,7 @@ BEGIN
     END IF;
 
     RETURN jsonb_build_object(
+        'type', 'find_similar',
         'text', text,
         'image', image,
         'vector', vector,

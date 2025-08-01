@@ -1,7 +1,11 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, get_schema, get_pool, TableOptions
+from .common import property_columns, get_schema, get_pool, TableOptions, import_from_app
 import logging
+
+with import_from_app():
+    from embeddings import Embedder
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,31 @@ def get_descriptor_sets() -> dict:
     return results
 
 
+def property_columns_for_descriptors_in_set(name: str) -> dict:
+    """
+    Get the property columns for a specific descriptor set.
+    """
+    query = [{
+        "FindDescriptor": {
+            "set": name,
+            "_ref": 1
+        }
+    }, {
+        "GetSchema": {
+            "ref": 1
+        }
+    }]
+
+    _, response, _ = get_pool().execute_query(query)
+
+    properties = get_schema().get(
+        "entities", {}).get("classes", {}).get("_Descriptor", {})
+
+    columns = property_columns(properties)
+
+    return columns
+
+
 def descriptor_schema() -> List[TableDefinition]:
     """
     Return the descriptor set schema for ApertureDB.
@@ -37,6 +66,8 @@ def descriptor_schema() -> List[TableDefinition]:
     for name, properties in descriptor_sets.items():
         table_name = name
 
+        find_similar = Embedder.check_properties(properties)
+
         options = TableOptions(
             class_="_Descriptor",
             type="entity",
@@ -45,11 +76,17 @@ def descriptor_schema() -> List[TableDefinition]:
             result_field="entities",
             extra={"set": name},
             descriptor_set_properties=properties,
+            find_similar=find_similar,
         )
 
-        # TODO: We're giving all tables the same columns, which is not ideal.
-        columns = property_columns(get_schema().get(
-            "entities", {}).get("classes", {}).get("_Descriptor", {}))
+        columns = property_columns_for_descriptors_in_set(name)
+
+        if find_similar:
+            columns.append(ColumnDefinition(
+                column_name="_find_similar",
+                type_name="JSONB",
+                options=ColumnOptions(listable=False).to_string()
+            ))
 
         logger.debug(
             f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
