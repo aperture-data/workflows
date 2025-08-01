@@ -47,9 +47,12 @@ class CommandlineType:
     def column_list(input_str):
         items = input_str.split(',')
         for item in items:
+            item = item.strip()
+            if item == "":
+                continue
             parts = item.split('.')
             if len(parts) != 2:
-                raise Exception(f"Column list item {item} does not have 2 parts; expect table.column")
+                raise Exception(f"Column list item \"{item}\" does not have 2 parts; expect table.column")
         return items
 
     @staticmethod
@@ -57,6 +60,9 @@ class CommandlineType:
         output = {}
         items = input_str.split(',')
         for item in items:
+            item = item.strip()
+            if item == "":
+                continue
             pair = item.split(':')
             if len(pair) != 2:
                 raise Exception(f"Map pair item {item} does not have 2 parts; expect key:value")
