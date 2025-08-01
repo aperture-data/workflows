@@ -28,9 +28,6 @@ su - postgres -c "psql -U postgres -d postgres -c \"ALTER USER postgres WITH PAS
 echo "Creating database ${DATABASE}..."
 su - postgres -c "createdb ${DATABASE}"
 
-echo "Setting up multicorn extension"
-su - postgres -c "psql -U postgres -d ${DATABASE} -c \"CREATE EXTENSION IF NOT EXISTS multicorn;\""
-
 echo "Running SQL initialization script..."
 su - postgres -c "psql -a -d ${DATABASE} -f /app/init.sql"
 

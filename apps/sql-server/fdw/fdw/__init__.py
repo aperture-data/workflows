@@ -30,24 +30,31 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     load_dotenv(dotenv_path=path, override=True)
 
 
-def main():
-    try:
-        load_aperturedb_env()
-        sys.path.append('/app')
-        from connection_pool import ConnectionPool
-        global POOL
-        POOL = ConnectionPool()
-        global SCHEMA
-        with POOL.get_utils() as utils:
-            SCHEMA = utils.get_schema()
-        logger.info(
-            f"ApertureDB schema loaded successfully. \n{json.dumps(SCHEMA, indent=2)}")
-    except Exception as e:
-        logger.exception("Error during initialization: %s", e)
-        sys.exit(1)
+_POOL = None  # Global connection pool
+_SCHEMA = None  # Global schema variable
 
 
-main()
+def get_pool() -> "ConnectionPool":
+    """Get the global connection pool. Lazy initialization."""
+    load_aperturedb_env()
+    sys.path.append('/app')
+    from connection_pool import ConnectionPool
+    global _POOL
+    if _POOL is None:
+        _POOL = ConnectionPool()
+        logger.info("Connection pool initialized")
+    return _POOL
+
+
+def get_schema() -> Dict:
+    """Get the global schema. Lazy initialization."""
+    global _SCHEMA
+    if _SCHEMA is None:
+        with get_pool().get_utils() as utils:
+            _SCHEMA = utils.get_schema()
+            logger.info("Schema loaded")
+    return _SCHEMA
+
 
 # Mapping from ApertureDB types to PostgreSQL types.
 TYPE_MAP = {
@@ -210,7 +217,7 @@ class FDW(ForeignDataWrapper):
         logger.debug(f"Executing query: {query}")
 
         start_time = datetime.now()
-        _, results, blobs = POOL.execute_query(query)
+        _, results, blobs = get_pool().execute_query(query)
         elapsed_time = datetime.now() - start_time
         logger.info(
             f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
@@ -301,7 +308,7 @@ class FDW(ForeignDataWrapper):
             }
         ]
 
-        _, results, _ = POOL.execute_query(query)
+        _, results, _ = get_pool().execute_query(query)
 
         if not results or len(results) != 1:
             logger.warning(
@@ -336,7 +343,7 @@ class FDW(ForeignDataWrapper):
                 f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
             query[0][self._command]["batch"]["batch_id"] = batch
             query[0][self._command]["batch"]["batch_size"] = BATCH_SIZE
-            _, results, _ = POOL.execute_query(query)
+            _, results, _ = get_pool().execute_query(query)
             if not results or len(results) != 1:
                 logger.warning(
                     f"No results found for batch {batch} of entity query. {query} -> {results}")
@@ -498,12 +505,13 @@ class FDW(ForeignDataWrapper):
         """
         logger.info("Importing schema with options: %s", options)
         results = []
-        if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
-            for entity, data in SCHEMA["entities"]["classes"].items():
+        schema = get_schema()
+        if "entities" in schema and "classes" in schema["entities"]:
+            for entity, data in schema["entities"]["classes"].items():
                 results.append(cls._entity_table(entity, data))
 
-        if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
-            for connection, data in SCHEMA["connections"]["classes"].items():
+        if "connections" in schema and "classes" in schema["connections"]:
+            for connection, data in schema["connections"]["classes"].items():
                 results.append(cls._connection_table(connection, data))
 
         return results
