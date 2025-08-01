@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from .common import property_columns, SCHEMA, TableOptions, ColumnOptions
+from .common import property_columns, get_schema, TableOptions, ColumnOptions
 from multicorn import TableDefinition, ColumnDefinition
 
 logger = logging.getLogger(__name__)
@@ -14,10 +14,11 @@ def connection_schema() -> List[TableDefinition]:
     """
     logger.info("Creating connection schema")
     results = []
-    if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
-        assert isinstance(SCHEMA["connections"]["classes"], dict), \
-            f"Expected connections.classes to be a dict, got {type(SCHEMA['connections']['classes'])}"
-        for connection, data in SCHEMA["connections"]["classes"].items():
+    schema = get_schema()
+    if "connections" in schema and "classes" in schema["connections"]:
+        assert isinstance(schema["connections"]["classes"], dict), \
+            f"Expected connections.classes to be a dict, got {type(schema['connections']['classes'])}"
+        for connection, data in schema["connections"]["classes"].items():
             results.append(connection_table(connection, data))
     return results
 

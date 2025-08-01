@@ -1,6 +1,6 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, SCHEMA, POOL, TableOptions
+from .common import property_columns, get_schema, get_pool, TableOptions
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ def get_descriptor_sets() -> dict:
     """
     query = [{"FindDescriptorSet": {"results": {"all_properties": True},
                                     "counts": True, "engines": True, "dimensions": True, "metrics": True}}]
-    _, response, _ = POOL.execute_query(query)
+    _, response, _ = get_pool().execute_query(query)
     if "entities" not in response[0]["FindDescriptorSet"]:
         return {}
 
@@ -48,7 +48,7 @@ def descriptor_schema() -> List[TableDefinition]:
         )
 
         # TODO: We're giving all tables the same columns, which is not ideal.
-        columns = property_columns(SCHEMA.get(
+        columns = property_columns(get_schema().get(
             "entities", {}).get("classes", {}).get("_Descriptor", {}))
 
         logger.debug(

@@ -1,5 +1,5 @@
 from multicorn import TableDefinition
-from .common import property_columns, SCHEMA, TableOptions
+from .common import property_columns, get_schema, TableOptions
 from typing import List
 import logging
 
@@ -52,10 +52,11 @@ def entity_schema() -> List[TableDefinition]:
     """
     logger.info("Creating entity schema")
     results = []
-    if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
-        assert isinstance(SCHEMA["entities"]["classes"], dict), \
-            f"Expected entities.classes to be a dict, got {type(SCHEMA['entities']['classes'])}"
-        for entity, data in SCHEMA["entities"]["classes"].items():
+    schema = get_schema()
+    if "entities" in schema and "classes" in schema["entities"]:
+        assert isinstance(schema["entities"]["classes"], dict), \
+            f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
+        for entity, data in schema["entities"]["classes"].items():
             if entity[0] != "_":
                 results.append(entity_table(entity, data))
     return results

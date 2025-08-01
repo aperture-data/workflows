@@ -1,5 +1,5 @@
 from typing import List, Literal
-from .common import property_columns, SCHEMA, TYPE_MAP, TableOptions, ColumnOptions
+from .common import property_columns, get_schema, TYPE_MAP, TableOptions, ColumnOptions
 from multicorn import TableDefinition, ColumnDefinition
 import logging
 from collections import defaultdict
@@ -17,10 +17,11 @@ def system_schema() -> List[TableDefinition]:
     """
     logger.info("Creating system schema")
     results = []
-    if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
-        assert isinstance(SCHEMA["entities"]["classes"], dict), \
-            f"Expected entities.classes to be a dict, got {type(SCHEMA['entities']['classes'])}"
-        for entity, data in SCHEMA["entities"]["classes"].items():
+    schema = get_schema()
+    if "entities" in schema and "classes" in schema["entities"]:
+        assert isinstance(schema["entities"]["classes"], dict), \
+            f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
+        for entity, data in schema["entities"]["classes"].items():
             if entity[0] == "_":
                 results.append(system_table(entity, data))
 
@@ -182,8 +183,9 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     Get column definitions for properties that are consistent across all classes of a given type.
     """
     property_types = defaultdict(set)
-    if type_ in SCHEMA and "classes" in SCHEMA[type_]:
-        for data in SCHEMA[type_]["classes"].values():
+    schema = get_schema()
+    if type_ in schema and "classes" in schema[type_]:
+        for data in schema[type_]["classes"].values():
             if "properties" in data and data["properties"] is not None:
                 assert isinstance(data["properties"], dict), \
                     f"Expected properties to be a dict, got {type(data['properties'])}"

@@ -21,24 +21,31 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     load_dotenv(dotenv_path=path, override=True)
 
 
-def main():
-    try:
-        load_aperturedb_env()
-        sys.path.append('/app')
-        from connection_pool import ConnectionPool
-        global POOL
-        POOL = ConnectionPool()
-        global SCHEMA
-        with POOL.get_utils() as utils:
-            SCHEMA = utils.get_schema()
-        logger.info(
-            f"ApertureDB schema loaded successfully. \n{json.dumps(SCHEMA, indent=2)}")
-    except Exception as e:
-        logger.exception("Error during initialization: %s", e)
-        sys.exit(1)
+_POOL = None  # Global connection pool
+_SCHEMA = None  # Global schema variable
 
 
-main()
+def get_pool() -> "ConnectionPool":
+    """Get the global connection pool. Lazy initialization."""
+    load_aperturedb_env()
+    sys.path.append('/app')
+    from connection_pool import ConnectionPool
+    global _POOL
+    if _POOL is None:
+        _POOL = ConnectionPool()
+        logger.info("Connection pool initialized")
+    return _POOL
+
+
+def get_schema() -> Dict:
+    """Get the global schema. Lazy initialization."""
+    global _SCHEMA
+    if _SCHEMA is None:
+        with get_pool().get_utils() as utils:
+            _SCHEMA = utils.get_schema()
+            logger.info("Schema loaded")
+    return _SCHEMA
+
 
 # Mapping from ApertureDB types to PostgreSQL types.
 TYPE_MAP = {

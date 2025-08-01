@@ -1,4 +1,4 @@
-from .common import POOL, TableOptions, ColumnOptions
+from .common import get_pool, TableOptions, ColumnOptions
 from collections import defaultdict
 from dotenv import load_dotenv
 from typing import Optional, Set, Tuple, Generator, List, Dict
@@ -10,7 +10,6 @@ from aperturedb.CommonLibrary import create_connector
 import logging
 import os
 import json
-from pydantic import BaseModel
 import atexit
 
 
@@ -38,6 +37,16 @@ def flush_logs():
 
 atexit.register(flush_logs)
 
+
+# Mapping from ApertureDB types to PostgreSQL types.
+TYPE_MAP = {
+    "number": "double precision",
+    "string": "text",
+    "boolean": "boolean",
+    "datetime": "timestamptz",
+    "json": "jsonb",
+    "blob": "bytea",
+}
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
@@ -167,7 +176,7 @@ class FDW(ForeignDataWrapper):
         logger.debug(f"Executing query: {query}")
 
         start_time = datetime.now()
-        _, results, blobs = POOL.execute_query(query)
+        _, results, blobs = get_pool().execute_query(query)
         elapsed_time = datetime.now() - start_time
         logger.info(
             f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
@@ -246,6 +255,7 @@ class FDW(ForeignDataWrapper):
                 response = e.value  # return value from _get_query_results
 
             query = self._get_next_query(query, response)
+
         logger.info(
             f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results")
 
