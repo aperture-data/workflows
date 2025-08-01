@@ -32,7 +32,6 @@ def descriptor_schema() -> List[TableDefinition]:
     logger.info("Creating descriptor schema")
     results = []
     descriptor_sets = get_descriptor_sets()
-    columns = property_columns(SCHEMA.get("_DescriptorSet", {}))
     assert isinstance(descriptor_sets, dict), \
         f"Expected descriptor_sets to be a dict, got {type(descriptor_sets)}"
     for name, properties in descriptor_sets.items():
@@ -44,9 +43,16 @@ def descriptor_schema() -> List[TableDefinition]:
             count=properties["_count"],
             command="FindDescriptor",
             result_field="entities",
-            extra={"with_name": name},
+            extra={"set": name},
             descriptor_set_properties=properties,
         )
+
+        # TODO: We're giving all tables the same columns, which is not ideal.
+        columns = property_columns(SCHEMA.get(
+            "entities", {}).get("classes", {}).get("_Descriptor", {}))
+
+        logger.debug(
+            f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
 
         table = TableDefinition(
             table_name=table_name,

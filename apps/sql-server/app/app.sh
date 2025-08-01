@@ -26,7 +26,7 @@ done
 
 # Set the password for the default 'postgres' user
 echo "Setting postgres password..."
-su - postgres -c "set -e ; psql  --set ON_ERROR_STOP=on --username postgres --dbname postgres --command \"ALTER USER postgres WITH PASSWORD '${WF_AUTH_TOKEN}';\""
+su - postgres -c "set -e ; psql  --set ON_ERROR_STOP=on --username postgres --dbname postgres --command \"CREATE ROLE aperturedb LOGIN PASSWORD '${WF_AUTH_TOKEN}';\""
 
 su - postgres -c "set -e ; createdb ${DATABASE}"
 
