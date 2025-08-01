@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from typing import List, Any, Annotated
@@ -8,7 +9,13 @@ import os
 import logging
 
 
-app = FastAPI()
+app = FastAPI(
+    docs_url="/sql/docs",
+    openapi_url="/sql/openapi.json",
+    title="ApertureDB SQL Server API",
+)
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 LOG_LEVEL = os.getenv("WF_LOG_LEVEL", "WARN").upper()
 logging.basicConfig(level=LOG_LEVEL)
@@ -47,9 +54,13 @@ async def startup():
 
 
 @app.post("/sql/query")
-async def sql_query(req: Request, body: SQLQueryRequest) -> SQLQueryResponse:
+async def sql_query(
+    req: Request,
+    body: SQLQueryRequest,
+    token: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> SQLQueryResponse:
     logger.info(f"Executing SQL query: {body.query}")
-    check_bearer_auth(req)
+    check_bearer_auth(token.credentials)
 
     async with DB_POOL.acquire() as conn:
         try:
@@ -99,13 +110,10 @@ async def sql_query(req: Request, body: SQLQueryRequest) -> SQLQueryResponse:
             )
 
 
-def check_bearer_auth(request: Request):
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    token = auth.split(" ", 1)[1]
+def check_bearer_auth(token: str):
     if token != AUTH_TOKEN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Invalid or missing authentication token")
 
 
 async def init_pool():
