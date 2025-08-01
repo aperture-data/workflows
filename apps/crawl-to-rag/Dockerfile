@@ -8,8 +8,9 @@ FROM aperturedata/workflows-base
 
 ENV APP_NAME=workflows-crawl-to-rag
 
-# Needed for text-embeddings
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
 
 # copy in the app directories
 COPY --from=crawl-website   /app /workflows/crawl-website
@@ -27,6 +28,7 @@ COPY --from=text-embeddings   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 COPY --from=rag     /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
+
 
 EXPOSE 8000
 

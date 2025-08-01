@@ -8,6 +8,10 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+
 # We prefer to cache models in the docker image rather than load them
 # at run time. 
 COPY app/llm.py /app/llm.py
