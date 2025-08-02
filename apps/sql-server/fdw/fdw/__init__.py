@@ -10,15 +10,10 @@ from itertools import zip_longest
 from typing import Optional, Set, Tuple, Generator, List, Dict
 from dotenv import load_dotenv
 from collections import defaultdict
-from .common import get_pool, TableOptions, ColumnOptions
 from .common import get_pool, get_log_level, TableOptions, ColumnOptions
-<< << << < HEAD
-== == == =
->>>>>> > origin/main
 
 
 # Configure logging
-<< << << < HEAD
 log_level = get_log_level()
 handler = logging.FileHandler("/tmp/fdw.log", delay=False)
 handler.setFormatter(logging.Formatter(
@@ -29,17 +24,7 @@ handler.stream.flush = lambda: None  # Ensure flush is always available
 logging.basicConfig(level=log_level, force=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(log_level)
-== == == =
-handler = logging.FileHandler("/tmp/fdw.log", delay=False)
-handler.setFormatter(logging.Formatter(
-    "%(asctime)s %(levelname)s %(message)s"))
-handler.setLevel(logging.DEBUG)
-handler.stream.flush = lambda: None  # Ensure flush is always available
 
-logging.basicConfig(level=logging.INFO, force=True)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
->>>>>> > origin/main
 logger.addHandler(handler)
 logger.propagate = False
 
