@@ -1,28 +1,32 @@
-from .common import get_pool, get_log_level, import_from_app, TableOptions, ColumnOptions
-from collections import defaultdict
-from dotenv import load_dotenv
-from typing import Optional, Set, Tuple, Generator, List, Dict
-from itertools import zip_longest
-from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper, Qual
-import sys
-from datetime import datetime
-from aperturedb.CommonLibrary import create_connector
-import logging
-import os
-import json
-import atexit
+from .common import get_pool, get_log_level, TableOptions, ColumnOptions
+from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
 import numpy as np
+import atexit
+import json
+import os
+import logging
+from aperturedb.CommonLibrary import create_connector
+from datetime import datetime
+import sys
+from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper, Qual
+from itertools import zip_longest
+from typing import Optional, Set, Tuple, Generator, List, Dict
+from dotenv import load_dotenv
+from collections import defaultdict
+from .common import get_pool, get_log_level, import_from_app, TableOptions, ColumnOptions
+<< << << < HEAD
 
 with import_from_app():
     from embeddings import Embedder
+== == == =
+
+>>>>>> > origin/main
 
 # Configure logging
 log_level = get_log_level()
 handler = logging.FileHandler("/tmp/fdw.log", delay=False)
 handler.setFormatter(logging.Formatter(
     "%(asctime)s %(levelname)s %(message)s"))
-handler.setLevel(log_level)
-handler.stream.flush = lambda: None  # Ensure flush is always available
 
 logging.basicConfig(level=log_level, force=True)
 logger = logging.getLogger(__name__)
@@ -129,6 +133,8 @@ class FDW(ForeignDataWrapper):
                 return operations
         return None
 
+
+<< << << < HEAD
     def _get_find_similar(self, quals) -> Tuple[bool, dict, Optional[bytes]]:
         """
         Check if the 'find_similar' option is set in the quals.
@@ -200,6 +206,9 @@ class FDW(ForeignDataWrapper):
                    find_similar_extra: dict,
                    extra: dict = {}
                    ) -> List[dict]:
+== == == =
+    def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
+>>>>>> > origin/main
         """
         Construct the query to execute against ApertureDB.
         This is used to build the query based on the columns and options.

@@ -1,15 +1,25 @@
-from contextlib import contextmanager
-import json
-import os
-import sys
-import logging
-from dotenv import load_dotenv
-from multicorn import ColumnDefinition
-from typing import List, Optional, Dict, Callable, Any
-from collections import defaultdict
 from pydantic import BaseModel
+from collections import defaultdict
+from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable, Any
+from multicorn import ColumnDefinition
+from dotenv import load_dotenv
+import logging
+import sys
+import os
+import json
+from contextlib import contextmanager
+<< << << < HEAD
+== == == =
+>>>>>> > origin/main
+<< << << < HEAD
+== == == =
+>>>>>> > origin/main
 
 logger = logging.getLogger(__name__)
+
+
+<< << << < HEAD
 
 
 @contextmanager
@@ -27,6 +37,10 @@ def import_from_app():
     """We don't control the import path, so we need to ensure the app directory is in the path."""
     with import_path('/app'):
         yield
+
+
+== == == =
+>>>>>> > origin/main
 
 
 def load_aperturedb_env(path="/app/aperturedb.env"):
@@ -53,10 +67,17 @@ def get_log_level() -> int:
 def get_pool() -> "ConnectionPool":
     """Get the global connection pool. Lazy initialization."""
     load_aperturedb_env()
-    with import_from_app():
-        from connection_pool import ConnectionPool
-    global _POOL
-    if _POOL is None:
+
+
+<< << << < HEAD
+  with import_from_app():
+       from connection_pool import ConnectionPool
+== == == =
+  sys.path.append('/app')
+   from connection_pool import ConnectionPool
+>>>>>> > origin/main
+  global _POOL
+   if _POOL is None:
         _POOL = ConnectionPool()
         logger.info("Connection pool initialized")
     return _POOL
@@ -163,8 +184,8 @@ class ColumnOptions(BaseModel):
     unique: bool = False  # whether the column is unique, used for _uniqueid
     extra: Optional[Dict[str, Any]] = None  # additional options for the column
 
-    @classmethod
-    def from_string(cls, options_str: Dict[str, str]) -> "ColumnOptions":
+  @classmethod
+   def from_string(cls, options_str: Dict[str, str]) -> "ColumnOptions":
         """
         Create a ColumnOptions instance from a string dictionary.
         This is used to decode options from the foreign table column definition.
