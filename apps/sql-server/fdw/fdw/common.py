@@ -5,7 +5,7 @@ import sys
 import logging
 from dotenv import load_dotenv
 from multicorn import ColumnDefinition
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable, Any
 from collections import defaultdict
 from pydantic import BaseModel
 
@@ -161,6 +161,7 @@ class ColumnOptions(BaseModel):
     # whether the column has special meaning (e.g. _blob, _image)
     listable: bool = True  # whether the column can be passed to results/list
     unique: bool = False  # whether the column is unique, used for _uniqueid
+    extra: Optional[Dict[str, Any]] = None  # additional options for the column
 
     @classmethod
     def from_string(cls, options_str: Dict[str, str]) -> "ColumnOptions":

@@ -198,6 +198,7 @@ class FDW(ForeignDataWrapper):
                    operations: Optional[List[dict]],
                    batch_size: int,
                    find_similar_extra: dict,
+                   extra: dict = {}
                    ) -> List[dict]:
         """
         Construct the query to execute against ApertureDB.
@@ -215,6 +216,7 @@ class FDW(ForeignDataWrapper):
                 **({"as_format": as_format} if as_format else {}),
                 **({"operations": operations} if operations else {}),
                 **(find_similar_extra),
+                **({"extra": extra} if extra else {}),
             }
         }]
         return query
@@ -322,6 +324,12 @@ class FDW(ForeignDataWrapper):
         find_similar, find_similar_extra, vector = \
             self._get_find_similar(quals)
 
+        # concatenate "extra" dicts from columns if they exist
+        extra = defaultdict(dict)
+        for col in columns:
+            if self._columns[col].extra:
+                extra.update(self._columns[col].extra)
+
         query_blobs = [vector] if find_similar else []
 
         query = self._get_query(
@@ -330,7 +338,8 @@ class FDW(ForeignDataWrapper):
             as_format=as_format,
             operations=operations,
             batch_size=batch_size,
-            find_similar_extra=find_similar_extra,)
+            find_similar_extra=find_similar_extra,
+            extra=extra)
 
         n_results = 0
         exhausted = False
@@ -343,7 +352,13 @@ class FDW(ForeignDataWrapper):
 
                         # Add blob to the row if it exists
                         if blobs:
-                            row[self._options.blob_column] = blob
+                            # Turn vectors into lists of floats
+                            if self._options.blob_column == "_vector":
+                                row[self._options.blob_column] = \
+                                    np.frombuffer(
+                                        blob, dtype=np.float32).tolist()
+                            else:
+                                row[self._options.blob_column] = blob
 
                         result = self._normalize_row(columns, row)
 

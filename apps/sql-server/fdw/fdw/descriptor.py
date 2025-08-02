@@ -2,6 +2,7 @@ from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import property_columns, get_schema, get_pool, TableOptions, ColumnOptions, import_from_app
 import logging
+import numpy as np
 
 with import_from_app():
     from embeddings import Embedder
@@ -82,6 +83,7 @@ def descriptor_schema() -> List[TableDefinition]:
             descriptor_set_properties=properties,
             descriptor_set=name,
             find_similar=find_similar,
+            blob_column="_vector",
         )
 
         columns = property_columns_for_descriptors_in_set(name)
@@ -92,6 +94,21 @@ def descriptor_schema() -> List[TableDefinition]:
                 type_name="JSONB",
                 options=ColumnOptions(type="json", listable=False).to_string()
             ))
+            columns.append(ColumnDefinition(
+                column_name="_distance",
+                type_name="double precision",
+                options=ColumnOptions(type="number",
+                                      listable=True,
+                                      extra={"distances": True}).to_string()
+            ))
+            # Special field _label appears in the schema
+
+        columns.append(ColumnDefinition(
+            column_name="_vector",
+            type_name="jsonb",
+            options=ColumnOptions(
+                count=properties["_count"], type="blob").to_string()
+        ))
 
         logger.debug(
             f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
