@@ -1,19 +1,24 @@
-from .common import get_pool, get_log_level, TableOptions, ColumnOptions
-from collections import defaultdict
-from dotenv import load_dotenv
-from typing import Optional, Set, Tuple, Generator, List, Dict
-from itertools import zip_longest
-from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
-import sys
-from datetime import datetime
-from aperturedb.CommonLibrary import create_connector
-import logging
-import os
-import json
 import atexit
+import json
+import os
+import logging
+from aperturedb.CommonLibrary import create_connector
+from datetime import datetime
+import sys
+from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
+from itertools import zip_longest
+from typing import Optional, Set, Tuple, Generator, List, Dict
+from dotenv import load_dotenv
+from collections import defaultdict
+from .common import get_pool, TableOptions, ColumnOptions
+from .common import get_pool, get_log_level, TableOptions, ColumnOptions
+<< << << < HEAD
+== == == =
+>>>>>> > origin/main
 
 
 # Configure logging
+<< << << < HEAD
 log_level = get_log_level()
 handler = logging.FileHandler("/tmp/fdw.log", delay=False)
 handler.setFormatter(logging.Formatter(
@@ -24,6 +29,17 @@ handler.stream.flush = lambda: None  # Ensure flush is always available
 logging.basicConfig(level=log_level, force=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(log_level)
+== == == =
+handler = logging.FileHandler("/tmp/fdw.log", delay=False)
+handler.setFormatter(logging.Formatter(
+    "%(asctime)s %(levelname)s %(message)s"))
+handler.setLevel(logging.DEBUG)
+handler.stream.flush = lambda: None  # Ensure flush is always available
+
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+>>>>>> > origin/main
 logger.addHandler(handler)
 logger.propagate = False
 
@@ -259,115 +275,6 @@ class FDW(ForeignDataWrapper):
 
         logger.info(
             f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results")
-
-    @classmethod
-    def _entity_table(cls, entity: str, data: dict) -> TableDefinition:
-        """
-        Create a TableDefinition for an entity.
-        This is used to create the foreign table in PostgreSQL.
-        """
-        columns = []
-
-        try:
-            if data["properties"] is not None:
-                for prop, prop_data in data["properties"].items():
-                    try:
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                    except Exception as e:
-                        logger.exception(
-                            f"Error processing property '{prop}' for entity {entity}: {e}")
-                        raise
-
-            # Add the _uniqueid column
-            columns.append(ColumnDefinition(
-                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-
-            # Blob-like entities get special columns specific to the type
-            if entity == "_Blob":
-                # _Blob gets _blob column
-                columns.append(ColumnDefinition(
-                    column_name="_blob", type_name="bytea",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
-            elif entity == "_Image":
-                # _image gets _image, _as_format, _operations columns
-                columns.append(ColumnDefinition(
-                    column_name="_image", type_name="bytea",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "blob", "special": True})))
-                columns.append(ColumnDefinition(
-                    column_name="_as_format", type_name="image_format_enum",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "string", "special": True})))
-                columns.append(ColumnDefinition(
-                    column_name="_operations", type_name="jsonb",
-                    options=cls._encode_options({"count": data["matched"], "indexed": False, "type": "json", "special": True})))
-        except Exception as e:
-            logger.exception(
-                f"Error processing properties for entity {entity}: {e}")
-            raise
-
-        options = {
-            "class": entity,
-            "type": "entity",
-            "matched": data["matched"],
-        }
-
-        logger.debug(
-            f"Creating entity table for {entity} with columns: {columns} and options: {options}")
-
-        return TableDefinition(
-            table_name=entity,
-            columns=columns,
-            options=cls._encode_options(options)
-        )
-
-    @classmethod
-    def _connection_table(cls, connection: str, data: dict) -> TableDefinition:
-        """
-        Create a TableDefinition for a connection.
-        This is used to create the foreign table in PostgreSQL.
-        """
-        columns = []
-
-        try:
-            if data["properties"] is not None:
-                for prop, prop_data in data["properties"].items():
-                    try:
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-
-                    except Exception as e:
-                        logger.exception(
-                            f"Error processing property '{prop}' for connection {connection}: {e}")
-                        raise
-
-            # Add the _uniqueid, _src, and _dst columns
-            columns.append(ColumnDefinition(
-                column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-            columns.append(ColumnDefinition(
-                column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-            columns.append(ColumnDefinition(
-                column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
-        except Exception as e:
-            logger.exception(
-                f"Error processing properties for connection {connection}: {e}")
-            raise
-
-        options = {
-            "class": connection,
-            "type": "connection",
-            "matched": data["matched"],
-        }
-
-        logger.debug(
-            f"Creating connection table for {connection} with columns: {columns} and options: {options}")
-
-        return TableDefinition(
-            table_name=connection,
-            columns=columns,
-            options=cls._encode_options(options)
-        )
 
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
