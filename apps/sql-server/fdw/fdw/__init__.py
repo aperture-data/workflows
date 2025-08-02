@@ -12,6 +12,8 @@ import os
 import json
 import atexit
 
+with import_from_app():
+    from embeddings import Embedder
 
 # Configure logging
 log_level = get_log_level()
@@ -125,6 +127,50 @@ class FDW(ForeignDataWrapper):
                             f"Invalid operation type: {op['type']}. Expected one of {self._options.operation_types}")
                 return operations
         return None
+
+    def _get_find_similar(self, quals) -> Tuple[bool, dict, Optional[bytes]]:
+        """
+        Check if the 'find_similar' option is set in the quals.
+        This is used to determine if we should perform a 'find similar' query.
+
+        Args:
+            quals (list): List of conditions to filter the results.
+
+        Returns:
+            find_similar: Boolean indicating if 'find similar' is requested.
+            extra: Dictionary with additional parameters for `FindDescriptor`
+            blob: Optional bytes for the blob data if applicable.
+        """
+        if not self._options.find_similar:
+            return False, {}, None
+
+        if not quals:
+            return False, {}, None
+
+        for qual in quals:
+            if qual.field_name == "_find_similar":
+                assert qual.operator == "=", f"Unexpected operator for _find_similar: {qual.operator}  Expected '='"
+                find_similar = json.loads(qual.value)
+                if not isinstance(find_similar, dict):
+                    raise ValueError(
+                        f"Invalid find_similar format: {find_similar}. Expected a dictionary.")
+                extra = {k: v for k, v in find_similar.items() if k in [
+                    "k", "knn_first"]}
+
+                if "vector" in find_similar:
+                    vector = np.array(find_similar["vector"])
+                    expected_size = self._options.descriptor_set_properties["_dimensions"]
+                    if vector.shape != (expected_size,):
+                        raise ValueError(
+                            f"Invalid vector size: {vector.shape}. Expected {expected_size}.")
+                else:
+                    embedder = Embedder.from_properties(
+                        properties=self._options.descriptor_set_properties,
+                        descriptor_set=self._options.descriptor_set,
+                    )
+
+                return True, extra, None
+        return False, {}, None
 
     def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
         """

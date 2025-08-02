@@ -135,7 +135,7 @@ BEGIN
         'text', text,
         'image', image,
         'vector', vector,
-        'k', k,
+        'k_neighbors', k,
         'knn_first', knn_first
     );
 END;

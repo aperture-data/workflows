@@ -44,7 +44,7 @@ def property_columns_for_descriptors_in_set(name: str) -> dict:
 
     _, response, _ = get_pool().execute_query(query)
 
-    properties = response[1]["GetSchema"].get(
+    properties = response[1]["GetSchema "].get(
         "entities", {}).get("classes", {}).get("_Descriptor", {})
 
     columns = property_columns(properties)
@@ -66,6 +66,10 @@ def descriptor_schema() -> List[TableDefinition]:
     for name, properties in descriptor_sets.items():
         table_name = name
 
+        # We switch the "find similar" feature on if the descriptor set
+        # has properties that allow us to find the correct embedding model.
+        # Notionally we could allow direct vector queries regardless, but
+        # this is a good heuristic to avoid unnecessary complexity.
         find_similar = Embedder.check_properties(properties)
 
         options = TableOptions(
@@ -76,6 +80,7 @@ def descriptor_schema() -> List[TableDefinition]:
             result_field="entities",
             extra={"set": name},
             descriptor_set_properties=properties,
+            descriptor_set=name,
             find_similar=find_similar,
         )
 

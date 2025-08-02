@@ -130,6 +130,8 @@ class TableOptions(BaseModel):
     operation_types: Optional[List[str]] = None
     # whether this table support "find similar" queries
     find_similar: Optional[bool] = None
+    # name of the descriptor set, if applicable
+    descriptor_set: Optional[str] = None
 
     @classmethod
     def from_string(cls, options_str: Dict[str, str]) -> "TableOptions":
