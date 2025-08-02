@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def import_path(path):
-        original = list(sys.path)
+    original = list(sys.path)
     sys.path.insert(0, path)
     try:
         yield

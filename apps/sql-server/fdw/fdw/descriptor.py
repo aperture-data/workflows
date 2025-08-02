@@ -1,6 +1,6 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, get_schema, get_pool, TableOptions, import_from_app
+from .common import property_columns, get_schema, get_pool, TableOptions, ColumnOptions, import_from_app
 import logging
 
 with import_from_app():
@@ -44,7 +44,7 @@ def property_columns_for_descriptors_in_set(name: str) -> dict:
 
     _, response, _ = get_pool().execute_query(query)
 
-    properties = get_schema().get(
+    properties = response[1]["GetSchema"].get(
         "entities", {}).get("classes", {}).get("_Descriptor", {})
 
     columns = property_columns(properties)
@@ -85,7 +85,7 @@ def descriptor_schema() -> List[TableDefinition]:
             columns.append(ColumnDefinition(
                 column_name="_find_similar",
                 type_name="JSONB",
-                options=ColumnOptions(listable=False).to_string()
+                options=ColumnOptions(type="json", listable=False).to_string()
             ))
 
         logger.debug(

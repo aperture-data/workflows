@@ -37,6 +37,10 @@ RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 \
 
 RUN pip install --no-cache-dir aperturedb dotenv
 
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+
 # Copy and install our FDW into system Python
 COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install .
