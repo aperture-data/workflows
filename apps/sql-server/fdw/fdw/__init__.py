@@ -18,8 +18,6 @@ log_level = get_log_level()
 handler = logging.FileHandler("/tmp/fdw.log", delay=False)
 handler.setFormatter(logging.Formatter(
     "%(asctime)s %(levelname)s %(message)s"))
-handler.setLevel(log_level)
-handler.stream.flush = lambda: None  # Ensure flush is always available
 
 logging.basicConfig(level=log_level, force=True)
 logger = logging.getLogger(__name__)
