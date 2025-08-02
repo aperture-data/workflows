@@ -15,6 +15,9 @@ if [ $? -ne 0 ] || [ -z "$APERTUREDB_KEY" ]; then
 fi
 echo "APERTUREDB_KEY=$APERTUREDB_KEY" >/app/aperturedb.env
 
+WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARN}
+echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
+
 # Check if WF_AUTH_TOKEN is set
 if [ -z "$WF_AUTH_TOKEN" ]; then
   echo "Error: WF_AUTH_TOKEN environment variable is not set."
@@ -60,4 +63,22 @@ psql_load_sql "functions.sql"
 psql_load_sql "access.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
-tail -n 1000 -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log
+# Start tailing logs in the background
+tail -n 1000 -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log &
+TAIL_PID=$!
+
+PORT=80
+# Run app.py with uvicorn, exit if it crashes
+echo "Starting FastAPI server..."
+uvicorn app:app \
+  --host 0.0.0.0 \
+  --port $PORT \
+  --workers ${UVICORN_WORKERS:-1} \
+  --log-level ${UVICORN_LOG_LEVEL:-info}
+UVICORN_STATUS=$?
+
+# If uvicorn exits, kill the tail process and exit with uvicorn's status
+kill $TAIL_PID
+wait $TAIL_PID 2>/dev/null
+
+exit $UVICORN_STATUS

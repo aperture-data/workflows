@@ -41,11 +41,16 @@ RUN pip install --no-cache-dir aperturedb dotenv
 COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install .
 
-# Copy the application code
-COPY app /app/
-
 # Restore virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/opt/venv/lib/python3.10/site-packages:$PATH"
+ENV PYTHONPATH="/app:/opt/venv/lib/python3.10/site-packages"
+
+# Install application requirements
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# Copy the application code
+COPY app /app/
 
 EXPOSE 5432

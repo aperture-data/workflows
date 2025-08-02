@@ -1,0 +1,5 @@
+# Requirements for HTTP server, not for multicorn/FDW
+fastapi
+uvicorn
+asyncpg
+pydantic

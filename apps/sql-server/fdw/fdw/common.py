@@ -25,6 +25,13 @@ _POOL = None  # Global connection pool
 _SCHEMA = None  # Global schema variable
 
 
+def get_log_level() -> int:
+    """Get the log level from the environment variable."""
+    load_aperturedb_env()
+    log_level = os.getenv("WF_LOG_LEVEL", "WARN").upper()
+    return getattr(logging, log_level, logging.WARN)
+
+
 def get_pool() -> "ConnectionPool":
     """Get the global connection pool. Lazy initialization."""
     load_aperturedb_env()
