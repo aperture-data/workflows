@@ -44,7 +44,7 @@ def property_columns_for_descriptors_in_set(name: str) -> dict:
 
     _, response, _ = get_pool().execute_query(query)
 
-    properties = response[1]["GetSchema "].get(
+    properties = response[1]["GetSchema"].get(
         "entities", {}).get("classes", {}).get("_Descriptor", {})
 
     columns = property_columns(properties)

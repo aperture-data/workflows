@@ -23,8 +23,15 @@ RUN echo "listen_addresses = '*'" >> /etc/postgresql/${POSTGRES_VERSION}/main/po
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/17/main/pg_hba.conf
 
 # Postgres/Multicorn insists on using the system Python, so we need to disable the virtual environment
+# Store current VIRTUAL_ENV and PATH values
+ENV OLD_VIRTUAL_ENV="${VIRTUAL_ENV}"
+ENV OLD_PATH="${PATH}"
+ENV OLD_PYTHONPATH="${PYTHONPATH}"
+
+# Disable virtual environment
 ENV VIRTUAL_ENV=
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PYTHONPATH=""
 
 # Install multicorn2 Python module into system Python
 RUN /usr/bin/python3 -m pip install --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
@@ -35,7 +42,7 @@ RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 \
  && make PYTHON=/usr/bin/python3 \
  && make install
 
-RUN pip install --no-cache-dir aperturedb dotenv
+RUN pip install --no-cache-dir aperturedb dotenv numpy
 
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
@@ -46,9 +53,9 @@ COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install .
 
 # Restore virtual environment
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="/opt/venv/bin:/opt/venv/lib/python3.10/site-packages:$PATH"
-ENV PYTHONPATH="/app:/opt/venv/lib/python3.10/site-packages"
+ENV VIRTUAL_ENV=${OLD_VIRTUAL_ENV}
+ENV PATH="${OLD_PATH}"
+ENV PYTHONPATH="/app:${OLD_PYTHONPATH}"
 
 # Install application requirements
 COPY requirements.txt /requirements.txt

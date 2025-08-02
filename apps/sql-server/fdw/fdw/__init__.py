@@ -1,9 +1,9 @@
-from .common import get_pool, get_log_level, TableOptions, ColumnOptions
+from .common import get_pool, get_log_level, import_from_app, TableOptions, ColumnOptions
 from collections import defaultdict
 from dotenv import load_dotenv
 from typing import Optional, Set, Tuple, Generator, List, Dict
 from itertools import zip_longest
-from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
+from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper, Qual
 import sys
 from datetime import datetime
 from aperturedb.CommonLibrary import create_connector
@@ -11,6 +11,7 @@ import logging
 import os
 import json
 import atexit
+import numpy as np
 
 with import_from_app():
     from embeddings import Embedder
@@ -48,7 +49,7 @@ TYPE_MAP = {
     "boolean": "boolean",
     "datetime": "timestamptz",
     "json": "jsonb",
-    "blob": "bytea",
+    "blob": "bytea"
 }
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
@@ -150,14 +151,21 @@ class FDW(ForeignDataWrapper):
         for qual in quals:
             if qual.field_name == "_find_similar":
                 assert qual.operator == "=", f"Unexpected operator for _find_similar: {qual.operator}  Expected '='"
-                find_similar = json.loads(qual.value)
+                try:
+                    find_similar = json.loads(qual.value)
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"Invalid JSON for _find_similar: {qual.value}") from e
+                logger.debug(f"find_similar: {find_similar}")
                 if not isinstance(find_similar, dict):
                     raise ValueError(
                         f"Invalid find_similar format: {find_similar}. Expected a dictionary.")
                 extra = {k: v for k, v in find_similar.items() if k in [
-                    "k", "knn_first"]}
+                    "k_neighbors", "knn_first"] and v is not None}
+                logger.debug(
+                    f"find_similar extra parameters: {extra}")
 
-                if "vector" in find_similar:
+                if "vector" in find_similar and find_similar["vector"] is not None:
                     vector = np.array(find_similar["vector"])
                     expected_size = self._options.descriptor_set_properties["_dimensions"]
                     if vector.shape != (expected_size,):
@@ -169,10 +177,28 @@ class FDW(ForeignDataWrapper):
                         descriptor_set=self._options.descriptor_set,
                     )
 
-                return True, extra, None
+                    if "text" in find_similar and find_similar["text"] is not None:
+                        text = find_similar["text"]
+                        vector = embedder.embed_text(text)
+                    elif "image" in find_similar and find_similar["image"] is not None:
+                        image = find_similar["image"]
+                        vector = embedder.embed_image(image)
+                    else:
+                        raise ValueError(
+                            "find_similar must have one of 'text', 'image', or 'vector' to embed.")
+
+                return True, extra, vector.tobytes()
+
         return False, {}, None
 
-    def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
+    def _get_query(self,
+                   columns: Set[str],
+                   blobs: bool,
+                   as_format: Optional[str],
+                   operations: Optional[List[dict]],
+                   batch_size: int,
+                   find_similar_extra: dict,
+                   ) -> List[dict]:
         """
         Construct the query to execute against ApertureDB.
         This is used to build the query based on the columns and options.
@@ -188,6 +214,7 @@ class FDW(ForeignDataWrapper):
                 **({"blobs": True} if blobs else {}),
                 **({"as_format": as_format} if as_format else {}),
                 **({"operations": operations} if operations else {}),
+                **(find_similar_extra),
             }
         }]
         return query
@@ -219,14 +246,17 @@ class FDW(ForeignDataWrapper):
         next_query[0][self._options.command]["batch"]["batch_id"] += 1
         return next_query
 
-    def _get_query_results(self, query: List[dict]) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
+    def _get_query_results(self,
+                           query: List[dict],
+                           query_blobs: List[bytes],
+                           ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
         logger.debug(f"Executing query: {query}")
 
         start_time = datetime.now()
-        _, results, blobs = get_pool().execute_query(query)
+        _, results, response_blobs = get_pool().execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
         logger.info(
-            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
+            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
 
         if not results or len(results) != 1:
             logger.warning(
@@ -236,16 +266,40 @@ class FDW(ForeignDataWrapper):
 
         result_objects = results[0].get(
             self._options.command, {}).get(self._options.result_field, [])
-        if not blobs:
+        if not response_blobs:
             for row in result_objects:
                 yield row, None
         else:
-            for row, blob in zip_longest(result_objects, blobs):
+            for row, blob in zip_longest(result_objects, response_blobs):
                 yield row or {}, blob
 
         return results
 
-    def execute(self, quals, columns):
+    def _add_non_list_columns(self, row: dict, non_list_columns: Set[str], quals: List[dict]) -> dict:
+        """
+        Add non-list columns to the row based on the quals.
+        This is used to ensure that all requested columns are present in the result.
+
+        This is necessary because PostgreSQL will not return rows that don't meet the quals, and it doesn't know that we're
+        using special columns to do magic.
+
+        So we just copy the qual constraints into the row.
+        """
+        row = row.copy()  # Avoid modifying the original row
+        for col in non_list_columns:
+            assert col not in row, f"Column {col} should not be in the row. It is a non-list column."
+
+            for qual in quals:
+                if qual.field_name == col and qual.operator == "=":
+                    row[col] = qual.value
+                    break
+            else:
+                row[col] = None
+                logger.warning(
+                    f"Column {col} not found in quals. It is a non-list column, but no qual was found for it. This may lead to unexpected results.")
+        return row
+
+    def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
         """ Execute the FDW query with the given quals and columns.
 
         Args:
@@ -259,52 +313,59 @@ class FDW(ForeignDataWrapper):
 
         blobs = self._options.blob_column is not None and self._options.blob_column in columns
         list_columns = {col for col in columns if self._columns[col].listable}
+        non_list_columns = {
+            col for col in columns if not self._columns[col].listable}
 
         batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
         as_format = self._get_as_format(quals)
         operations = self._get_operations(quals)
+        find_similar, find_similar_extra, vector = \
+            self._get_find_similar(quals)
+
+        query_blobs = [vector] if find_similar else []
 
         query = self._get_query(
             columns=list_columns,
             blobs=blobs,
             as_format=as_format,
             operations=operations,
-            batch_size=batch_size)
+            batch_size=batch_size,
+            find_similar_extra=find_similar_extra,)
 
         n_results = 0
-        while query:
-            gen = self._get_query_results(query)
-            try:
-                while True:
-                    row, blob = next(gen)
+        exhausted = False
+        try:
+            while query:
+                gen = self._get_query_results(query, query_blobs)
+                try:
+                    while True:
+                        row, blob = next(gen)
 
-                    # Add blob to the row if it exists
-                    if blobs:
-                        row[self._options.blob_column] = blob
+                        # Add blob to the row if it exists
+                        if blobs:
+                            row[self._options.blob_column] = blob
 
-                    # Add special columns if they exist so that Postgres doesn't filter out rows
-                    if as_format:
-                        row["_as_format"] = as_format
-                    if operations:
-                        row["_operations"] = operations
+                        result = self._normalize_row(columns, row)
 
-                    result = self._normalize_row(columns, row)
+                        result = self._add_non_list_columns(
+                            result, non_list_columns, quals)
 
-                    logger.debug(
-                        f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)}"
-                    )
-                    n_results += 1
-                    if n_results % 1000 == 0:
-                        logger.info(
-                            f"Yielded {n_results} results so far for FDW {self._options.type}/{self._options.class_}")
-                    yield result
-            except StopIteration as e:
-                response = e.value  # return value from _get_query_results
+                        logger.debug(
+                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)}"
+                        )
+                        n_results += 1
+                        if n_results % 1000 == 0:
+                            logger.info(
+                                f"Yielded {n_results} results so far for FDW {self._options.type}/{self._options.class_}")
+                        yield result
+                except StopIteration as e:
+                    response = e.value  # return value from _get_query_results
 
-            query = self._get_next_query(query, response)
-
-        logger.info(
-            f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results")
+                query = self._get_next_query(query, response)
+            exhausted = True
+        finally:
+            logger.info(
+                f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results, {'exhausted' if exhausted else 'not exhausted'}.")
 
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
