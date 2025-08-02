@@ -28,6 +28,6 @@ See [Common Parameters](../../README.md#common-parameters) for common parameters
 The pgAdmin tool can be downloaded from [https://www.pgadmin.org/download/](https://www.pgadmin.org/download/).
 
 Register a server and, on the Connection tab, paste the hostname and the password.
-Leave the user as "postgres", and optionally select "Save password".
+Set the user to be "aperturedb", and optionally select "Save password".
 
 ![Register server dialog in pgadmin](images/pgadmin_add_server.png)
