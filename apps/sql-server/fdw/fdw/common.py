@@ -91,6 +91,20 @@ logger = logging.getLogger(__name__)
 
 
 class Curry:
+    """
+    This class is used to wrap functions so that they can be serialized and deserialized as text.
+    The function is stored as a reference to its module and qualified name, 
+    which basically means that it has to be a named top-level function in a module.
+    Positional and keyword arguments can be supplied to give the effect of a function closure.
+    These must be JSON-serializable.
+
+    The reason for all this is that we want to be able to store functions in TableOptions and ColumnOptions,
+    in order to specialize the behaviour of the `execute` method,
+    but those datastructures are serialized to JSON in `import_schema`,
+    because Postgres stores them in the database as text fields,
+    and then later passes them to `FDW.__init__`, which deserializes them back into Python objects.
+    """
+
     def __init__(self, func: Callable, *args, **kwargs):
         self.func = func
         self.args = args
