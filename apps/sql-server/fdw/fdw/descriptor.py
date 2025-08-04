@@ -115,7 +115,7 @@ def get_descriptor_sets() -> dict:
     return results
 
 
-def property_columns_for_descriptors_in_set(name: str) -> dict:
+def property_columns_for_descriptors_in_set(name: str) -> List[ColumnDefinition]:
     """
     Get the property columns for a specific descriptor set.
     """
