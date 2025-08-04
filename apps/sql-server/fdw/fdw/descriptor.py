@@ -48,7 +48,8 @@ def descriptor_schema() -> List[TableDefinition]:
             count=properties["_count"],
             command="FindDescriptor",
             result_field="entities",
-            modify_command_body=Curry(literal, {"set": name}),
+            modify_command_body=Curry(
+                literal, {"set": name, "distances": True}),
         )
 
         columns = property_columns_for_descriptors_in_set(name)
