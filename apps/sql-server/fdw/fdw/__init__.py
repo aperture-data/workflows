@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 import sys
 from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict, Any
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
 
 import pydantic
 import sys
@@ -403,6 +403,25 @@ class FDW(ForeignDataWrapper):
         next_query = query.copy()
         next_query[0][self._options.command]["batch"]["batch_id"] += 1
         return next_query
+
+    def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
+        """
+        Generate an EXPLAIN statement for the FDW query.
+        This is used to provide information about how the query will be executed.
+        """
+        logger.info(
+            f"Explaining FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+        self._check_quals(quals, columns)
+
+        result = [f"FDW: {self._options.table_name}"]
+        query = self._get_query(quals, columns)
+        result.append(f"AQL: {json.dumps(query, indent=2)}")
+        query_blobs = self._get_query_blobs(quals, columns)
+        if query_blobs:
+            result.append(
+                f"Query Blob: {len(query_blobs[0])} bytes - {query_blobs[0][:10]}... (truncated)")
+
+        return result
 
 
 logger.info("FDW class defined successfully")
