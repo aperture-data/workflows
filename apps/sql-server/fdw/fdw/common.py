@@ -97,7 +97,7 @@ class Curry:
         self.kwargs = kwargs
 
         if not hasattr(func, "__module__") or not hasattr(func, "__qualname__"):
-            raise TypeError("Function must have __module__ and __qualname__")
+            raise TypeError(f"Function must have __module__ and __qualname__, got {type(func)}")
 
     def validate_signature(self, required_keywords: set):
         sig = inspect.signature(self.func)
