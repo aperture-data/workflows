@@ -94,7 +94,8 @@ def main(args):
     spec.link_objects(str(run_id), linked_types_to_run )
     spec.finish_run(str(run_id), {
         "wf_linked_types" : list(linked_types_to_run),
-        "wf_creator" : creator_string(provider.host_name(), provider.database_name())
+        "wf_creator": "sql_ingestor",
+        "wf_creator_key" : creator_string(provider.host_name(), provider.database_name())
         }
         )
     spec.finish_spec()
