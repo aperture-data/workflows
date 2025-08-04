@@ -7,7 +7,7 @@
 
 from typing import List, Literal, Set, Any, Dict
 from .common import get_schema, TYPE_MAP, Curry
-from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column
+from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 import logging
@@ -47,6 +47,7 @@ def operations_column(types: Set[str]) -> ColumnDefinition:
         column_name="_operations",
         type_name="jsonb",
         options=ColumnOptions(
+            type="json",
             listable=False,
             modify_command_body=Curry(operations_passthrough, types=types),
         ).to_string()
@@ -56,6 +57,8 @@ def operations_column(types: Set[str]) -> ColumnDefinition:
 def operations_passthrough(types: Set[str],
                            value: Any, command_body: Dict[str, Any]) -> None:
     """
+    This is a ColumnOptions modify_command_body hook.
+
     Pass through the operations from the query to the command body.
     Includes JSON conversion and some validation.
 
@@ -63,7 +66,8 @@ def operations_passthrough(types: Set[str],
     """
     operations = value
     if not isinstance(operations, list):
-        raise ValueError(f"Operations must be an array, got {operations}")
+        raise ValueError(
+            f"Operations must be an array, got {operations} {type(operations)}")
 
     for op in operations:
         if not isinstance(op, dict):

@@ -312,7 +312,7 @@ class FDW(ForeignDataWrapper):
             if self._columns[qual.field_name].post_process_results is not None:
                 value = self._convert_qual_value(qual)
                 self._columns[qual.field_name].post_process_results(
-                    row=row, value=value)
+                    row=row, value=value, blob=blob)
 
         # Normalize the row to ensure it has the correct types for PostgreSQL
         row = self._normalize_row(columns, row)

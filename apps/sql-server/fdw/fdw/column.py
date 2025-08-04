@@ -1,7 +1,7 @@
 from .common import Curry, TYPE_MAP
 import logging
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from multicorn import ColumnDefinition
 import json
 
@@ -15,7 +15,8 @@ class ColumnOptions(BaseModel):
     count: Optional[int] = None  # number of matched objects for this column
     indexed: bool = False  # whether the column is indexed
     # AQL type of the column: "string", "number", "boolean", "json", "blob"
-    type: Optional[str] = None
+    type: Optional[Literal["string",
+                           "number", "boolean", "json", "blob", "datetime"]] = None
     listable: bool = True  # whether the column can be passed to results/list
     unique: bool = False  # whether the column is unique, used for _uniqueid
 
@@ -48,7 +49,8 @@ class ColumnOptions(BaseModel):
         if self.query_blobs:
             self.query_blobs.validate_signature({"value"})
         if self.post_process_results:
-            self.post_process_results.validate_signature({"value", "row"})
+            self.post_process_results.validate_signature(
+                {"value", "row", "blob"})
 
     @classmethod
     def from_string(cls, options_str: Dict[str, str]) -> "ColumnOptions":
@@ -81,7 +83,7 @@ def passthrough(name: str,
 
 
 def add_blob(column: str,
-             value: Any, row: dict) -> None:
+             value: Any, row: dict, blob: Optional[bytes]) -> None:
     """
     A ColumnOptions post_process_results hook.
 
@@ -91,7 +93,7 @@ def add_blob(column: str,
     assert isinstance(value, bool), \
         f"Expected value to be a boolean, got {type(value)}"
     if value:
-        row[column] = value
+        row[column] = blob
 
 # Some utility functions for creating column defintions
 
