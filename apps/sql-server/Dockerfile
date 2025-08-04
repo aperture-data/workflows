@@ -37,7 +37,7 @@ ENV PYTHONPATH=""
 RUN /usr/bin/python3 -m pip install --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
 
 # Build and install multicorn2 Postgres extension 
-RUN git clone --single-branch --branch boolean-quals https://github.com/bovlb/multicorn2.git /multicorn2 \
+RUN git clone  --single-branch --branch boolean-quals https://github.com/bovlb/multicorn2.git /multicorn2 \
  && cd /multicorn2 \
  && make PYTHON=/usr/bin/python3 \
  && make install
