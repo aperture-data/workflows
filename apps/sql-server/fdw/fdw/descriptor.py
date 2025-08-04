@@ -15,6 +15,7 @@ from .table import TableOptions, literal
 import logging
 import numpy as np
 import json
+from datetime import datetime
 
 with import_from_app():
     from embeddings import Embedder
@@ -202,11 +203,20 @@ def find_similar_query_blobs(
             raise ValueError(
                 f"Invalid vector size: {vector.shape}. Expected {dimensions}.")
     else:
+        # This takes ~7s the first time, but ~1s on subsequent calls because of a file cache.
+        # Could consider caching the embedder and maybe even doing cache warmup,
+        # but the peculiar invocation environment of Python within PostgreSQL
+        # makes this tricky, because we can't consistently persist state across calls.
+        start_time = datetime.now()
         embedder = Embedder.from_properties(
             properties=properties,
             descriptor_set=descriptor_set,
         )
+        elapsed_time = datetime.now() - start_time
+        logger.debug(
+            f"Creating embedder took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
 
+        start_time = datetime.now()
         if "text" in find_similar and find_similar["text"] is not None:
             text = find_similar["text"]
             vector = embedder.embed_text(text)
@@ -216,6 +226,9 @@ def find_similar_query_blobs(
         else:
             raise ValueError(
                 "find_similar must have one of 'text', 'image', or 'vector' to embed.")
+        elapsed_time = datetime.now() - start_time
+        logger.debug(
+            f"Embedding took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
 
     blob = vector.tobytes()
     return [blob]  # Return as a list of one blob

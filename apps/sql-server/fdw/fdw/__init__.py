@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 import sys
 from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any
 
 import pydantic
 import sys
@@ -128,9 +128,12 @@ class FDW(ForeignDataWrapper):
         query_blobs = self._get_query_blobs(quals, columns)
 
         n_results = 0
+        total_elapsed_time = 0
         exhausted = False
+        n_queries = 0
         try:
             while query:
+                n_queries += 1
                 gen = self._get_query_results(query, query_blobs)
                 try:
                     while True:
@@ -147,13 +150,14 @@ class FDW(ForeignDataWrapper):
                                 f"Yielded {n_results} results so far for FDW {self._options.table_name}")
                         yield result
                 except StopIteration as e:
-                    response = e.value  # return value from _get_query_results
+                    response, elapsed_time = e.value  # return value from _get_query_results
+                    total_elapsed_time += elapsed_time.total_seconds()
 
                 query = self._get_next_query(query, response)
             exhausted = True
         finally:
             logger.info(
-                f"Executed FDW {self._options.table_name} with {n_results} results, {'exhausted' if exhausted else 'not exhausted'}.")
+                f"Executed FDW {self._options.table_name} with {n_results} results and {n_queries} queries in {total_elapsed_time:.2f} seconds, {'exhausted' if exhausted else 'not exhausted'}.")
 
     def _check_quals(self, quals: List[Qual], columns: Set[str]) -> None:
         """
@@ -291,7 +295,7 @@ class FDW(ForeignDataWrapper):
             for row, blob in zip_longest(result_objects, response_blobs):
                 yield row or {}, blob
 
-        return results
+        return results, elapsed_time
 
     def _post_process_row(self,
                           quals: List[Qual], columns: Set[str],
