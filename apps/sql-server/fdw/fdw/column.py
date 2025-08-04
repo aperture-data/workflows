@@ -81,7 +81,7 @@ def passthrough(name: str,
 
 
 def add_blob(column: str,
-             value: Any, row: List[Any]) -> None:
+             value: Any, row: dict) -> None:
     """
     A ColumnOptions post_process_results hook.
 
