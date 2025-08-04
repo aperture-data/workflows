@@ -1,6 +1,16 @@
+# This module populates the connection schema for ApertureDB.
+# This schema contains a table for each connection class.
+# Hence every AQL query includes `with_class`.
+# In addition to the usual _uniqueid, tables have columns _src and _dst.
+#
+# SELECT _uniqueid, _src, _dst
+# FROM "WorkflowCreated";
+
 import logging
 from typing import List
-from .common import property_columns, get_schema, TableOptions, ColumnOptions
+from .common import get_schema, Curry
+from .column import property_columns, ColumnOptions
+from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 
 logger = logging.getLogger(__name__)
@@ -32,11 +42,11 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
     table_name = connection
 
     options = TableOptions(
-        class_=connection,
-        type="connection",
+        table_name=f'connection."{table_name}"',
         count=data.get("matched", 0),
         command="FindConnection",
         result_field="connections",
+        modify_command_body=Curry(literal, {"with_class": connection}),
     )
 
     columns = []
@@ -46,9 +56,21 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
 
         # Add the _src, and _dst columns
         columns.append(ColumnDefinition(
-            column_name="_src", type_name="text", options=ColumnOptions(class_=data["src"], count=data.get("matched", 0), indexed=True, type="string").to_string()))
+            column_name="_src",
+            type_name="text",
+            options=ColumnOptions(
+                count=data.get("matched", 0),
+                indexed=True,
+                type="string",
+            ).to_string()))
         columns.append(ColumnDefinition(
-            column_name="_dst", type_name="text", options=ColumnOptions(class_=data["dst"], count=data.get("matched", 0), indexed=True, type="string").to_string()))
+            column_name="_dst",
+            type_name="text",
+            options=ColumnOptions(
+                count=data.get("matched", 0),
+                indexed=True,
+                type="string",
+            ).to_string()))
     except Exception as e:
         logger.exception(
             f"Error processing properties for connection {connection}: {e}")
@@ -60,5 +82,4 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
     return TableDefinition(
         table_name=table_name,
         columns=columns,
-        options=options.to_string()
-    )
+        options=options.to_string())

@@ -1,14 +1,99 @@
+# This module populates the descriptor schema for ApertureDB.
+# This schema contains a table for each descriptor set,
+# and hence every AQL query includes `set`.
+# These tables support find-similar queries.
+#
+# SELECT * FROM descriptor."crawl-to-rag"
+# WHERE _find_similar = FIND_SIMILAR(text := 'find entity', k := 10)
+# AND _blobs
+
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import property_columns, get_schema, get_pool, TableOptions, ColumnOptions, import_from_app
+from .common import get_schema, get_pool, import_from_app, Curry
+from .column import property_columns, ColumnOptions, blob_columns
+from .table import TableOptions, literal
 import logging
 import numpy as np
+import json
 
 with import_from_app():
     from embeddings import Embedder
 
 
 logger = logging.getLogger(__name__)
+
+
+def descriptor_schema() -> List[TableDefinition]:
+    """
+    Return the descriptor set schema for ApertureDB.
+    This is used to create the foreign tables for descriptors.
+    Here we create a separate table for each descriptor set.
+    """
+    logger.info("Creating descriptor schema")
+    results = []
+    descriptor_sets = get_descriptor_sets()
+    assert isinstance(descriptor_sets, dict), \
+        f"Expected descriptor_sets to be a dict, got {type(descriptor_sets)}"
+    for name, properties in descriptor_sets.items():
+        table_name = name
+
+        # We switch the "find similar" feature on if the descriptor set
+        # has properties that allow us to find the correct embedding model.
+        # Notionally we could allow direct vector queries regardless, but
+        # this is a good heuristic to avoid unnecessary complexity.
+        find_similar = Embedder.check_properties(properties)
+
+        options = TableOptions(
+            table_name=f'descriptor."{table_name}"',
+            count=properties["_count"],
+            command="FindDescriptor",
+            result_field="entities",
+            modify_command_body=Curry(literal, {"set": name}),
+        )
+
+        columns = property_columns_for_descriptors_in_set(name)
+
+        if find_similar:
+            columns.append(ColumnDefinition(
+                column_name="_find_similar",
+                type_name="JSONB",
+                options=ColumnOptions(
+                    listable=False,
+                    modify_command_body=Curry(
+                        find_similar_modify_command_body),
+                    query_blobs=Curry(find_similar_query_blobs,
+                                      properties=properties,
+                                      descriptor_set=name),
+                ).to_string()
+            ))
+
+            # This special column has a parameter, but is also listable,
+            # but does not appear in the schema.
+            columns.append(ColumnDefinition(
+                column_name="_distance",
+                type_name="double precision",
+                options=ColumnOptions(
+                    listable=True,
+                    type="number",
+                    extra={"distances": True}).to_string()
+            ))
+
+        # Special field _label has a parameter, but is also listable,
+        # and does appear in the schema, so we skip it here.
+
+        columns.extend(blob_columns("_vector"))
+
+        logger.debug(
+            f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
+
+        table = TableDefinition(
+            table_name=table_name,
+            columns=columns,
+            options=options.to_string()
+        )
+        results.append(table)
+
+    return results
 
 
 def get_descriptor_sets() -> dict:
@@ -53,70 +138,83 @@ def property_columns_for_descriptors_in_set(name: str) -> dict:
     return columns
 
 
-def descriptor_schema() -> List[TableDefinition]:
+def find_similar_modify_command_body(
+        value: str, command_body: dict) -> None:
     """
-    Return the descriptor set schema for ApertureDB.
-    This is used to create the foreign tables for descriptors.
-    Here we create a separate table for each descriptor set.
+    Modify the command body for a find similar query.
+
+    Args:
+        value: JSON string generated from the FIND_SIMILAR SQL function
+        command_body: The command body to modify
+
+    Side Effects:
+        Modifies the command body in place to include the find similar parameters.
     """
-    logger.info("Creating descriptor schema")
-    results = []
-    descriptor_sets = get_descriptor_sets()
-    assert isinstance(descriptor_sets, dict), \
-        f"Expected descriptor_sets to be a dict, got {type(descriptor_sets)}"
-    for name, properties in descriptor_sets.items():
-        table_name = name
+    try:
+        find_similar = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid JSON for _find_similar: {value}") from e
 
-        # We switch the "find similar" feature on if the descriptor set
-        # has properties that allow us to find the correct embedding model.
-        # Notionally we could allow direct vector queries regardless, but
-        # this is a good heuristic to avoid unnecessary complexity.
-        find_similar = Embedder.check_properties(properties)
+    logger.debug(f"find_similar: {find_similar}")
 
-        options = TableOptions(
-            class_="_Descriptor",
-            type="entity",
-            count=properties["_count"],
-            command="FindDescriptor",
-            result_field="entities",
-            extra={"set": name},
-            descriptor_set_properties=properties,
-            descriptor_set=name,
-            find_similar=find_similar,
-            blob_column="_vector",
+    if not isinstance(find_similar, dict):
+        raise ValueError(
+            f"Invalid find_similar format: {find_similar}. Expected an object.")
+
+    include_list = {"k_neighbors", "knn_first"}
+    extra = {k: v for k, v in find_similar.items(
+    ) if k in include_list and v is not None}
+    command_body.update(extra)
+
+
+def find_similar_query_blobs(
+        properties: dict, descriptor_set: str,
+        value: str) -> bytes:
+    """
+    Generates vector data for find similar operations.
+
+    Args:
+        properties: The properties of the descriptor set.
+        descriptor_set: The name of the descriptor set.
+        value: JSON string generated from the FIND_SIMILAR SQL function
+
+    Returns:
+        blobs: list of length one containing the vector data as bytes       
+    """
+    try:
+        find_similar = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid JSON for _find_similar: {value}") from e
+
+    logger.debug(f"find_similar: {find_similar}")
+
+    if not isinstance(find_similar, dict):
+        raise ValueError(
+            f"Invalid find_similar format: {find_similar}. Expected an object.")
+
+    if "vector" in find_similar and find_similar["vector"] is not None:
+        vector = np.array(find_similar["vector"])
+        dimensions = properties["_dimensions"]
+        if vector.shape != (dimensions,):
+            raise ValueError(
+                f"Invalid vector size: {vector.shape}. Expected {dimensions}.")
+    else:
+        embedder = Embedder.from_properties(
+            properties=properties,
+            descriptor_set=descriptor_set,
         )
 
-        columns = property_columns_for_descriptors_in_set(name)
+        if "text" in find_similar and find_similar["text"] is not None:
+            text = find_similar["text"]
+            vector = embedder.embed_text(text)
+        elif "image" in find_similar and find_similar["image"] is not None:
+            image = find_similar["image"]
+            vector = embedder.embed_image(image)
+        else:
+            raise ValueError(
+                "find_similar must have one of 'text', 'image', or 'vector' to embed.")
 
-        if find_similar:
-            columns.append(ColumnDefinition(
-                column_name="_find_similar",
-                type_name="JSONB",
-                options=ColumnOptions(type="json", listable=False).to_string()
-            ))
-            columns.append(ColumnDefinition(
-                column_name="_distance",
-                type_name="double precision",
-                options=ColumnOptions(type="number",
-                                      listable=True,
-                                      extra={"distances": True}).to_string()
-            ))
-            # Special field _label appears in the schema
-
-        columns.append(ColumnDefinition(
-            column_name="_vector",
-            type_name="jsonb",
-            options=ColumnOptions(
-                count=properties["_count"], type="blob").to_string()
-        ))
-
-        logger.debug(
-            f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
-
-        table = TableDefinition(
-            table_name=table_name,
-            columns=columns,
-            options=options.to_string()
-        )
-        results.append(table)
-    return results
+    blob = vector.tobytes()
+    return [blob]  # Return as a list of one blob

@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from typing import Callable, Any
+from pydoc import locate
+from pydantic import BaseModel, GetCoreSchemaHandler, GetJsonSchemaHandler, TypeAdapter
 from collections import defaultdict
-from typing import List, Optional, Dict
 from typing import List, Optional, Dict, Callable, Any
 from multicorn import ColumnDefinition
 from dotenv import load_dotenv
@@ -9,17 +10,10 @@ import sys
 import os
 import json
 from contextlib import contextmanager
-<< << << < HEAD
-== == == =
->>>>>> > origin/main
-<< << << < HEAD
-== == == =
->>>>>> > origin/main
+from pydantic_core import core_schema
+import inspect
 
 logger = logging.getLogger(__name__)
-
-
-<< << << < HEAD
 
 
 @contextmanager
@@ -39,10 +33,6 @@ def import_from_app():
         yield
 
 
-== == == =
->>>>>> > origin/main
-
-
 def load_aperturedb_env(path="/app/aperturedb.env"):
     """Load environment variables from a file.
     This is used because FDW is executed in a "secure" environment where
@@ -53,8 +43,8 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     load_dotenv(dotenv_path=path, override=True)
 
 
-_POOL = None  # Global connection pool
-_SCHEMA = None  # Global schema variable
+_POOL = None  # Global connection pool; see get_pool()
+_SCHEMA = None  # Global schema variable; see get_schema()
 
 
 def get_log_level() -> int:
@@ -67,17 +57,10 @@ def get_log_level() -> int:
 def get_pool() -> "ConnectionPool":
     """Get the global connection pool. Lazy initialization."""
     load_aperturedb_env()
-
-
-<< << << < HEAD
-  with import_from_app():
-       from connection_pool import ConnectionPool
-== == == =
-  sys.path.append('/app')
-   from connection_pool import ConnectionPool
->>>>>> > origin/main
-  global _POOL
-   if _POOL is None:
+    global _POOL
+    if _POOL is None:
+        with import_from_app():
+            from connection_pool import ConnectionPool
         _POOL = ConnectionPool()
         logger.info("Connection pool initialized")
     return _POOL
@@ -104,98 +87,83 @@ TYPE_MAP = {
 }
 
 
-def property_columns(data: dict) -> List[ColumnDefinition]:
-    """
-    Create a list of ColumnDefinitions for the given properties.
-    This is used to create the foreign table in PostgreSQL.
-    """
-    columns = []
-    if "properties" in data and data["properties"] is not None:
-        assert isinstance(data["properties"], dict), \
-            f"Expected properties to be a dict, got {type(data['properties'])}"
-        for prop, prop_data in data["properties"].items():
-            try:
-                count, indexed, type_ = prop_data
-                columns.append(ColumnDefinition(
-                    column_name=prop,
-                    type_name=TYPE_MAP[type_.lower()],
-                    options=ColumnOptions(count=count, indexed=indexed, type=type_.lower()).to_string()))
-            except Exception as e:
-                logger.exception(
-                    f"Error processing property '{prop}': {e}")
-                raise
-
-    # Add the _uniqueid column
-    columns.append(ColumnDefinition(
-        column_name="_uniqueid", type_name="text", options=ColumnOptions(count=data.get("matched", 0), indexed=True, unique=True, type="string").to_string()))
-
-    return columns
+logger = logging.getLogger(__name__)
 
 
-class TableOptions(BaseModel):
-    """
-    Options passed to the foreign table from `import_schema`.
-    """
-    class_: Optional[str] = None  # class name of the entity or connection as reported by GetSchema
-    type: str = "entity"  # object type, e.g. "entity", "connection", "descriptor"
-    count: int = 0  # number of matched objects
-    # command to execute, e.g. "FindEntity", "FindConnection", etc.
-    command: str = "FindEntity"
-    # field to look for in the response, e.g. "entities", "connections"
-    result_field: str = "entities"
-    extra: dict = {}  # additional options for the command
-    blob_column: Optional[str] = None  # column containing blob data
-    # properties of the descriptor set, if applicable
-    descriptor_set_properties: Optional[dict] = None
-    # operation types for the descriptor set, if applicable
-    operation_types: Optional[List[str]] = None
-    # whether this table support "find similar" queries
-    find_similar: Optional[bool] = None
-    # name of the descriptor set, if applicable
-    descriptor_set: Optional[str] = None
+class Curry:
+    def __init__(self, func: Callable, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+        if not hasattr(func, "__module__") or not hasattr(func, "__qualname__"):
+            raise TypeError("Function must have __module__ and __qualname__")
+
+    def validate_signature(self, required_keywords: set):
+        sig = inspect.signature(self.func)
+        param_names = set(sig.parameters.keys())
+        accepts_kwargs = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD
+            for p in sig.parameters.values()
+        )
+
+        if not accepts_kwargs and not required_keywords <= param_names:
+            missing = required_keywords - param_names
+            raise TypeError(
+                f"Function {self.func} missing required keywords: {missing}")
+
+        overlap = required_keywords & self.kwargs.keys()
+        if overlap:
+            raise TypeError(
+                f"Curry for {self.func} should not override required args: {overlap}")
+
+    def __call__(self, **kwargs):
+        return self.func(*self.args, **self.kwargs, **kwargs)
+
+    def to_json(self):
+        return {
+            "__curry__": True,
+            "module": self.func.__module__,
+            "qualname": self.func.__qualname__,
+            "args": self.args,
+            "kwargs": self.kwargs,
+        }
 
     @classmethod
-    def from_string(cls, options_str: Dict[str, str]) -> "TableOptions":
-        """
-        Create a TableOptions instance from a string dictionary.
-        This is used to decode options from the foreign table definition.
-        Postgres restricts options to be a string-valued dictionary.
-        """
-        options = json.loads(options_str["table_options"])
-        return cls(**options)
+    def from_json(cls, data: dict):
+        if not data.get("__curry__"):
+            raise ValueError("Invalid Curry JSON data")
+        module = data["module"]
+        qualname = data["qualname"]
+        args = data.get("args", [])
+        kwargs = data.get("kwargs", {})
+        func = locate(f"{module}.{qualname}")
+        if func is None:
+            raise ValueError(f"Could not locate function {module}.{qualname}")
+        return cls(func, *args, **kwargs)
 
-    def to_string(self) -> Dict[str, str]:
-        """
-        Convert TableOptions to a string dictionary.
-        This is used to encode options for the foreign table definition.
-        """
-        return {"table_options": json.dumps(self.dict(), default=str)}
+    @classmethod
+    def _validate(cls, value: Any) -> "Curry":
+        logger.debug(f"Validating Curry: {value}")
+        if isinstance(value, cls):
+            return value
+        elif isinstance(value, dict):
+            return cls.from_json(value)
+        raise TypeError(f"Cannot convert {value!r} to Curry")
 
+    @classmethod
+    def _serialize(cls, value: "Curry") -> dict:
+        return value.to_json()
 
-class ColumnOptions(BaseModel):
-    """
-    Options passed to the foreign table columns from `import_schema`.
-    """
-    count: Optional[int] = None  # number of matched objects for this column
-    indexed: bool = False  # whether the column is indexed
-    type: str  # AQL type of the column: "string", "number", "boolean", "json", "blob"
-    # whether the column has special meaning (e.g. _blob, _image)
-    listable: bool = True  # whether the column can be passed to results/list
-    unique: bool = False  # whether the column is unique, used for _uniqueid
-    extra: Optional[Dict[str, Any]] = None  # additional options for the column
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return core_schema.no_info_after_validator_function(
+            cls._validate,
+            core_schema.any_schema(),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                cls._serialize, when_used="always"
+            )
+        )
 
-  @classmethod
-   def from_string(cls, options_str: Dict[str, str]) -> "ColumnOptions":
-        """
-        Create a ColumnOptions instance from a string dictionary.
-        This is used to decode options from the foreign table column definition.
-        """
-        options = json.loads(options_str["column_options"])
-        return cls(**options)
-
-    def to_string(self) -> Dict[str, str]:
-        """
-        Convert ColumnOptions to a string dictionary.
-        This is used to encode options for the foreign table column definition.
-        """
-        return {"column_options": json.dumps(self.dict(), default=str)}
+    def __repr__(self):
+        return f"Curry({self.func.__module__}.{self.func.__qualname__}, args={self.args}, kwargs={self.kwargs})"

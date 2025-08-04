@@ -1,9 +1,34 @@
+# This module populates the entity schema for ApertureDB.
+# This schema contains a table for each entity class.
+# Hence every AQL query includes `with_class`.
+#
+# SELECT * FROM "CrawlDocument" LIMIT 10;
+
 from multicorn import TableDefinition
-from .common import property_columns, get_schema, TableOptions
+from .common import get_schema, Curry
+from .column import property_columns
+from .table import TableOptions, literal
 from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def entity_schema() -> List[TableDefinition]:
+    """
+    Return the entity schema for ApertureDB.
+    This is used to create the foreign tables for entity classes.
+    """
+    logger.info("Creating entity schema")
+    results = []
+    schema = get_schema()
+    if "entities" in schema and "classes" in schema["entities"]:
+        assert isinstance(schema["entities"]["classes"], dict), \
+            f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
+        for entity, data in schema["entities"]["classes"].items():
+            if entity[0] != "_":
+                results.append(entity_table(entity, data))
+    return results
 
 
 def entity_table(entity: str, data: dict) -> TableDefinition:
@@ -18,12 +43,11 @@ def entity_table(entity: str, data: dict) -> TableDefinition:
     table_name = entity
 
     options = TableOptions(
-        class_=entity,
-        type="entity",
-        matched=data.get("matched", 0),
-        extra={"with_class": entity},
+        table_name=f'entity."{table_name}"',
+        count=data.get("matched", 0),
         command="FindEntity",
         result_field="entities",
+        modify_command_body=Curry(literal, {"with_class": entity}),
     )
 
     columns = []
@@ -43,20 +67,3 @@ def entity_table(entity: str, data: dict) -> TableDefinition:
         columns=columns,
         options=options.to_string()
     )
-
-
-def entity_schema() -> List[TableDefinition]:
-    """
-    Return the entity schema for ApertureDB.
-    This is used to create the foreign tables for entity classes.
-    """
-    logger.info("Creating entity schema")
-    results = []
-    schema = get_schema()
-    if "entities" in schema and "classes" in schema["entities"]:
-        assert isinstance(schema["entities"]["classes"], dict), \
-            f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
-        for entity, data in schema["entities"]["classes"].items():
-            if entity[0] != "_":
-                results.append(entity_table(entity, data))
-    return results

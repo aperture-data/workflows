@@ -36,13 +36,13 @@ ENV PYTHONPATH=""
 # Install multicorn2 Python module into system Python
 RUN /usr/bin/python3 -m pip install --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
 
-# Build and install multicorn2 Postgres extension
-RUN git clone https://github.com/pgsql-io/multicorn2.git /multicorn2 \
+# Build and install multicorn2 Postgres extension 
+RUN git clone --single-branch --branch boolean-quals https://github.com/bovlb/multicorn2.git /multicorn2 \
  && cd /multicorn2 \
  && make PYTHON=/usr/bin/python3 \
  && make install
 
-RUN pip install --no-cache-dir aperturedb dotenv numpy
+RUN pip install --no-cache-dir aperturedb dotenv numpy pydantic
 
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
