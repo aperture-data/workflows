@@ -232,7 +232,7 @@ class FDW(ForeignDataWrapper):
 
         return query
 
-    def _convert_qual_value(self, qual: Qual) -> Optional[dict]:
+    def _convert_qual_value(self, qual: Qual) -> Any:
         """
         Convert qual value into an internal value, depending on type and operator.
         """
@@ -351,7 +351,7 @@ class FDW(ForeignDataWrapper):
             value = value
         return value
 
-    def _add_non_list_columns(self, quals: List[dict], columns: Set[str],  row: dict) -> dict:
+    def _add_non_list_columns(self, quals: List[Qual], columns: Set[str],  row: dict) -> dict:
         """
         Add non-list columns to the row based on the quals.
         This is used to ensure that all requested columns are present in the result.
