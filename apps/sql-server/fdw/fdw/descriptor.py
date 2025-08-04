@@ -172,7 +172,7 @@ def find_similar_modify_command_body(
 
 def find_similar_query_blobs(
         properties: dict, descriptor_set: str,
-        value: str) -> bytes:
+        value: str) -> List[bytes]:
     """
     Generates vector data for find similar operations.
 
@@ -182,7 +182,7 @@ def find_similar_query_blobs(
         value: JSON string generated from the FIND_SIMILAR SQL function
 
     Returns:
-        blobs: list of length one containing the vector data as bytes       
+        blobs: list of length one containing the vector data as bytes
     """
     try:
         find_similar = json.loads(value)
