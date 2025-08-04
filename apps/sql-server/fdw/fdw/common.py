@@ -170,3 +170,38 @@ class Curry:
 
     def __repr__(self):
         return f"Curry({self.func.__module__}.{self.func.__qualname__}, args={self.args}, kwargs={self.kwargs})"
+
+
+def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
+    """
+    Compact yet pretty JSON representation of the data.
+    If it fits in one line (accounting for indentation), it stays one line.
+    Otherwise, falls back to a multi-line indented format.
+    """
+    prefix = " " * (level * indent)
+    one_line = json.dumps(data, ensure_ascii=False)
+
+    if len(prefix) + len(one_line) <= line_length:
+        return prefix + one_line
+
+    if isinstance(data, (list, tuple)):
+        lines = [prefix + "["]
+        for item in data:
+            lines.append(compact_pretty_json(
+                item, line_length, level + 1, indent))
+        lines.append(prefix + "]")
+        return "\n".join(lines)
+
+    elif isinstance(data, dict):
+        lines = [prefix + "{"]
+        for i, (key, value) in enumerate(data.items()):
+            key_str = json.dumps(key, ensure_ascii=False) + ": "
+            val_str = compact_pretty_json(
+                value, line_length, level + 1, indent)
+            lines.append(" " * ((level + 1) * indent) +
+                         key_str + val_str.lstrip())
+        lines.append(prefix + "}")
+        return "\n".join(lines)
+
+    else:
+        return prefix + json.dumps(data, ensure_ascii=False)

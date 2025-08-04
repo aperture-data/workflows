@@ -1,4 +1,4 @@
-from .common import get_pool, get_log_level
+from .common import get_pool, get_log_level, compact_pretty_json
 from .table import TableOptions
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
@@ -228,7 +228,8 @@ class FDW(ForeignDataWrapper):
         }
 
         query = [{self._options.command: command_body}]
-        logger.debug(f"Constructed query: {json.dumps(query, indent=2)}")
+        logger.debug(
+            f"Constructed query: {compact_pretty_json(query, indent=2)}")
 
         return query
 
@@ -415,9 +416,10 @@ class FDW(ForeignDataWrapper):
 
         result = [f"FDW: {self._options.table_name}"]
         query = self._get_query(quals, columns)
-        result.append(f"AQL: {json.dumps(query, indent=2)}")
+        result.append(f"AQL: {compact_pretty_json(query, indent=2)}")
         query_blobs = self._get_query_blobs(quals, columns)
-        if query_blobs:
+        # This part isn't verbose, but can be much slower
+        if query_blobs and verbose:
             result.append(
                 f"Query Blob: {len(query_blobs[0])} bytes - {query_blobs[0][:10]}... (truncated)")
 
