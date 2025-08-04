@@ -177,8 +177,9 @@ def main(params):
 
     print(f"Creating dataset...")
     try:
-        dataset = PyTorchDataset.ApertureDBDataset(
-            pool, q, batch_size=1, label_prop="_uniqueid")
+        with pool.get_connection() as client:
+            dataset = PyTorchDataset.ApertureDBDataset(
+                client, q, batch_size=1, label_prop="_uniqueid")
     except Exception as e:
         print("Error creating dataset:", e)
         dataset = []
