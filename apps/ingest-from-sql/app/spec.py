@@ -243,10 +243,9 @@ class WorkflowSpec:
             cls.delete_spec_data(db, workflow_name, spec['workflow_id'] )
 
     @classmethod
-    def clean_bucket(cls,db,provider,bucket):
-        logger.info(f"Cleaning database from bucket {provider}/{bucket}")
+    def delete_all_creator_key(cls,db,creator_key):
+        logger.info(f"Cleaning database from creator key {creator_key}")
         known_objects = [m.value for m in ObjectType]
-        creator_key = utils.generate_bucket_hash(provider, bucket)
         for type_to_clean in known_objects:
             otype = type_to_clean[1:] 
             res,_ = cls.execute_query_with_db(db,[

@@ -10,7 +10,8 @@ from wf_argparse import ArgumentParser
 from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper,PDFIngester
 from scan import scan
 from spec import WorkflowSpec
-from utils import TableType, TableSpec,ConnectionSpec,CommandlineType
+from utils import TableType,TableSpec,ConnectionSpec,CommandlineType,creator_string
+import common
 
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,17 @@ def main(args):
 
     if args.delete:
         WorkflowSpec.delete( "sql-loader", args.spec_id )
-        sys.exit(1)
+        sys.exit(0)
     elif args.delete_all:
         WorkflowSpec.delete_all( "sql-loader")
-        sys.exit(1)
+        sys.exit(0)
+    elif args.delete_from_sql_db:
+        # note we don't verify host/database - a host could not be available,
+        # but data could have been loaded from it.
+        WorkflowSpec.delete_all_creator_key(creator_string(args.sql_host, args.sql_database)) 
+        sys.exit(0)
+
+
 
 
     spec = WorkflowSpec( db, "sql-loader", args.spec_id, clean=args.clean )
@@ -60,6 +68,7 @@ def main(args):
             raise Exception(f"Unhandled table type in create_ingester: {table_info.entity_type}")
         ingester.set_workflow_id( str(run_id))
         ingester.set_entity_mapper( emapper )
+        ingester.set_add_table_source( args.add_table_source_to_entities )
         # sets requests for data which can come from external sources.
         ingester.process_requests()
         return ingester
@@ -83,7 +92,11 @@ def main(args):
         linked_types_to_run.update( ingestion.get_types_added() )
 
     spec.link_objects(str(run_id), linked_types_to_run )
-    spec.finish_run(str(run_id), { "wf_linked_types" : list(linked_types_to_run) } )
+    spec.finish_run(str(run_id), {
+        "wf_linked_types" : list(linked_types_to_run),
+        "wf_creator" : creator_string(provider.host_name(), provider.database_name())
+        }
+        )
     spec.finish_spec()
 
 def get_args():
@@ -118,6 +131,10 @@ def get_args():
         help="Columns to ignore") 
     obj.add_argument( '--table-to-entity-mapping', default=None, type=CommandlineType.item_map,
         help="Mapping of table names to entity names") 
+
+    # data options
+    obj.add_argument( '--add-table-source-to-entities', default=True, type=bool,
+        help=f"Toggle adding a property ({common.entity_prop['data_source_table']}) which holds the source table for an entities")
 
     # connection options
     obj.add_argument( '--foreign-key-entity-mapping', default=None, type=CommandlineType.item_map,

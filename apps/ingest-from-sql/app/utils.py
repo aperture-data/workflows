@@ -9,6 +9,9 @@ import hashlib
 def hash_string(string):
     return hashlib.sha1(string.encode('utf-8')).hexdigest()
 
+def creator_string(hostname,database_name):
+        return "sql://{}/{}".format(hostname,database_name)
+
 class TableType(Enum):
     ENTITY = 1
     IMAGE = 2
