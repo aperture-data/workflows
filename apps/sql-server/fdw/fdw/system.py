@@ -42,7 +42,7 @@ def system_schema() -> List[TableDefinition]:
     return results
 
 
-def operations_column(self, types: Set[str]) -> ColumnDefinition:
+def operations_column(types: Set[str]) -> ColumnDefinition:
     return ColumnDefinition(
         column_name="_operations",
         type_name="jsonb",
