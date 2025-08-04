@@ -29,8 +29,6 @@ logger.setLevel(log_level)
 logger.addHandler(handler)
 logger.propagate = False
 
-logger.info("pydantic version: %s", pydantic.VERSION)
-
 
 def flush_logs():
     for h in logger.handlers:
