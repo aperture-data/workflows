@@ -116,6 +116,7 @@ class FDW(ForeignDataWrapper):
             columns (set): List of columns to return in the results.
         """
 
+        start_time = datetime.now()
         logger.info(
             f"Executing FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
 
@@ -154,8 +155,9 @@ class FDW(ForeignDataWrapper):
                 query = self._get_next_query(query, response)
             exhausted = True
         finally:
+            elapsed_time = datetime.now() - start_time
             logger.info(
-                f"Executed FDW {self._options.table_name} with {n_results} results and {n_queries} queries in {total_elapsed_time:.2f} seconds, {'exhausted' if exhausted else 'not exhausted'}.")
+                f"Executed FDW {self._options.table_name} with {n_results} results and {n_queries} queries in {total_elapsed_time:.2f} seconds in ADB, {elapsed_time.total_seconds():.2f} seconds in execute, {'exhausted' if exhausted else 'not exhausted'}.")
 
     def _check_quals(self, quals: List[Qual], columns: Set[str]) -> None:
         """
