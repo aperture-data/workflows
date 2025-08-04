@@ -173,8 +173,6 @@ def system_entity_table() -> TableDefinition:
         count=count,
         command=f"FindEntity",
         result_field="entities",
-        # This is a system table, so we use a literal class
-        modify_command_body=Curry(literal, {"with_class": "_Entity"}),
     )
 
     columns = []
