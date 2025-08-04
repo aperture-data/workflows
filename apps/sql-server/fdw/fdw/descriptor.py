@@ -197,11 +197,19 @@ def find_similar_query_blobs(
             f"Invalid find_similar format: {find_similar}. Expected an object.")
 
     if "vector" in find_similar and find_similar["vector"] is not None:
-        vector = np.array(find_similar["vector"])
+        raw_vector = find_similar["vector"]
         dimensions = properties["_dimensions"]
-        if vector.shape != (dimensions,):
+        # Validate that raw_vector is a list or tuple of the correct length and numeric type
+        if not isinstance(raw_vector, (list, tuple)):
             raise ValueError(
-                f"Invalid vector size: {vector.shape}. Expected {dimensions}.")
+                f"Invalid vector type: {type(raw_vector)}. Expected list or tuple.")
+        if len(raw_vector) != dimensions:
+            raise ValueError(
+                f"Invalid vector length: {len(raw_vector)}. Expected {dimensions}.")
+        if not all(isinstance(x, (int, float)) for x in raw_vector):
+            raise ValueError(
+                f"Invalid vector contents: {raw_vector}. All elements must be numeric (int or float).")
+        vector = np.array(raw_vector, dtype=np.float32)
     else:
         # This takes ~7s the first time, but ~1s on subsequent calls because of a file cache.
         # Could consider caching the embedder and maybe even doing cache warmup,
