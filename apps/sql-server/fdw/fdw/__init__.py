@@ -326,17 +326,26 @@ class FDW(ForeignDataWrapper):
         for col in columns:
             if col not in row:
                 continue
-            type_ = self._columns[col].type
-            if type_ == "datetime":
-                value = row[col]["_date"] if row[col] else None
-            elif type_ == "json":
-                value = json.dumps(row[col])
-            elif type_ == "blob":
-                value = row[col]
-            else:
-                value = row[col]
+            value = self._convert_adb_value(row[col], col)
             result[col] = value
         return result
+
+    def _convert_adb_value(self, value, col: str) -> Any:
+        """
+        Convert an ApertureDB value to a PostgreSQL-compatible value.
+        """
+        col_type = self._columns[col].type
+        if col_type == "datetime":
+            value = value["_date"] if value else None
+        elif col_type == "json":
+            value = json.dumps(value)
+        elif col_type == "blob":
+            value = value
+        # elif col_type == "boolean":
+        #     value = 't' if value else 'f'
+        else:
+            value = value
+        return value
 
     def _add_non_list_columns(self, quals: List[dict], columns: Set[str],  row: dict) -> dict:
         """
@@ -357,7 +366,10 @@ class FDW(ForeignDataWrapper):
                 logger.debug(
                     f"Adding non-list column {qual.field_name} with value {qual.value} to row"
                 )
-                row[qual.field_name] = qual.value
+                # This double-conversion is necessary because of negative qual operators like IS NOT and <>.
+                value = self._convert_qual_value(qual)
+                value = self._convert_adb_value(value, qual.field_name)
+                row[qual.field_name] = value
 
         return row
 
