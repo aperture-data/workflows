@@ -238,5 +238,8 @@ def find_similar_query_blobs(
         logger.debug(
             f"Embedding took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
 
-    blob = vector.tobytes()
+    # Use .data.tobytes() to avoid unnecessary copying if the array is contiguous
+    if not vector.flags['C_CONTIGUOUS']:
+        vector = np.ascontiguousarray(vector, dtype=np.float32)
+    blob = vector.data.tobytes()
     return [blob]  # Return as a list of one blob
