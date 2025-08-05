@@ -1,64 +1,48 @@
-from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
-import sys
-from datetime import datetime
-from aperturedb.CommonLibrary import create_connector
-import logging
-import os
+from .common import get_pool, get_log_level, compact_pretty_json
+from .table import TableOptions
+from .column import ColumnOptions
+from multicorn import ForeignDataWrapper, Qual
+import numpy as np
+import atexit
 import json
-from dotenv import load_dotenv
+import os
+import logging
+from datetime import datetime
+import sys
+from itertools import zip_longest
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
+
+import pydantic
+import sys
+import importlib.util
+
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, force=True,)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler("/tmp/fdw.log")
+log_level = get_log_level()
+handler = logging.FileHandler("/tmp/fdw.log", delay=False)
 handler.setFormatter(logging.Formatter(
     "%(asctime)s %(levelname)s %(message)s"))
+
+logging.basicConfig(level=log_level, force=True)
+logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
 logger.addHandler(handler)
 logger.propagate = False
 
 
-def load_aperturedb_env(path="/app/aperturedb.env"):
-    """Load environment variables from a file.
-    This is used because FDW is executed in a "secure" environment where
-    environment variables cannot be set directly.
-    """
-    if not os.path.exists(path):
-        raise RuntimeError(f"Missing environment file: {path}")
-    load_dotenv(dotenv_path=path, override=True)
+def flush_logs():
+    for h in logger.handlers:
+        try:
+            h.flush()
+        except Exception:
+            pass
 
 
-def main():
-    try:
-        load_aperturedb_env()
-        sys.path.append('/app')
-        from connection_pool import ConnectionPool
-        global POOL
-        POOL = ConnectionPool()
-        global SCHEMA
-        with POOL.get_utils() as utils:
-            SCHEMA = utils.get_schema()
-        logger.info(
-            f"ApertureDB schema loaded successfully. \n{json.dumps(SCHEMA, indent=2)}")
-    except Exception as e:
-        logger.exception("Error during initialization: %s", e)
-        sys.exit(1)
-
-
-main()
-
-# Mapping from ApertureDB types to PostgreSQL types.
-TYPE_MAP = {
-    "number": "double precision",
-    "string": "text",
-    "boolean": "boolean",
-    "datetime": "timestamptz",
-    "json": "jsonb",
-    "blob": "bytea",
-}
+atexit.register(flush_logs)
 
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
+BATCH_SIZE_WITH_BLOBS = 10
 
 
 class FDW(ForeignDataWrapper):
@@ -70,150 +54,6 @@ class FDW(ForeignDataWrapper):
     It also passes options for each table and column that are passed into `__init__`.
     """
 
-    def __init__(self, fdw_options, fdw_columns):
-        super().__init__(fdw_options, fdw_columns)
-        self._options = self._decode_options(fdw_options)
-        self._columns = {name: self._decode_options(
-            col.options) for name, col in fdw_columns.items()}
-        self._class = self._options["class"]
-        self._type = self._options["type"]
-        self._is_system_class = self._class[0] == "_"
-        if self._type == "entity":
-            self._command = self._get_command(self._class)
-            self._result_field = "entities"
-        elif self._type == "connection":
-            self._command = "FindConnection"
-            self._result_field = "connections"
-        else:
-            raise ValueError(f"Unknown type: {self._type}")
-        logger.info("FDW initialized with options: %s", fdw_options)
-
-    @staticmethod
-    def _get_command(class_: str) -> str:
-        """
-        Get the command to use for the given class.
-        This is used to determine how to query ApertureDB.
-        """
-        if class_[0] == "_":
-            return f"Find{class_[1:]}"
-        else:
-            return "FindEntity"
-
-    def _normalize_row(self, columns, row: dict) -> dict:
-        result = {}
-        for col in columns:
-            if col not in row:
-                continue
-            type_ = self._columns[col]["type"]
-            if type_ == "datetime":
-                value = row[col]["_date"]
-            elif type_ == "json":
-                value = json.dumps(row[col])
-            else:
-                value = row[col]
-            result[col] = value
-        return result
-
-    def execute(self, quals, columns):
-        """ Execute the FDW query with the given quals and columns.
-
-        Args:
-            quals (list): List of conditions to filter the results.
-                Note that filtering is optional because PostgreSQL will also filter the results.
-            columns (set): List of columns to return in the results.
-        """
-
-        logger.info(
-            f"Executing FDW {self._type}/{self._class} with quals: {quals} and columns: {columns}")
-
-        # First we run a batch query to get the number of results.
-        query = [
-            {
-                self._command: {
-                    **({"with_class": self._class} if not self._is_system_class else {}),
-                    **({"results": {"list": list(columns)}}),
-                    "batch": {},
-                }
-            }
-        ]
-
-        _, results, _ = POOL.execute_query(query)
-
-        if not results or len(results) != 1:
-            logger.warning(
-                f"No results found for entity query. {query} -> {results}")
-            raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
-
-        if "batch" not in results[0][self._command]:
-            # Some find commands (FindConnection) don't handle batching, so we assume all results are returned at once.
-            logger.info(
-                f"Single batch found for query: {query} -> {results[:10]}")
-            rows = results[0][self._command][self._result_field]
-            for row in rows:
-                yield self._normalize_row(columns, row)
-            return
-
-        try:
-            n_results = results[0][self._command]["batch"]["total_elements"]
-        except KeyError:
-            logger.error(
-                f"Batch total_elements not found in results: {query} -> {results}")
-            raise ValueError(
-                f"Batch total_elements not found in results: {query} -> {results}")
-
-        n_batches = (n_results + BATCH_SIZE - 1) // BATCH_SIZE
-        logger.info(
-            f"Found {n_results} results in {n_batches} batches for query: {query}")
-
-        # Now we fetch the results batch by batch.
-        for batch in range(n_batches):
-            logger.info(
-                f"Processing batch {batch + 1}/{n_batches}: {batch * BATCH_SIZE} to {min((batch + 1) * BATCH_SIZE, n_results)}")
-            query[0][self._command]["batch"]["batch_id"] = batch
-            query[0][self._command]["batch"]["batch_size"] = BATCH_SIZE
-            _, results, _ = POOL.execute_query(query)
-            if not results or len(results) != 1:
-                logger.warning(
-                    f"No results found for batch {batch} of entity query. {query} -> {results}")
-                continue
-
-            try:
-                rows = results[0][self._command][self._result_field]
-            except KeyError:
-                logger.error(
-                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
-                raise ValueError(
-                    f"Result field '{self._result_field}' not found in results: {query} -> {results}")
-
-            if not rows:
-                logger.warning(f"No rows found in batch {batch}. Continuing.")
-                continue
-
-            for row in rows:
-                yield self._normalize_row(columns, row)
-
-    @staticmethod
-    def _encode_options(options):
-        """
-        Convert options so that all values are strings.
-        Although PostgreSQL does nothing with these options, the value type must be string.
-        """
-        return {"fdw_config": json.dumps(options, default=str)}
-
-    @staticmethod
-    def _decode_options(options):
-        """
-        Convert options from a string back to a dictionary.
-        """
-        if not options:
-            return {}
-        try:
-            return json.loads(options["fdw_config"])
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode options: {e}")
-            return {}
-
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
         """
@@ -222,64 +62,368 @@ class FDW(ForeignDataWrapper):
         The result of this is to create the foreign tables in PostgreSQL.
 
         Note that we cannot add comments, foreign keys, or other constraints here.
+
+        This method is called once per schema.
         """
-        logger.info("Importing schema with options: %s", options)
-        results = []
-        if "entities" in SCHEMA and "classes" in SCHEMA["entities"]:
-            for entity, data in SCHEMA["entities"]["classes"].items():
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid column
-                # This is a special column that is always present in entities, but does not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                logger.info(f"Adding entity {entity} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=entity,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": entity,
-                        "type": "entity",
-                        "matched": data["matched"],
-                    })
+        try:
+            # Put these here for better error handling
+            from .system import system_schema
+            from .entity import entity_schema
+            from .connection import connection_schema
+            from .descriptor import descriptor_schema
 
-                ))
+            logger.info(f"Importing schema {schema} with options: {options}")
+            if schema == "system":
+                return system_schema()
+            elif schema == "entity":
+                return entity_schema()
+            elif schema == "connection":
+                return connection_schema()
+            elif schema == "descriptor":
+                return descriptor_schema()
+            else:
+                raise ValueError(f"Unknown schema: {schema}")
+        except:
+            logger.exception(
+                f"Error importing schema {schema}: {sys.exc_info()[1]}")
+            flush_logs()
+            raise
+        logger.info(f"Schema {schema} imported successfully")
 
-        if "connections" in SCHEMA and "classes" in SCHEMA["connections"]:
-            for connection, data in SCHEMA["connections"]["classes"].items():
-                columns = []
-                if data["properties"] is not None:
-                    for prop, prop_data in data["properties"].items():
-                        count, indexed, type_ = prop_data
-                        columns.append(ColumnDefinition(
-                            column_name=prop, type_name=TYPE_MAP[type_.lower()], options=cls._encode_options({"count": count, "indexed": indexed, "type": type_.lower()})))
-                # Add the _uniqueid, _src, and _dst columns
-                # These are special columns that are always present in connections, but do not appear in the schema.
-                columns.append(ColumnDefinition(
-                    column_name="_uniqueid", type_name="text", options=cls._encode_options({"count": data["matched"], "indexed": True, "unique": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_src", type_name="text", options=cls._encode_options({"class": data["src"], "count": data["matched"], "indexed": True, "type": "string"})))
-                columns.append(ColumnDefinition(
-                    column_name="_dst", type_name="text", options=cls._encode_options({"class": data["dst"], "count": data["matched"], "indexed": True, "type": "string"})))
-                logger.info(
-                    f"Adding connection {connection} with columns: {columns}")
-                results.append(TableDefinition(
-                    table_name=connection,
-                    columns=columns,
-                    options=cls._encode_options({
-                        "class": connection,
-                        "type": "connection",
-                        "src": data["src"],
-                        "dst": data["dst"],
-                        "matched": data["matched"]
-                    })
-                ))
+    def __init__(self, fdw_options, fdw_columns):
+        """
+        Initialize the FDW with the given options and columns,
+        which are generated by the import_schema method.
 
-        return results
+        Args:
+            fdw_options (dict): Options for the foreign table.
+            fdw_columns (dict): Columns for the foreign table.
+        """
+        super().__init__(fdw_options, fdw_columns)
+
+        self._options = TableOptions.from_string(fdw_options)
+        self._columns = {
+            name: ColumnOptions.from_string(col.options)
+            for name, col in fdw_columns.items()}
+        logger.info("FDW initialized with options: %s", fdw_options)
+
+    def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
+        """ Execute the FDW query with the given quals and columns.
+
+        Args:
+            quals (list): List of conditions to filter the results.
+                Note that filtering is optional because PostgreSQL will also filter the results.
+            columns (set): List of columns to return in the results.
+        """
+
+        start_time = datetime.now()
+        logger.info(
+            f"Executing FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+
+        self._check_quals(quals, columns)
+
+        query = self._get_query(quals, columns)
+
+        query_blobs = self._get_query_blobs(quals, columns)
+
+        n_results = 0
+        total_elapsed_time = 0
+        exhausted = False
+        n_queries = 0
+        try:
+            while query:
+                n_queries += 1
+                gen = self._get_query_results(query, query_blobs)
+                try:
+                    while True:
+                        row, blob = next(gen)
+                        result = self._post_process_row(
+                            quals, columns, row, blob)
+
+                        logger.debug(
+                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)} blob {len(blob) if blob else None}"
+                        )
+                        n_results += 1
+                        if n_results % 1000 == 0:
+                            logger.info(
+                                f"Yielded {n_results} results so far for FDW {self._options.table_name}")
+                        yield result
+                except StopIteration as e:
+                    response, elapsed_time = e.value  # return value from _get_query_results
+                    total_elapsed_time += elapsed_time.total_seconds()
+
+                query = self._get_next_query(query, response)
+            exhausted = True
+        finally:
+            elapsed_time = datetime.now() - start_time
+            logger.info(
+                f"Executed FDW {self._options.table_name} with {n_results} results and {n_queries} queries in {total_elapsed_time:.2f} seconds in ADB, {elapsed_time.total_seconds():.2f} seconds in execute, {'exhausted' if exhausted else 'not exhausted'}.")
+
+    def _check_quals(self, quals: List[Qual], columns: Set[str]) -> None:
+        """
+        Check the quals to ensure they are valid.
+        """
+        for col in columns:
+            col_type = self._columns[col].type
+            if not self._columns[col].listable:  # special column; apply checks
+                clauses = [qual for qual in quals if qual.field_name == col]
+
+                if len(clauses) > 1:
+                    raise ValueError(
+                        f"Multiple WHERE clauses for {col} are not allowed, got {len(clauses)} clauses.")
+                for clause in clauses:
+                    if col_type == "boolean":
+                        if clause.operator not in ["=", "<>", "IS", "IS NOT"]:
+                            raise ValueError(
+                                f"WHERE clauses for boolean column {col} can only use operators '=', '<>', 'IS', or 'IS NOT', got {clause.operator}")
+                    else:
+                        if clause.operator not in ["="]:
+                            raise ValueError(
+                                f"WHERE clauses for non-boolean column {col} can only use operators '=', got {clause.operator}")
+
+    def _get_query(self,
+                   quals: List[Qual],
+                   columns: Set[str],
+                   ) -> List[dict]:
+        """
+        Construct the query to execute against ApertureDB.
+        This is used to build the query based on the columns and options.
+        """
+        listable_columns = {
+            col for col in columns if self._columns[col].listable}
+
+        modifying_columns = {
+            col for col in columns if self._columns[col].modify_command_body is not None}
+
+        command_body = {}
+
+        if listable_columns:
+            command_body["results"] = {"list": list(listable_columns)}
+
+        # Apply table modification, e.g. with_class, set
+        if self._options.modify_command_body:
+            self._options.modify_command_body(command_body=command_body)
+
+        # Apply column modifications
+        for qual in quals:
+            if qual.field_name in modifying_columns:
+
+                n_clauses = len(
+                    [qual2 for qual2 in quals if qual2.field_name == qual.field_name])
+                if n_clauses > 1:
+                    raise ValueError(
+                        f"Multiple WHERE clauses for {qual.field_name} are not allowed, got {n_clauses} clauses.")
+
+                value = self._convert_qual_value(qual)
+                column_options = self._columns[qual.field_name]
+                column_options.modify_command_body(
+                    command_body=command_body, value=value)
+
+        # Check whether anyone has added the blobs parameter
+        blobs = command_body.get("blobs", False)
+        batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
+        command_body["batch"] = {
+            "batch_id": 0,
+            "batch_size": batch_size
+        }
+
+        query = [{self._options.command: command_body}]
+        logger.debug(
+            f"Constructed query: {compact_pretty_json(query, indent=2)}")
+
+        return query
+
+    def _convert_qual_value(self, qual: Qual) -> Any:
+        """
+        Convert qual value into an internal value, depending on type and operator.
+        """
+        col_type = self._columns[qual.field_name].type
+        if col_type == "boolean":
+            value = qual.value == 't'
+            if qual.operator in ["<>", "IS NOT"]:
+                value = not value
+        elif col_type == "json":
+            try:
+                value = json.loads(qual.value)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid JSON in {qual.field_name} clause: {e}")
+        else:
+            # TODO: Might be more conversions needed here
+            value = qual.value
+
+        return value
+
+    def _get_query_blobs(self, quals: List[Qual], columns: Set[str]) -> List[bytes]:
+        query_blob_quals = [qual for qual in quals
+                            if self._columns[qual.field_name].query_blobs is not None]
+
+        if query_blob_quals:
+            if len(query_blob_quals) > 1:
+                raise ValueError(
+                    f"Multiple query blobs requested: {query_blob_quals}. Only one query blob is allowed per query.")
+
+            qual = query_blob_quals[0]
+            value = self._convert_qual_value(qual)
+            return self._columns[qual.field_name].query_blobs(value=value)
+
+        return []
+
+    def _get_query_results(self,
+                           query: List[dict],
+                           query_blobs: List[bytes],
+                           ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
+        logger.debug(f"Executing query: {query}")
+
+        start_time = datetime.now()
+        _, results, response_blobs = get_pool().execute_query(query, query_blobs)
+        elapsed_time = datetime.now() - start_time
+        logger.info(
+            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
+
+        if not results or len(results) != 1:
+            logger.warning(
+                f"No results found for entity query. {query} -> {results}")
+            raise ValueError(
+                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+
+        result_objects = results[0].get(
+            self._options.command, {}).get(self._options.result_field, [])
+        if not response_blobs:
+            for row in result_objects:
+                yield row, None
+        else:
+            for row, blob in zip_longest(result_objects, response_blobs):
+                yield row or {}, blob
+
+        return results, elapsed_time
+
+    def _post_process_row(self,
+                          quals: List[Qual], columns: Set[str],
+                          row: dict, blob: Optional[bytes]) -> dict:
+        """
+        Apply post-processing steps to the row before yielding it.
+
+        This includes converting types from AQL to SQL,
+        adding non-list columns, and any column post-processing.
+        """
+        row = row.copy()  # Avoid modifying the original row
+
+        for qual in quals:
+            if self._columns[qual.field_name].post_process_results is not None:
+                value = self._convert_qual_value(qual)
+                self._columns[qual.field_name].post_process_results(
+                    row=row, value=value, blob=blob)
+
+        # Normalize the row to ensure it has the correct types for PostgreSQL
+        row = self._normalize_row(columns, row)
+
+        row = self._add_non_list_columns(quals, columns, row)
+
+        return row
+
+    def _normalize_row(self, columns, row: dict) -> dict:
+        """
+        Normalize a row to ensure it has the correct types for PostgreSQL.
+        This is used to convert ApertureDB types to PostgreSQL types.
+        """
+        result = {}
+        for col in columns:
+            if col not in row:
+                continue
+            value = self._convert_adb_value(row[col], col)
+            result[col] = value
+        return result
+
+    def _convert_adb_value(self, value, col: str) -> Any:
+        """
+        Convert an ApertureDB value to a PostgreSQL-compatible value.
+        """
+        col_type = self._columns[col].type
+        if col_type == "datetime":
+            value = value["_date"] if value else None
+        elif col_type == "json":
+            value = json.dumps(value)
+        elif col_type == "blob":
+            value = value
+        # elif col_type == "boolean":
+        #     value = 't' if value else 'f'
+        else:
+            value = value
+        return value
+
+    def _add_non_list_columns(self, quals: List[Qual], columns: Set[str],  row: dict) -> dict:
+        """
+        Add non-list columns to the row based on the quals.
+        This is used to ensure that all requested columns are present in the result.
+
+        This is necessary because PostgreSQL will not return rows that don't meet the quals, and it doesn't know that we're
+        using special columns to do magic.
+
+        So we just copy the qual constraints into the row.
+        """
+        logger.debug(
+            f"Adding non-list columns to row: {row}, quals: {quals}, columns: {columns}")
+        row = row.copy()  # Avoid modifying the original row
+        for qual in quals:
+            if not self._columns[qual.field_name].listable:
+                assert qual.field_name not in row, f"Column {qual.field_name} should not be in the row. It is a non-list column."
+                logger.debug(
+                    f"Adding non-list column {qual.field_name} with value {qual.value} to row"
+                )
+                # This double-conversion is necessary because of negative qual operators like IS NOT and <>.
+                value = self._convert_qual_value(qual)
+                value = self._convert_adb_value(value, qual.field_name)
+                row[qual.field_name] = value
+
+        return row
+
+    def _get_next_query(self, query: List[dict], response: List[dict]) -> Optional[List[dict]]:
+        """
+        Get the next query to execute based on the response from the previous query.
+        This is used to handle batching.
+        """
+        if not response or len(response) != 1:
+            logger.warning(
+                f"No results found for query: {query} -> {response}")
+            return None
+
+        if "batch" not in response[0][self._options.command]:
+            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
+            logger.info(
+                f"Single batch found for query: {query} -> {response[:10]}")
+            return None
+
+        batch_id = response[0][self._options.command]["batch"]["batch_id"]
+        total_elements = response[0][self._options.command]["batch"]["total_elements"]
+        end = response[0][self._options.command]["batch"]["end"]
+
+        if end >= total_elements:  # No more batches to process
+            return None
+
+        next_query = query.copy()
+        next_query[0][self._options.command]["batch"]["batch_id"] += 1
+        return next_query
+
+    def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
+        """
+        Generate an EXPLAIN statement for the FDW query.
+        This is used to provide information about how the query will be executed.
+        """
+        logger.info(
+            f"Explaining FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+        self._check_quals(quals, columns)
+
+        result = [f"FDW: {self._options.table_name}"]
+        query = self._get_query(quals, columns)
+        result.append(f"AQL: {compact_pretty_json(query, indent=2)}")
+        query_blobs = self._get_query_blobs(quals, columns)
+        # This part isn't verbose, but can be much slower
+        if query_blobs and verbose:
+            result.append(
+                f"Query Blob: {len(query_blobs[0])} bytes - {query_blobs[0][:10]}... (truncated)")
+
+        return result
 
 
-print("FDW class defined successfully")
+logger.info("FDW class defined successfully")
