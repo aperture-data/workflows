@@ -1,5 +1,14 @@
-from typing import List, Literal
-from .common import property_columns, get_schema, TYPE_MAP, TableOptions, ColumnOptions
+# This module populates the system schema for ApertureDB.
+# This schema contains tables for system classes such as _Blob, _Image, etc.
+# Note that the tables for these are named without the leading underscore.
+# It also includes special tables for Entity and Connection.
+#
+# SELECT * FROM "DescriptorSet" LIMIT 10;
+
+from typing import List, Literal, Set, Any, Dict
+from .common import get_schema, TYPE_MAP, Curry
+from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough
+from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 import logging
 from collections import defaultdict
@@ -33,6 +42,77 @@ def system_schema() -> List[TableDefinition]:
     return results
 
 
+def operations_column(types: Set[str]) -> ColumnDefinition:
+    return ColumnDefinition(
+        column_name="_operations",
+        type_name="jsonb",
+        options=ColumnOptions(
+            type="json",
+            listable=False,
+            modify_command_body=Curry(operations_passthrough, types=types),
+        ).to_string()
+    )
+
+
+def operations_passthrough(types: Set[str],
+                           value: Any, command_body: Dict[str, Any]) -> None:
+    """
+    This is a ColumnOptions modify_command_body hook.
+
+    Pass through the operations from the query to the command body.
+    Includes JSON conversion and some validation.
+
+    Error messages are SQL-oriented.
+    """
+    operations = value
+    if not isinstance(operations, list):
+        raise ValueError(
+            f"Operations must be an array, got {operations} {type(operations)}")
+
+    for op in operations:
+        if not isinstance(op, dict):
+            raise ValueError(
+                f"Invalid operation format: {op}. Expected an object.")
+        if "type" not in op:
+            raise ValueError(
+                f"Operation must have 'type' field: {op}")
+        if op["type"] not in types:
+            raise ValueError(
+                f"Invalid operation type: {op['type']}. Expected one of {types}")
+
+    command_body["operations"] = operations
+
+
+def blob_extra_columns() -> List[ColumnDefinition]:
+    """
+    Returns the columns for a _Blob entity.
+    """
+    return blob_columns("_blob")
+
+
+def image_extra_columns() -> List[ColumnDefinition]:
+    """
+    Returns the columns for a _Image entity.
+    """
+    return blob_columns("_image") + [
+        ColumnDefinition(
+            column_name="_as_format",
+            type_name="text",
+            options=ColumnOptions(
+                listable=False,
+                modify_command_body=Curry(passthrough, "as_format"),
+            ).to_string()
+        ),
+        operations_column({"threshold", "resize", "crop", "rotate", "flip"}),
+    ]
+
+
+OBJECT_COLUMNS_HANDLERS = {
+    "_Blob": blob_extra_columns,
+    "_Image": image_extra_columns,
+}
+
+
 def system_table(entity: str, data: dict) -> TableDefinition:
     """
     Create a TableDefinition for a system object.
@@ -50,42 +130,14 @@ def system_table(entity: str, data: dict) -> TableDefinition:
         table_name = entity[1:]
 
         options = TableOptions(
-            class_=entity,
-            type=entity,
-            matched=data.get("matched", 0),
+            table_name=f'system."{table_name}"',
+            count=data.get("matched", 0),
             command=f"Find{entity[1:]}",  # e.g. FindBlob, FindImage, etc.
             result_field="entities",
         )
 
-        # Blob-like entities get special columns specific to the type
-        if entity == "_Blob":
-            # _Blob gets _blob column
-            columns.append(ColumnDefinition(
-                column_name="_blob", type_name="bytea",
-                options=ColumnOptions(
-                    count=data.get("matched", 0), indexed=False, type="blob", listable=False).to_string())
-            )
-            options.blob_column = "_blob"
-        elif entity == "_Image":
-            # _Image gets _image, _as_format, _operations columns
-            columns.append(ColumnDefinition(
-                column_name="_image", type_name="bytea",
-                options=ColumnOptions(
-                    count=data.get("matched", 0), indexed=False, type="blob", listable=False).to_string())
-            )
-            columns.append(ColumnDefinition(
-                column_name="_as_format", type_name="image_format_enum",
-                options=ColumnOptions(
-                    count=data.get("matched", 0), indexed=False, type="string", listable=False).to_string())
-            )
-            columns.append(ColumnDefinition(
-                column_name="_operations", type_name="jsonb",
-                options=ColumnOptions(
-                    count=data.get("matched", 0), indexed=False, type="json", listable=False).to_string())
-            )
-            options.blob_column = "_image"
-            options.operation_types = ["threshold",
-                                       "resize", "crop", "rotate", "flip"]
+        if entity in OBJECT_COLUMNS_HANDLERS:
+            columns.extend(OBJECT_COLUMNS_HANDLERS[entity]())
 
     except Exception as e:
         logger.exception(
@@ -112,17 +164,20 @@ def system_entity_table() -> TableDefinition:
     """
     table_name = "Entity"
 
+    count = sum(
+        data.get("matched", 0) for class_, data in get_schema().get("entities", {}).get("classes", {}).items() if class_[0] != "_"
+    )
+
     options = TableOptions(
-        type="entity",
+        table_name=f'system."{table_name}"',
+        count=count,
         command=f"FindEntity",
         result_field="entities",
     )
 
-    columns = [
-        ColumnDefinition(
-            column_name="_uniqueid", type_name="text",
-            options=ColumnOptions(count=0, indexed=True, unique=True, type="string").to_string()),
-    ]
+    columns = []
+
+    columns.append(uniqueid_column(count))
 
     columns.extend(get_consistent_properties("entities"))
 
@@ -146,25 +201,39 @@ def system_connection_table() -> TableDefinition:
     """
     table_name = "Connection"
 
+    count = sum(
+        data.get("matched", 0) for class_, data in get_schema().get("connections", {}).get("classes", {}).items()
+    )
+
     options = TableOptions(
-        type="connection",
+        table_name=f'system."{table_name}"',
+        count=count,
         command="FindConnection",
         result_field="connections",
     )
 
-    columns = [
-        ColumnDefinition(
-            column_name="_uniqueid", type_name="text",
-            options=ColumnOptions(count=0, indexed=True, unique=True, type="string").to_string()),
-    ]
+    columns = []
+
+    columns.append(uniqueid_column(count))
 
     columns.extend(get_consistent_properties("connections"))
 
     # Add the _src, and _dst columns
     columns.append(ColumnDefinition(
-        column_name="_src", type_name="text", options=ColumnOptions(indexed=True, type="string").to_string()))
+        column_name="_src",
+        type_name="text",
+        options=ColumnOptions(
+            indexed=True,
+            type="string",
+        ).to_string()))
+
     columns.append(ColumnDefinition(
-        column_name="_dst", type_name="text", options=ColumnOptions(indexed=True, type="string").to_string()))
+        column_name="_dst",
+        type_name="text",
+        options=ColumnOptions(
+            indexed=True,
+            type="string",
+        ).to_string()))
 
     logger.debug(
         f"Creating system connection table as {table_name} with columns: {columns} and options: {options}")
@@ -174,13 +243,14 @@ def system_connection_table() -> TableDefinition:
         columns=columns,
         options=options.to_string()
     )
+
     logger.debug(f"System connection table created: {result}")
     return result
 
 
 def get_consistent_properties(type_: Literal["entities", "connections"]) -> List[ColumnDefinition]:
     """
-    Get column definitions for properties that are consistent across all classes of a given type.
+    Get column definitions for properties that are consistently typed across all classes of a given type.
     """
     property_types = defaultdict(set)
     schema = get_schema()

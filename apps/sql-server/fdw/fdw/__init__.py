@@ -1,16 +1,20 @@
+from .common import get_pool, get_log_level, compact_pretty_json
+from .table import TableOptions
+from .column import ColumnOptions
+from multicorn import ForeignDataWrapper, Qual
+import numpy as np
 import atexit
 import json
 import os
 import logging
-from aperturedb.CommonLibrary import create_connector
 from datetime import datetime
 import sys
-from multicorn import TableDefinition, ColumnDefinition, ForeignDataWrapper
 from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict
-from dotenv import load_dotenv
-from collections import defaultdict
-from .common import get_pool, get_log_level, TableOptions, ColumnOptions
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
+
+import pydantic
+import sys
+import importlib.util
 
 
 # Configure logging
@@ -22,7 +26,6 @@ handler.setFormatter(logging.Formatter(
 logging.basicConfig(level=log_level, force=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(log_level)
-
 logger.addHandler(handler)
 logger.propagate = False
 
@@ -37,17 +40,6 @@ def flush_logs():
 
 atexit.register(flush_logs)
 
-
-# Mapping from ApertureDB types to PostgreSQL types.
-TYPE_MAP = {
-    "number": "double precision",
-    "string": "text",
-    "boolean": "boolean",
-    "datetime": "timestamptz",
-    "json": "jsonb",
-    "blob": "bytea",
-}
-
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
 BATCH_SIZE_WITH_BLOBS = 10
@@ -61,203 +53,6 @@ class FDW(ForeignDataWrapper):
     The class method `import_schema` says what tables and columns to create in PostgreSQL.
     It also passes options for each table and column that are passed into `__init__`.
     """
-
-    def __init__(self, fdw_options, fdw_columns):
-        super().__init__(fdw_options, fdw_columns)
-
-        self._options = TableOptions.from_string(fdw_options)
-        self._columns = {
-            name: ColumnOptions.from_string(col.options)
-            for name, col in fdw_columns.items()}
-        logger.info("FDW initialized with options: %s", fdw_options)
-
-    def _normalize_row(self, columns, row: dict) -> dict:
-        """
-        Normalize a row to ensure it has the correct types for PostgreSQL.
-        This is used to convert ApertureDB types to PostgreSQL types.
-        """
-        result = {}
-        for col in columns:
-            if col not in row:
-                continue
-            type_ = self._columns[col].type
-            if type_ == "datetime":
-                value = row[col]["_date"] if row[col] else None
-            elif type_ == "json":
-                value = json.dumps(row[col])
-            elif type_ == "blob":
-                value = row[col]
-            else:
-                value = row[col]
-            result[col] = value
-        return result
-
-    def _get_as_format(self, quals) -> Optional[str]:
-        """
-        Get the 'as_format' from the quals if it exists.
-        This is used to determine how to return image data.
-        """
-        for qual in quals:
-            if qual.field_name == "_as_format":
-                assert qual.operator == "=", f"Unexpected operator for _as_format: {qual.operator}  Expected '='"
-                return qual.value
-        return None
-
-    def _get_operations(self, quals) -> Optional[List[dict]]:
-        """
-        Get the 'operations' from the quals if it exists.
-        This is used to determine what operations to perform on the image data.
-        """
-        for qual in quals:
-            if qual.field_name == "_operations":
-                assert qual.operator == "=", f"Unexpected operator for _operations: {qual.operator}  Expected '='"
-                operations = json.loads(qual.value)
-                for op in operations:
-                    if not isinstance(op, dict):
-                        raise ValueError(
-                            f"Invalid operation format: {op}. Expected a dictionary.")
-                    if "type" not in op:
-                        raise ValueError(
-                            f"Operation must have 'type': {op}")
-                    if op["type"] not in self._options.operation_types:
-                        raise ValueError(
-                            f"Invalid operation type: {op['type']}. Expected one of {self._options.operation_types}")
-                return operations
-        return None
-
-    def _get_query(self, columns: Set[str], blobs: bool, as_format: Optional[str], operations: Optional[List[dict]], batch_size: int) -> List[dict]:
-        """
-        Construct the query to execute against ApertureDB.
-        This is used to build the query based on the columns and options.
-        """
-        query = [{
-            self._options.command: {
-                **self._options.extra,
-                **({"results": {"list": list(columns)}} if columns else {}),
-                "batch": {
-                    "batch_id": 0,
-                    "batch_size": batch_size
-                },
-                **({"blobs": True} if blobs else {}),
-                **({"as_format": as_format} if as_format else {}),
-                **({"operations": operations} if operations else {}),
-            }
-        }]
-        return query
-
-    def _get_next_query(self, query: List[dict], response: List[dict]) -> Optional[List[dict]]:
-        """
-        Get the next query to execute based on the response from the previous query.
-        This is used to handle batching.
-        """
-        if not response or len(response) != 1:
-            logger.warning(
-                f"No results found for query: {query} -> {response}")
-            return None
-
-        if "batch" not in response[0][self._options.command]:
-            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
-            logger.info(
-                f"Single batch found for query: {query} -> {response[:10]}")
-            return None
-
-        batch_id = response[0][self._options.command]["batch"]["batch_id"]
-        total_elements = response[0][self._options.command]["batch"]["total_elements"]
-        end = response[0][self._options.command]["batch"]["end"]
-
-        if end >= total_elements:  # No more batches to process
-            return None
-
-        next_query = query.copy()
-        next_query[0][self._options.command]["batch"]["batch_id"] += 1
-        return next_query
-
-    def _get_query_results(self, query: List[dict]) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
-        logger.debug(f"Executing query: {query}")
-
-        start_time = datetime.now()
-        _, results, blobs = get_pool().execute_query(query)
-        elapsed_time = datetime.now() - start_time
-        logger.info(
-            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(blobs) if blobs else 0}")
-
-        if not results or len(results) != 1:
-            logger.warning(
-                f"No results found for entity query. {query} -> {results}")
-            raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
-
-        result_objects = results[0].get(
-            self._options.command, {}).get(self._options.result_field, [])
-        if not blobs:
-            for row in result_objects:
-                yield row, None
-        else:
-            for row, blob in zip_longest(result_objects, blobs):
-                yield row or {}, blob
-
-        return results
-
-    def execute(self, quals, columns):
-        """ Execute the FDW query with the given quals and columns.
-
-        Args:
-            quals (list): List of conditions to filter the results.
-                Note that filtering is optional because PostgreSQL will also filter the results.
-            columns (set): List of columns to return in the results.
-        """
-
-        logger.info(
-            f"Executing FDW {self._options.type}/{self._options.class_} with quals: {quals} and columns: {columns}")
-
-        blobs = self._options.blob_column is not None and self._options.blob_column in columns
-        list_columns = {col for col in columns if self._columns[col].listable}
-
-        batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
-        as_format = self._get_as_format(quals)
-        operations = self._get_operations(quals)
-
-        query = self._get_query(
-            columns=list_columns,
-            blobs=blobs,
-            as_format=as_format,
-            operations=operations,
-            batch_size=batch_size)
-
-        n_results = 0
-        while query:
-            gen = self._get_query_results(query)
-            try:
-                while True:
-                    row, blob = next(gen)
-
-                    # Add blob to the row if it exists
-                    if blobs:
-                        row[self._options.blob_column] = blob
-
-                    # Add special columns if they exist so that Postgres doesn't filter out rows
-                    if as_format:
-                        row["_as_format"] = as_format
-                    if operations:
-                        row["_operations"] = operations
-
-                    result = self._normalize_row(columns, row)
-
-                    logger.debug(
-                        f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)}"
-                    )
-                    n_results += 1
-                    if n_results % 1000 == 0:
-                        logger.info(
-                            f"Yielded {n_results} results so far for FDW {self._options.type}/{self._options.class_}")
-                    yield result
-            except StopIteration as e:
-                response = e.value  # return value from _get_query_results
-
-            query = self._get_next_query(query, response)
-
-        logger.info(
-            f"Executed FDW {self._options.type}/{self._options.class_} with {n_results} results")
 
     @classmethod
     def import_schema(cls, schema, srv_options, options, restriction_type, restricts):
@@ -295,5 +90,340 @@ class FDW(ForeignDataWrapper):
             raise
         logger.info(f"Schema {schema} imported successfully")
 
+    def __init__(self, fdw_options, fdw_columns):
+        """
+        Initialize the FDW with the given options and columns,
+        which are generated by the import_schema method.
 
-print("FDW class defined successfully")
+        Args:
+            fdw_options (dict): Options for the foreign table.
+            fdw_columns (dict): Columns for the foreign table.
+        """
+        super().__init__(fdw_options, fdw_columns)
+
+        self._options = TableOptions.from_string(fdw_options)
+        self._columns = {
+            name: ColumnOptions.from_string(col.options)
+            for name, col in fdw_columns.items()}
+        logger.info("FDW initialized with options: %s", fdw_options)
+
+    def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
+        """ Execute the FDW query with the given quals and columns.
+
+        Args:
+            quals (list): List of conditions to filter the results.
+                Note that filtering is optional because PostgreSQL will also filter the results.
+            columns (set): List of columns to return in the results.
+        """
+
+        start_time = datetime.now()
+        logger.info(
+            f"Executing FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+
+        self._check_quals(quals, columns)
+
+        query = self._get_query(quals, columns)
+
+        query_blobs = self._get_query_blobs(quals, columns)
+
+        n_results = 0
+        total_elapsed_time = 0
+        exhausted = False
+        n_queries = 0
+        try:
+            while query:
+                n_queries += 1
+                gen = self._get_query_results(query, query_blobs)
+                try:
+                    while True:
+                        row, blob = next(gen)
+                        result = self._post_process_row(
+                            quals, columns, row, blob)
+
+                        logger.debug(
+                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)} blob {len(blob) if blob else None}"
+                        )
+                        n_results += 1
+                        if n_results % 1000 == 0:
+                            logger.info(
+                                f"Yielded {n_results} results so far for FDW {self._options.table_name}")
+                        yield result
+                except StopIteration as e:
+                    response, elapsed_time = e.value  # return value from _get_query_results
+                    total_elapsed_time += elapsed_time.total_seconds()
+
+                query = self._get_next_query(query, response)
+            exhausted = True
+        finally:
+            elapsed_time = datetime.now() - start_time
+            logger.info(
+                f"Executed FDW {self._options.table_name} with {n_results} results and {n_queries} queries in {total_elapsed_time:.2f} seconds in ADB, {elapsed_time.total_seconds():.2f} seconds in execute, {'exhausted' if exhausted else 'not exhausted'}.")
+
+    def _check_quals(self, quals: List[Qual], columns: Set[str]) -> None:
+        """
+        Check the quals to ensure they are valid.
+        """
+        for col in columns:
+            col_type = self._columns[col].type
+            if not self._columns[col].listable:  # special column; apply checks
+                clauses = [qual for qual in quals if qual.field_name == col]
+
+                if len(clauses) > 1:
+                    raise ValueError(
+                        f"Multiple WHERE clauses for {col} are not allowed, got {len(clauses)} clauses.")
+                for clause in clauses:
+                    if col_type == "boolean":
+                        if clause.operator not in ["=", "<>", "IS", "IS NOT"]:
+                            raise ValueError(
+                                f"WHERE clauses for boolean column {col} can only use operators '=', '<>', 'IS', or 'IS NOT', got {clause.operator}")
+                    else:
+                        if clause.operator not in ["="]:
+                            raise ValueError(
+                                f"WHERE clauses for non-boolean column {col} can only use operators '=', got {clause.operator}")
+
+    def _get_query(self,
+                   quals: List[Qual],
+                   columns: Set[str],
+                   ) -> List[dict]:
+        """
+        Construct the query to execute against ApertureDB.
+        This is used to build the query based on the columns and options.
+        """
+        listable_columns = {
+            col for col in columns if self._columns[col].listable}
+
+        modifying_columns = {
+            col for col in columns if self._columns[col].modify_command_body is not None}
+
+        command_body = {}
+
+        if listable_columns:
+            command_body["results"] = {"list": list(listable_columns)}
+
+        # Apply table modification, e.g. with_class, set
+        if self._options.modify_command_body:
+            self._options.modify_command_body(command_body=command_body)
+
+        # Apply column modifications
+        for qual in quals:
+            if qual.field_name in modifying_columns:
+
+                n_clauses = len(
+                    [qual2 for qual2 in quals if qual2.field_name == qual.field_name])
+                if n_clauses > 1:
+                    raise ValueError(
+                        f"Multiple WHERE clauses for {qual.field_name} are not allowed, got {n_clauses} clauses.")
+
+                value = self._convert_qual_value(qual)
+                column_options = self._columns[qual.field_name]
+                column_options.modify_command_body(
+                    command_body=command_body, value=value)
+
+        # Check whether anyone has added the blobs parameter
+        blobs = command_body.get("blobs", False)
+        batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
+        command_body["batch"] = {
+            "batch_id": 0,
+            "batch_size": batch_size
+        }
+
+        query = [{self._options.command: command_body}]
+        logger.debug(
+            f"Constructed query: {compact_pretty_json(query, indent=2)}")
+
+        return query
+
+    def _convert_qual_value(self, qual: Qual) -> Any:
+        """
+        Convert qual value into an internal value, depending on type and operator.
+        """
+        col_type = self._columns[qual.field_name].type
+        if col_type == "boolean":
+            value = qual.value == 't'
+            if qual.operator in ["<>", "IS NOT"]:
+                value = not value
+        elif col_type == "json":
+            try:
+                value = json.loads(qual.value)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid JSON in {qual.field_name} clause: {e}")
+        else:
+            # TODO: Might be more conversions needed here
+            value = qual.value
+
+        return value
+
+    def _get_query_blobs(self, quals: List[Qual], columns: Set[str]) -> List[bytes]:
+        query_blob_quals = [qual for qual in quals
+                            if self._columns[qual.field_name].query_blobs is not None]
+
+        if query_blob_quals:
+            if len(query_blob_quals) > 1:
+                raise ValueError(
+                    f"Multiple query blobs requested: {query_blob_quals}. Only one query blob is allowed per query.")
+
+            qual = query_blob_quals[0]
+            value = self._convert_qual_value(qual)
+            return self._columns[qual.field_name].query_blobs(value=value)
+
+        return []
+
+    def _get_query_results(self,
+                           query: List[dict],
+                           query_blobs: List[bytes],
+                           ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
+        logger.debug(f"Executing query: {query}")
+
+        start_time = datetime.now()
+        _, results, response_blobs = get_pool().execute_query(query, query_blobs)
+        elapsed_time = datetime.now() - start_time
+        logger.info(
+            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
+
+        if not results or len(results) != 1:
+            logger.warning(
+                f"No results found for entity query. {query} -> {results}")
+            raise ValueError(
+                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+
+        result_objects = results[0].get(
+            self._options.command, {}).get(self._options.result_field, [])
+        if not response_blobs:
+            for row in result_objects:
+                yield row, None
+        else:
+            for row, blob in zip_longest(result_objects, response_blobs):
+                yield row or {}, blob
+
+        return results, elapsed_time
+
+    def _post_process_row(self,
+                          quals: List[Qual], columns: Set[str],
+                          row: dict, blob: Optional[bytes]) -> dict:
+        """
+        Apply post-processing steps to the row before yielding it.
+
+        This includes converting types from AQL to SQL,
+        adding non-list columns, and any column post-processing.
+        """
+        row = row.copy()  # Avoid modifying the original row
+
+        for qual in quals:
+            if self._columns[qual.field_name].post_process_results is not None:
+                value = self._convert_qual_value(qual)
+                self._columns[qual.field_name].post_process_results(
+                    row=row, value=value, blob=blob)
+
+        # Normalize the row to ensure it has the correct types for PostgreSQL
+        row = self._normalize_row(columns, row)
+
+        row = self._add_non_list_columns(quals, columns, row)
+
+        return row
+
+    def _normalize_row(self, columns, row: dict) -> dict:
+        """
+        Normalize a row to ensure it has the correct types for PostgreSQL.
+        This is used to convert ApertureDB types to PostgreSQL types.
+        """
+        result = {}
+        for col in columns:
+            if col not in row:
+                continue
+            value = self._convert_adb_value(row[col], col)
+            result[col] = value
+        return result
+
+    def _convert_adb_value(self, value, col: str) -> Any:
+        """
+        Convert an ApertureDB value to a PostgreSQL-compatible value.
+        """
+        col_type = self._columns[col].type
+        if col_type == "datetime":
+            value = value["_date"] if value else None
+        elif col_type == "json":
+            value = json.dumps(value)
+        elif col_type == "blob":
+            value = value
+        # elif col_type == "boolean":
+        #     value = 't' if value else 'f'
+        else:
+            value = value
+        return value
+
+    def _add_non_list_columns(self, quals: List[Qual], columns: Set[str],  row: dict) -> dict:
+        """
+        Add non-list columns to the row based on the quals.
+        This is used to ensure that all requested columns are present in the result.
+
+        This is necessary because PostgreSQL will not return rows that don't meet the quals, and it doesn't know that we're
+        using special columns to do magic.
+
+        So we just copy the qual constraints into the row.
+        """
+        logger.debug(
+            f"Adding non-list columns to row: {row}, quals: {quals}, columns: {columns}")
+        row = row.copy()  # Avoid modifying the original row
+        for qual in quals:
+            if not self._columns[qual.field_name].listable:
+                assert qual.field_name not in row, f"Column {qual.field_name} should not be in the row. It is a non-list column."
+                logger.debug(
+                    f"Adding non-list column {qual.field_name} with value {qual.value} to row"
+                )
+                # This double-conversion is necessary because of negative qual operators like IS NOT and <>.
+                value = self._convert_qual_value(qual)
+                value = self._convert_adb_value(value, qual.field_name)
+                row[qual.field_name] = value
+
+        return row
+
+    def _get_next_query(self, query: List[dict], response: List[dict]) -> Optional[List[dict]]:
+        """
+        Get the next query to execute based on the response from the previous query.
+        This is used to handle batching.
+        """
+        if not response or len(response) != 1:
+            logger.warning(
+                f"No results found for query: {query} -> {response}")
+            return None
+
+        if "batch" not in response[0][self._options.command]:
+            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
+            logger.info(
+                f"Single batch found for query: {query} -> {response[:10]}")
+            return None
+
+        batch_id = response[0][self._options.command]["batch"]["batch_id"]
+        total_elements = response[0][self._options.command]["batch"]["total_elements"]
+        end = response[0][self._options.command]["batch"]["end"]
+
+        if end >= total_elements:  # No more batches to process
+            return None
+
+        next_query = query.copy()
+        next_query[0][self._options.command]["batch"]["batch_id"] += 1
+        return next_query
+
+    def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
+        """
+        Generate an EXPLAIN statement for the FDW query.
+        This is used to provide information about how the query will be executed.
+        """
+        logger.info(
+            f"Explaining FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+        self._check_quals(quals, columns)
+
+        result = [f"FDW: {self._options.table_name}"]
+        query = self._get_query(quals, columns)
+        result.append(f"AQL: {compact_pretty_json(query, indent=2)}")
+        query_blobs = self._get_query_blobs(quals, columns)
+        # This part isn't verbose, but can be much slower
+        if query_blobs and verbose:
+            result.append(
+                f"Query Blob: {len(query_blobs[0])} bytes - {query_blobs[0][:10]}... (truncated)")
+
+        return result
+
+
+logger.info("FDW class defined successfully")
