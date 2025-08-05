@@ -27,10 +27,18 @@ fi
 # Make Postgres use the provided certificates if they exist
 if [ -f /etc/tls/certs/tls.crt ] && [ -f /etc/tls/certs/tls.key ]; then
   echo "Using provided TLS certificates for PostgreSQL."
-  cat <<EOF >/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
+  # We copy the certificates because PostgreSQL is very particular about file permissions
+  mkdir -p /app/certs
+  cp /etc/tls/certs/tls.crt /app/certs/tls.crt
+  cp /etc/tls/certs/tls.key /app/certs/tls.key
+  chmod 600 /app/certs/tls.key
+  chown postgres:postgres /app/certs/tls.key
+  chmod 600 /app/certs/tls.crt
+  chown postgres:postgres /app/certs/tls.crt
+  cat <<EOF >>/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 ssl = on
-ssl_cert_file = '/etc/tls/certs/tls.crt'
-ssl_key_file = '/etc/tls/certs/tls.key'
+ssl_cert_file = '/app/certs/tls.crt'
+ssl_key_file = '/app/certs/tls.key'
 EOF
 else
   echo "Warning: TLS certificates not found at /etc/tls/certs/tls.crt and /etc/tls/certs/tls.key. PostgreSQL will not use SSL or will fall back to self-signed mode."
