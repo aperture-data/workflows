@@ -9,6 +9,9 @@ import hashlib
 def hash_string(string):
     return hashlib.sha1(string.encode('utf-8')).hexdigest()
 
+def creator_string(hostname,database_name):
+        return "sql://{}/{}".format(hostname,database_name)
+
 class TableType(Enum):
     ENTITY = 1
     IMAGE = 2
@@ -53,6 +56,7 @@ class CommandlineType:
             parts = item.split('.')
             if len(parts) != 2:
                 raise ValueError(f"Column list item \"{item}\" does not have 2 parts; expect table.column")
+
         return items
 
     @staticmethod

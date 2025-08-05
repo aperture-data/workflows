@@ -1,19 +1,27 @@
-# ingest.py - for ingest from SQL
+# ingest.py - ingest from SQL using a defined plan
 
+# python libraries
 import logging
+import copy
+import datetime as dt
+
+# external libraries
+import magic
+import pandas as pd
+from sqlalchemy import URL,create_engine,Connection,MetaData,select
+
+# aperture libraries
 from aperturedb.EntityDataCSV import EntityDataCSV
 from aperturedb.ImageDataCSV import ImageDataProcessor,ImageDataCSV
 from aperturedb.ConnectionDataCSV import ConnectionDataCSV
+from aperturedb.ParallelLoader import ParallelLoader
 from aperturedb.Sources import Sources
 from aperturedb.Query import ObjectType
-import pandas as pd
-from utils import hash_string,TableSpec,ConnectionSpec
-from sqlalchemy import URL,create_engine,Connection,MetaData,select
-import copy
-import datetime as dt
-import magic
 
-from aperturedb.ParallelLoader import ParallelLoader
+# module libraries
+from utils import hash_string,TableSpec,ConnectionSpec,creator_string
+import common
+
 
 logger = logging.getLogger(__name__)
 
@@ -284,9 +292,12 @@ class Ingester:
         self.workflow_id = None
         self.info = info
         self.types_added = None
+        self.add_table_source = False
 
     def set_workflow_id(self, id):
         self.workflow_id = id
+    def set_add_table_source(self, add_source:bool):
+        self.add_table_source = add_source 
 
     def set_entity_mapper(self, m):
         self.emapper = m
@@ -328,8 +339,7 @@ class Ingester:
         Creates the basic data by reading from the source. Injects some workflow data.
         """
         table_name = self.source.table_name()
-        scheme = "sql://{}/{} ".format(
-                self.source.host_name() , self.source.database_name())
+        scheme = creator_string(self.source.host_name() , self.source.database_name())
         load_time = dt.datetime.now().isoformat()
         full = []
         objects = []
@@ -342,6 +352,8 @@ class Ingester:
         df['wf_creator_key'] = hash_string( "{}/{}".format(scheme,table_name)) 
         if self.workflow_id:
             df['wf_workflow_id'] = self.workflow_id
+        if self.add_table_source:
+            df[common.entity_prop['data_source_table']] = table_name
 
         return df
 

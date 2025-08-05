@@ -68,6 +68,7 @@ class WorkflowSpec:
             raise Exception("Error Initializing WorkflowSpec, failed to add spec")
         if  add_res["status"] != 0: 
             raise Exception("Error Initializing WorkflowSpec, adding spec did not return ok") 
+        logger.info(f"Create Workflow Spec {self.spec_id}")
 
 
     def execute_query(self,
@@ -243,10 +244,9 @@ class WorkflowSpec:
             cls.delete_spec_data(db, workflow_name, spec['workflow_id'] )
 
     @classmethod
-    def clean_bucket(cls,db,provider,bucket):
-        logger.info(f"Cleaning database from bucket {provider}/{bucket}")
+    def delete_all_creator_key(cls,db,creator_key):
+        logger.info(f"Cleaning database from creator key {creator_key}")
         known_objects = [m.value for m in ObjectType]
-        creator_key = utils.generate_bucket_hash(provider, bucket)
         for type_to_clean in known_objects:
             otype = type_to_clean[1:] 
             res,_ = cls.execute_query_with_db(db,[
@@ -326,6 +326,10 @@ class WorkflowSpec:
             }]
 
         )
+        add_res = res[1]["AddEntity"]
+        if "status" not in add_res: 
+            raise Exception("Error Initializing WorkflowRun, failed to add run")
+        logger.info(f"Create Workflow Run {run_id}")
     def link_objects(self,run_id,object_type):
         is_entity = False
         otype = object_type
@@ -342,9 +346,6 @@ class WorkflowSpec:
                 [{
                     f"Find{otype}": {
                         "_ref":3,
-                        "is_connected_to" : {
-                            "ref":2
-                        },
                         "constraints": {
                             "wf_workflow_id": ["==",run_id]
                         },
@@ -364,6 +365,8 @@ class WorkflowSpec:
         if is_entity:
             linkq[2]["FindEntity"]["with_class"] = object_type
         res,_ = self.execute_query(linkq)
+        count = res[2][f"Find{otype}"]["count"]
+        logger.info(f"Linked {count} {otype}") 
 
     def finish_run(self,run_id, extra_props = {}):
         props = extra_props

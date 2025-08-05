@@ -1,5 +1,5 @@
 #!/bin/bash
-ARGS=$(getopt -o i:p:e:n:h:o:U:P:D:L:XE:F: -l images:,pdfs:,table-ignore:,column-ignore:,host:,port:,username:,password:,database:,url-columns:,automate-foreign-keys,entity-map:,fk-map: -- "$@")
+ARGS=$(getopt -o i:p:e:n:h:o:U:P:D:L:XE:F:l: -l images:,pdfs:,table-ignore:,column-ignore:,host:,port:,username:,password:,database:,url-columns:,automate-foreign-keys,entity-map:,fk-map:,log-level: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
@@ -19,9 +19,14 @@ SQL_DATABASE=''
 AUTO_FK=''
 ENTITY_MAP=''
 FK_MAP=''
+LOG_LEVEL=''
 eval set -- "$ARGS"
 while [ : ]; do
   case "$1" in
+      -l | --log-level)
+        LOG_LEVEL=$2
+        shift 2
+        ;;
       -i | --images)
         IMAGES=$2
         shift 2
@@ -107,6 +112,9 @@ vars+=(-e WF_SQL_PASSWORD="$SQL_PASSWORD")
 vars+=(-e WF_SQL_DATABASE="$SQL_DATABASE")
 
 # append commandline arguments that are set into env vars for docker.
+if [ ! -z "$LOG_LEVEL" ]; then
+    vars+=(-e WF_LOG_LEVEL="$LOG_LEVEL")
+fi
 if [ ! -z "$TIGNORES" ]; then
     vars+=(-e WF_TABLES_TO_IGNORE="$TIGNORES")
 fi
