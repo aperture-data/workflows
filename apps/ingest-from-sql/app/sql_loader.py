@@ -10,7 +10,7 @@ from wf_argparse import ArgumentParser
 from ingest import ImageIngester, EntityIngester,SQLProvider,ConnectionIngester,EntityMapper,PDFIngester
 from scan import scan
 from spec import WorkflowSpec
-from utils import TableType,TableSpec,ConnectionSpec,CommandlineType,creator_string
+from utils import TableType, TableSpec, ConnectionSpec, CommandlineType, creator_string, hash_string
 import common
 
 
@@ -91,11 +91,11 @@ def main(args):
         ingestion.load(db)
         linked_types_to_run.update( ingestion.get_types_added() )
 
-    spec.link_objects(str(run_id), linked_types_to_run )
+    for linked in linked_types_to_run:
+        spec.link_objects(str(run_id), linked )
     spec.finish_run(str(run_id), {
         "wf_linked_types" : list(linked_types_to_run),
-        "wf_creator": "sql_ingestor",
-        "wf_creator_key" : creator_string(provider.host_name(), provider.database_name())
+        "wf_creator": "sql_ingestor"
         }
         )
     spec.finish_spec()
