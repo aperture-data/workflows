@@ -131,7 +131,7 @@ def system_table(entity: str, data: dict) -> TableDefinition:
 
         options = TableOptions(
             table_name=f'system."{table_name}"',
-            matched=data.get("matched", 0),
+            count=data.get("matched", 0),
             command=f"Find{entity[1:]}",  # e.g. FindBlob, FindImage, etc.
             result_field="entities",
         )
