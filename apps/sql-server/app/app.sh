@@ -24,24 +24,17 @@ if [ -z "$WF_AUTH_TOKEN" ]; then
   exit 1
 fi
 
-# Make Postgres use the provided certificates if they exist
-if [ -f /etc/tls/certs/tls.crt ] && [ -f /etc/tls/certs/tls.key ]; then
+# Make Postgres use the provided certificates if they exist and are readable by the current user
+CERTS_DIR="/etc/tls/certs"
+if [ -r $CERTS_DIR/tls.crt ] && [ -r $CERTS_DIR/tls.key ]; then
   echo "Using provided TLS certificates for PostgreSQL."
-  # We copy the certificates because PostgreSQL is very particular about file permissions
-  mkdir -p /app/certs
-  cp /etc/tls/certs/tls.crt /app/certs/tls.crt
-  cp /etc/tls/certs/tls.key /app/certs/tls.key
-  chmod 600 /app/certs/tls.key
-  chown postgres:postgres /app/certs/tls.key
-  chmod 600 /app/certs/tls.crt
-  chown postgres:postgres /app/certs/tls.crt
   cat <<EOF >>/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 ssl = on
-ssl_cert_file = '/app/certs/tls.crt'
-ssl_key_file = '/app/certs/tls.key'
+ssl_cert_file = '$CERTS_DIR/tls.crt'
+ssl_key_file = '$CERTS_DIR/tls.key'
 EOF
 else
-  echo "Warning: TLS certificates not found at /etc/tls/certs/tls.crt and /etc/tls/certs/tls.key. PostgreSQL will not use SSL or will fall back to self-signed mode."
+  echo "Warning: TLS certificates not found or not readable at $CERTS_DIR/tls.crt and $CERTS_DIR/tls.key. PostgreSQL will not use SSL or will fall back to self-signed mode."
 fi
 
 # Start PostgreSQL in the background
@@ -53,10 +46,21 @@ until pg_isready -U postgres -h /var/run/postgresql ; do
   sleep 1
 done
 
-# Set the password for the default 'postgres' user
-echo "Setting postgres password..."
-su - postgres -c "set -e ; psql  --set ON_ERROR_STOP=on --username postgres --dbname postgres --command \"CREATE ROLE aperturedb LOGIN PASSWORD '${WF_AUTH_TOKEN}';\""
-
+# Set the password for the 'aperturedb' user
+echo "Setting aperturedb password..."
+# Be careful to avoid problems with special characters in the password
+su - postgres -c "psql" <<EOF
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'aperturedb') THEN
+    EXECUTE format(
+      'CREATE ROLE aperturedb LOGIN PASSWORD %L',
+      '${WF_AUTH_TOKEN}'
+    );
+  END IF;
+END;
+\$\$;
+EOF
 su - postgres -c "set -e ; createdb ${DATABASE}"
 
 function psql_load_sql() {

@@ -65,3 +65,4 @@ RUN pip install --no-cache-dir -r /requirements.txt
 COPY app /app/
 
 EXPOSE 5432
+ENV PGUSER=postgres
