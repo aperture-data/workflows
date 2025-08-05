@@ -49,6 +49,11 @@ class TableOptions(BaseModel):
         """
         return {"table_options": self.model_dump_json()}
 
+    # Reject any extra fields that are not defined in the model.
+    model_config = {
+        "extra": "forbid"
+    }
+
 
 # Utility functions for Curry hooks
 

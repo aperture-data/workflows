@@ -68,6 +68,11 @@ class ColumnOptions(BaseModel):
         """
         return {"column_options": json.dumps(self.dict(), default=str)}
 
+    # Reject any extra fields that are not defined in the model.
+    model_config = {
+        "extra": "forbid"
+    }
+
 
 # Some utility functions for Curry hooks
 

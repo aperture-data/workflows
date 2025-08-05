@@ -77,7 +77,7 @@ def descriptor_schema() -> List[TableDefinition]:
                 options=ColumnOptions(
                     listable=True,
                     type="number",
-                    extra={"distances": True}).to_string()
+                ).to_string()
             ))
 
         # Special field _label has a parameter, but is also listable,
