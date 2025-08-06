@@ -61,7 +61,7 @@ Edges are represented by rows in tables from the `connection` schema.
 You can also use the `system."Connection"` table for unlabelled (but still directed) edges.
 You can think of the connection tables as being like "join tables" or "[associative entities](https://en.wikipedia.org/wiki/Associative_entity).
 
-Every table has a `_uniqueid` column, representing the system-generated ApertureDB property of the same name, acting as a primary key, and which is also used as a foreign key in the `_src_` and `_dst` columns of connections tables.
+Every table has a `_uniqueid` column, representing the system-generated ApertureDB property of the same name, acting as a primary key, and which is also used as a foreign key in the `_src` and `_dst` columns of connections tables.
 
 > **Warning**: Like SQL row identifiers, the values seen in `_uniqueid`, `_src`, and `_dst` can be used within a session, but should not be stored long-term, as they are not guaranteed to survive migration and upgrade.
 
