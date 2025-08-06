@@ -20,7 +20,7 @@ docker run \
 
 Parameters: 
 * **`WF_LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
-* **`WF_AUTH_TOKEN`**: Password for `aperturedb` user in Postgres, and bearer authentication token for REST API
+* **`WF_AUTH_TOKEN`**: Password for the `aperturedb` user in Postgres, and bearer authentication token for REST API
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
