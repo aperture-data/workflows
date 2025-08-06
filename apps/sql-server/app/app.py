@@ -86,7 +86,7 @@ async def sql_query(
                     elif attr.type.name in ("bytea",):  # catch blobs
                         encoded = base64.b64encode(val).decode("ascii")
                         result_row.append(encoded)
-                    elif attr.type.name == "timestamp":
+                    elif attr.type.name == "timestamptz":
                         result_row.append(val.isoformat())
                     else:
                         result_row.append(val)
