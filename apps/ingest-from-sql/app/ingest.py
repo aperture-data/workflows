@@ -82,6 +82,14 @@ class SQLBaseDataCSV():
         props["wf_sha1_hash"] = object_hash
         query[0][self.command]["if_not_found"]= { "wf_sha1_hash" : ["==", object_hash ]}
 
+        # remove any props that are None, as we don't accept that.
+        to_remove = []
+        for k in props.keys():
+            if props[k] is None:
+                to_remove.append(k)
+        for k in to_remove:
+            del props[k]
+
         logger.info(f"SQL Object {resource_name} -> {object_hash}")
         logger.debug("Query = {query}")
         return query,blobs
