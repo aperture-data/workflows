@@ -106,7 +106,7 @@ SELECT _blob FROM system."Blob"
     AND _blobs
 ```
 
-The `_blob` column will contain `BYTESA` data.
+The `_blob` column will contain `BYTEA` data.
 
 > **Tip**: When using the `_blobs` field in a WHERE clause, it can be a plain variable as above, or can be explicitly tested with `_blobs = TRUE` or `_blobs IS TRUE`. To avoid downloading blobs, the `_blobs` clause can be omitted, or negated in the usual way with `NOT _blobs`, `_blobs <> TRUE`, `_blobs = FALSE`, `_blobs IS FALSE`, or `_blobs IS NOT TRUE`.
 
