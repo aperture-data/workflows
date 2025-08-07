@@ -1,7 +1,7 @@
 from wf_argparse import ArgumentParser
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Generator
 from datetime import datetime, timezone
 from uuid import uuid4
 from urllib.parse import urlparse
@@ -101,7 +101,7 @@ class ApertureDBSpider(CrawlSpider):
                                 signal=signals.spider_closed)
         return spider
 
-    def process_response(self, response) -> ApertureDBItem:
+    def process_response(self, response) -> Generator[ApertureDBItem, None, None]:
         """Process the response from the request.
 
         The resulting item contains a properties dictionary and a blob.
@@ -114,7 +114,7 @@ class ApertureDBSpider(CrawlSpider):
             referrer = response.request.headers.get(
                 'Referer', b'None').decode('utf-8')
             self.error_urls.append([response.status, response.url, referrer])
-            return None
+            return
 
         properties = {}
 
@@ -167,7 +167,7 @@ class ApertureDBSpider(CrawlSpider):
         properties['crawl_time'] = {
             "_date": datetime.now(timezone.utc).isoformat()}
 
-        return ApertureDBItem(properties=properties, blob=response.body)
+        yield ApertureDBItem(properties=properties, blob=response.body)
 
     def spider_closed(self, reason):
         logging.info(f"Spider closed: {reason}")
