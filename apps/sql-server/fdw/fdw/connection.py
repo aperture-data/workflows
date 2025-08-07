@@ -25,16 +25,23 @@ def connection_schema() -> List[TableDefinition]:
     logger.info("Creating connection schema")
     results = []
     schema = get_schema()
-    if "connections" in schema and "classes" in schema["connections"]:
-        assert isinstance(schema["connections"]["classes"], dict), \
-            f"Expected connections.classes to be a dict, got {type(schema['connections']['classes'])}"
-        for connection, data in schema["connections"]["classes"].items():
-            # We don't currently allow `with_class` to be used with internal connection classes.
-            if connection[0] == "_":
-                logger.warning(
-                    f"Skipping connection {connection} as it starts with an underscore")
-                continue
-            results.append(connection_table(connection, data))
+    if schema.get("connections") is None:
+        logger.warning("No connections found in schema")
+        return results
+    classes = schema.get("connections", {}).get("classes", {})
+    if not classes:
+        logger.warning("No connection classes found in schema")
+        return results
+
+    assert classes, \
+        f"Expected connections.classes to be a dict, got {type(schema['connections']['classes'])}"
+    for connection, data in classes.items():
+        # We don't currently allow `with_class` to be used with internal connection classes.
+        if connection[0] == "_":
+            logger.warning(
+                f"Skipping connection {connection} as it starts with an underscore")
+            continue
+        results.append(connection_table(connection, data))
     return results
 
 

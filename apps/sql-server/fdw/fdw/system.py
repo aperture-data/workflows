@@ -164,9 +164,10 @@ def system_entity_table() -> TableDefinition:
     """
     table_name = "Entity"
 
+    schema = get_schema()
     count = sum(
-        data.get("matched", 0) for class_, data in get_schema().get("entities", {}).get("classes", {}).items() if class_[0] != "_"
-    )
+        data.get("matched", 0) for class_, data in schema.get("entities", {}).get("classes", {}).items() if class_[0] != "_"
+    ) if schema.get("entities") else 0
 
     options = TableOptions(
         table_name=f'system."{table_name}"',
@@ -201,9 +202,10 @@ def system_connection_table() -> TableDefinition:
     """
     table_name = "Connection"
 
+    schema = get_schema()
     count = sum(
-        data.get("matched", 0) for class_, data in get_schema().get("connections", {}).get("classes", {}).items()
-    )
+        data.get("matched", 0) for class_, data in schema.get("connections", {}).get("classes", {}).items()
+    ) if schema.get("connections", {}) else 0
 
     options = TableOptions(
         table_name=f'system."{table_name}"',
@@ -254,6 +256,10 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     """
     property_types = defaultdict(set)
     schema = get_schema()
+    if not schema.get(type_):
+        logger.warning(f"No {type_} found in schema")
+        return []
+
     if type_ in schema and "classes" in schema[type_]:
         for data in schema[type_]["classes"].values():
             if "properties" in data and data["properties"] is not None:
