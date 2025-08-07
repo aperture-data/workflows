@@ -171,7 +171,8 @@ class Embedder():
         required_keys = ["embeddings_provider",
                          "embeddings_model", "embeddings_pretrained"]
         # TODO: Consider adding more checks, e.g., for the provider and model name.
-        return all(key in properties for key in required_keys)
+        return all(key in properties and properties[key] is not None
+                   for key in required_keys)
 
     @classmethod
     def from_properties(cls,
