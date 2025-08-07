@@ -1,2 +1,4 @@
 fastmcp==2.10.2
 psycopg[binary]
+numpy<2
+opencv-python-headless==4.11.0.86
