@@ -7,10 +7,7 @@ from aperturedb.Descriptors import Descriptors
 
 from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
-from embeddings import BatchEmbedder, DEFAULT_MODEL
-
-
-embedder = BatchEmbedder(model_spec=DEFAULT_MODEL)
+from embeddings import Embedder
 
 
 class Document(BaseModel):
@@ -52,8 +49,10 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
-    embedding = embedder.embed_query(query)
     with connection_pool.get_connection() as client:
+        embedder = Embedder.from_existing_descriptor_set(
+            client, descriptor_set)
+        embedding = embedder.embed_text(query)
         entities = Descriptors(client)
         entities.find_similar(
             set=descriptor_set,
@@ -161,7 +160,9 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
         {
             "FindDescriptorSet": {
                 "results": {
-                    "list": ["_name", "_count"],
+                    "list": ["_name", "_count",
+                             "embeddings_provider",
+                             "embeddings_model", "embeddings_pretrained"],
                 }
             }
         }
@@ -174,6 +175,10 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
         logger.error("No entities found in descriptor set response.")
         return DescriptorSetsResponse(sets=[])
     entities = response[0]["FindDescriptorSet"].get("entities", [])
+    # Only tell the client about descriptor sets that have at least one descriptor
+    # and for which we can find an embedder.
+    entities = [e for e in entities
+                if e.get("_count", 0) > 0 and Embedder.check_properties(e)]
     results = DescriptorSetsResponse(sets=[
         DescriptorSet(
             name=e["_name"],
