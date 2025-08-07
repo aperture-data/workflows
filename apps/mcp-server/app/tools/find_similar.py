@@ -109,7 +109,7 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
         },
     ]
 
-    response, blobs = connection_pool.query(query)
+    _, response, blobs = connection_pool.execute_query(query)
 
     def to_image_document(e, blob):
         return ImageDocument(
@@ -167,12 +167,13 @@ def list_descriptor_sets() -> DescriptorSetsResponse:
             }
         }
     ]
-    response, _ = connection_pool.query(query)
+    _, response, _ = connection_pool.execute_query(query)
     if not response or not response[0].get("FindDescriptorSet"):
-        logger.error("No descriptor sets found or unexpected response format.")
+        logger.warning(
+            "No descriptor sets found or unexpected response format.")
         return DescriptorSetsResponse(sets=[])
     if "entities" not in response[0]["FindDescriptorSet"]:
-        logger.error("No entities found in descriptor set response.")
+        logger.warning("No entities found in descriptor set response.")
         return DescriptorSetsResponse(sets=[])
     entities = response[0]["FindDescriptorSet"].get("entities", [])
     # Only tell the client about descriptor sets that have at least one descriptor
