@@ -49,10 +49,14 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
+
     with connection_pool.get_connection() as client:
         embedder = Embedder.from_existing_descriptor_set(
             client, descriptor_set)
-        embedding = embedder.embed_text(query)
+
+    embedding = embedder.embed_text(query)
+
+    with connection_pool.get_connection() as client:
         entities = Descriptors(client)
         entities.find_similar(
             set=descriptor_set,
@@ -79,8 +83,14 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
     if not descriptor_set:
         raise ValueError(
             "Descriptor set is required. Please provide a valid descriptor set name.")
-    embedding = embedder.embed_query(query)
-    query = [
+
+    with connection_pool.get_connection() as client:
+        embedder = Embedder.from_existing_descriptor_set(
+            client, descriptor_set)
+
+    embedding = embedder.embed_text(query)
+
+    adb_query = [
         {
             "FindDescriptor": {
                 "set": descriptor_set,
@@ -109,7 +119,7 @@ def find_similar_images(query: Annotated[str, Field(description="The query text 
         },
     ]
 
-    _, response, blobs = connection_pool.execute_query(query)
+    _, response, blobs = connection_pool.execute_query(adb_query)
 
     def to_image_document(e, blob):
         return ImageDocument(
