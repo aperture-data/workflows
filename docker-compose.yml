@@ -44,6 +44,7 @@ services:
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
 
     dataset-ingestion:
         build: 
@@ -200,3 +201,5 @@ services:
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
+

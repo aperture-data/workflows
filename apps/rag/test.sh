@@ -79,7 +79,7 @@ function run_crawl() {
                --network ${NETWORK_NAME} \
                -e DB_HOST=${APERTUREDB_NAME} \
                -e WF_START_URLS=${CRAWL_URL} \
-               -e WF_MAX_DOCUMENTS=100 \
+               -e WF_MAX_DOCUMENTS=20 \
                -e WF_OUTPUT=${ID} \
                --rm \
                ${CRAWL_IMAGE}
