@@ -1,5 +1,5 @@
 import sys
-from status import StatusUpdater, WorkFlowError, WorkflowStatus
+from status_tools import StatusUpdater, WorkFlowError
 
 old_handler = sys.excepthook
 

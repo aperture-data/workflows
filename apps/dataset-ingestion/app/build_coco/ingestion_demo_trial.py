@@ -6,7 +6,7 @@ import subprocess
 
 sys.path.append("/app")
 from log_processor import LogProcessor
-from status import StatusUpdater
+from status_tools import StatusUpdater
 
 def ingest_coco(cli_args):
     """
