@@ -11,6 +11,8 @@ import resources
 from shared import logger
 from shared import args
 
+from status_tools import StatusUpdater, WorkflowStatus
+
 
 def test_connection():
     """Test connection to the ApertureDB database."""
@@ -35,3 +37,9 @@ mcp = FastMCP(
 
 register_tools(mcp)
 register_resources(mcp)
+
+updater = StatusUpdater()
+updater.post_update(
+    status=WorkflowStatus.RUNNING,
+    accessible=True,
+)
