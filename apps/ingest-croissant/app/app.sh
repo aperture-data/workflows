@@ -16,4 +16,4 @@ echo "Command args: $COMMAND_ARGS"
 python3 execute_query.py $WF_CROISSANT_URL
 export WF_CROISSANT_URL
 export COMMAND_ARGS
-python log_processor.py "/app/venv/bin/adb ingest from-croissant $WF_CROISSANT_URL $COMMAND_ARGS"
+python log_processor.py "/opt/venv/bin/adb ingest from-croissant $WF_CROISSANT_URL $COMMAND_ARGS"

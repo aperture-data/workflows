@@ -1,5 +1,4 @@
 from typing import List, Optional
-from prometheus_client import Gauge, Enum, Info
 import logging
 from enum import Enum as PyEnum
 from typer import Typer
