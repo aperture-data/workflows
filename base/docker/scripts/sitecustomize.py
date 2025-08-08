@@ -3,7 +3,11 @@ from status_tools import StatusUpdater, WorkFlowError
 
 old_handler = sys.excepthook
 
-print("Setting up exception handler")
+import logging
+
+old_handler = sys.excepthook
+
+logging.info("Setting up exception handler")
 updater = StatusUpdater()
 
 def exception_handler(type, value, tb):
