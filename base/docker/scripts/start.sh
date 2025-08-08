@@ -122,7 +122,17 @@ else
     ret_val="${PIPESTATUS[0]}"
 
     if [ "${ret_val}" -ne 0 ]; then
-        error_message=$(curl -s http://${HOSTNAME}:8080/status | jq -r '.error_message')
+        status_response=$(curl -s http://${HOSTNAME}:8080/status)
+        curl_exit_code=$?
+        if [ $curl_exit_code -ne 0 ] || [ -z "$status_response" ]; then
+            error_message="Failed to fetch status from http://${HOSTNAME}:8080/status (curl exit code: $curl_exit_code)"
+        else
+            error_message=$(echo "$status_response" | jq -r '.error_message' 2>/dev/null)
+            jq_exit_code=$?
+            if [ $jq_exit_code -ne 0 ] || [ -z "$error_message" ] || [ "$error_message" == "null" ]; then
+                error_message="Failed to parse error_message from status response"
+            fi
+        fi
         python status.py --completed 0 --error-message "${error_message}. Failed with exit code: ${ret_val}" --error-code "workflow_error"
     fi
 
