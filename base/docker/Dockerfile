@@ -33,10 +33,9 @@ RUN pip3 install --upgrade pip && \
 
 RUN pip3 install --upgrade aperturedb
 
-RUN mkdir -p app/output
+RUN rm /usr/lib/python3.10/sitecustomize.py
 
 COPY scripts/app.sh app/
-
 COPY scripts/userlog.py app/
 COPY scripts/slack-alert.py app/
 COPY scripts/batcher.py app/
@@ -47,6 +46,7 @@ COPY scripts/status.py app/
 COPY scripts/log_processor.py app/
 COPY scripts/text_extraction app/text_extraction/
 COPY scripts/embeddings app/embeddings/
+COPY scripts/sitecustomize.py app/
 
 COPY scripts/start.sh /
 

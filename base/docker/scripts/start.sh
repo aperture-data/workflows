@@ -12,6 +12,7 @@ LOGFILE="${OUTPUT}/log.log"
 APPLOG="${OUTPUT}/app.log"
 S3LOGFILE="upload_s3.log"
 
+mkdir -p ${OUTPUT}
 
 ENVIRONMENT=${ENVIRONMENT:-"develop"}
 
@@ -92,13 +93,12 @@ adb config create default \
     "${params[@]}" \
     --no-interactive
 
-echo "Verifying connectivity to ${DB_HOST}..."
-adb utils execute status >> $LOGFILE
-connectivity_status=$?
+echo "Verifying connectivity to ${DB_HOST}..." | tee -a $LOGFILE
+adb utils execute status 2>&1 | tee -a $LOGFILE
+ret_val="${PIPESTATUS[0]}"
 
-if [ "${connectivity_status}" -ne 0 ]; then
+if [ "${ret_val}" -ne 0 ]; then
     python status.py --completed 0 --error-message "Could not connect to database" --error-code "workflow_error"
-    ret_val=${connectivity_status}
 else
     echo "Done."
 
@@ -118,17 +118,16 @@ else
     echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..."
     echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." >> $LOGFILE
 
-    bash app.sh |& tee -a $APPLOG
+    PYTHONPATH=. bash app.sh |& tee -a $APPLOG
     ret_val="${PIPESTATUS[0]}"
 
     if [ "${ret_val}" -ne 0 ]; then
-        python status.py --completed 0 --error-message "failed" --error-code "workflow_error"
+        error_message=$(curl -s http://${HOSTNAME}:8080/status | jq -r '.error_message')
+        python status.py --completed 0 --error-message "${error_message}. Failed with exit code: ${ret_val}" --error-code "workflow_error"
     fi
 
+    echo "App Done." | tee -a $LOGFILE
 
-    echo "App Done." >> $LOGFILE
-
-    echo "App Done."
     end=`date +%s`
     runtime=$((end-start))
 
