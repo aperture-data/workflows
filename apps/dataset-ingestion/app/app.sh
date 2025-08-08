@@ -17,7 +17,7 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
-STATUS_SCRIPT="/app/status.py"
+STATUS_SCRIPT="/app/status_tools.py"
 
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"

@@ -26,7 +26,7 @@ def get_workflow_status():
     # print("Fetching status from the server...")
     RESPONSE["completeness"] = min(count / 10.0, 1.0)  # Simulate progress
     try:
-        response = requests.get(f"http://{os.environ.get('HOSTNAME')}:8000")
+        response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PORT')}/status")
     except Exception as e:
         # print("Connection refused. The server might not be running.")
         RESPONSE["accessible"] = False
@@ -53,7 +53,7 @@ def get_workflow_status():
 
 
         try:
-            ur = requests.post(f"http://{os.environ.get('HOSTNAME')}:8080/response", json=RESPONSE)
+            ur = requests.post(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PORT')}/response", json=RESPONSE)
             if ur.ok:
                 print("Status updated successfully.")
         except Exception as e:
@@ -113,9 +113,11 @@ if __name__ == "__main__":
             time.sleep(2)
     background_thread = threading.Thread(target=get_status_periodically)
     background_thread.daemon = True  # Allows the thread to exit when the main program exits
+
+
     background_thread.start()  # Start the background thread to fetch status
 
     # Runs the Uvicorn server.
     # 'main:app' tells Uvicorn to look for an 'app' object in 'main.py'.
     # '--reload' enables auto-reloading when code changes are detected.
-    uvicorn.run("status_server:app", host="0.0.0.0", port=8080, reload=True, access_log=False, timeout_keep_alive=1800)
+    uvicorn.run("status_server:app", host="0.0.0.0", port=int(os.environ.get('PORT')), reload=True, access_log=False, timeout_keep_alive=1800)
