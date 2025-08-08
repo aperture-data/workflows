@@ -188,6 +188,7 @@ class ApertureDBSpider(CrawlSpider):
             logging.error(
                 "No documents processed, this may indicate an issue with the crawl.")
             self.crawler.engine.close_spider(self, "no_documents_processed")
+            # Bypass scrapy's error handling to exit immediately
             os._exit(1)
 
 
