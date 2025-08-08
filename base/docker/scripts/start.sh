@@ -43,7 +43,9 @@ fi
 echo "Starting Status Server: ..."
 # Start fastapi-based status server
 # This is used to provide a status endpoint for the workflow.
-HOSTNAME=$(hostname -f) python3 status_server.py &
+STATUS_SERVER_HOSTNAME=$(hostname -f)
+STATUS_SERVER_PORT=8080
+HOSTNAME=${STATUS_SERVER_HOSTNAME} PORT=${STATUS_SERVER_PORT} python3 status_server.py &
 # Wait for the status server to start
 while [ -z "$(lsof -i:8080)" ]; do
     echo "Waiting for Status Server to start on port 8080..."
@@ -117,18 +119,17 @@ else
     # Move all log files to output folder
 
     start=`date +%s`
-    echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..."
-    echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." >> $LOGFILE
+    echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." | tee -a $LOGFILE
     export PYTHONPATH=.
 
     bash app.sh |& tee -a $APPLOG
     ret_val="${PIPESTATUS[0]}"
 
     if [ "${ret_val}" -ne 0 ]; then
-        status_response=$(curl -s http://${HOSTNAME}:8080/status)
+        status_response=$(curl -s http://${HOSTNAME}:${STATUS_SERVER_PORT}/status)
         curl_exit_code=$?
         if [ $curl_exit_code -ne 0 ] || [ -z "$status_response" ]; then
-            error_message="Failed to fetch status from http://${HOSTNAME}:8080/status (curl exit code: $curl_exit_code)"
+            error_message="Failed to fetch status from http://${HOSTNAME}:${STATUS_SERVER_PORT}/status (curl exit code: $curl_exit_code)"
         else
             error_message=$(echo "$status_response" | jq -r '.error_message' 2>/dev/null)
             jq_exit_code=$?

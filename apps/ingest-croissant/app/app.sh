@@ -12,9 +12,6 @@ fi
 echo "Ingesting Croissant dataset from $WF_CROISSANT_URL with sample count $SAMPLE_COUNT and flatten json $FLATTEN_JSON"
 echo "Command args: $COMMAND_ARGS"
 
-echo "Environment variables:"
-env
-
 python3 execute_query.py $WF_CROISSANT_URL
 ret_val=$?
 if [ "${ret_val}" -ne 0 ]; then
