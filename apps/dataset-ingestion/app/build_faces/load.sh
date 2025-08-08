@@ -6,7 +6,7 @@ NUM_WORKERS=${NUM_WORKERS:=8}
 CLEAN=${CLEAN:=true}
 SAMPLE_COUNT=${SAMPLE_COUNT:=10}
 
-STATUS_SCRIPT="/app/status.py"
+STATUS_SCRIPT="/app/status_tools.py"
 if [[ ${CLEAN} == "true" ]]; then
     echo "Cleaning the database"
     adb utils execute remove_all --force

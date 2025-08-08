@@ -85,6 +85,8 @@ if [ "$USE_REST" == true ]; then
     params+=(--use-rest)
 fi
 
+STATUS_SCRIPT=/app/status_tools.py
+
 adb config create default \
     --host=$DB_HOST \
     --port=$DB_PORT \
@@ -98,7 +100,7 @@ adb utils execute status 2>&1 | tee -a $LOGFILE
 ret_val="${PIPESTATUS[0]}"
 
 if [ "${ret_val}" -ne 0 ]; then
-    python status.py --completed 0 --error-message "Could not connect to database" --error-code "workflow_error"
+    python $STATUS_SCRIPT --completed 0 --error-message "Could not connect to database" --error-code "workflow_error"
 else
     echo "Done."
 
@@ -117,8 +119,9 @@ else
     start=`date +%s`
     echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..."
     echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." >> $LOGFILE
+    export PYTHONPATH=.
 
-    PYTHONPATH=. bash app.sh |& tee -a $APPLOG
+    bash app.sh |& tee -a $APPLOG
     ret_val="${PIPESTATUS[0]}"
 
     if [ "${ret_val}" -ne 0 ]; then
@@ -133,7 +136,7 @@ else
                 error_message="Failed to parse error_message from status response"
             fi
         fi
-        python status.py --completed 0 --error-message "${error_message}. Failed with exit code: ${ret_val}" --error-code "workflow_error"
+        python $STATUS_SCRIPT --completed 0 --error-message "${error_message}. Failed with exit code: ${ret_val}" --error-code "workflow_error"
     fi
 
     echo "App Done." | tee -a $LOGFILE

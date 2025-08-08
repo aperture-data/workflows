@@ -5,7 +5,7 @@ set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
 NOT_READY_FILE=/workflows/rag/not-ready.txt
-STATUS_SCRIPT="/app/status.py"
+STATUS_SCRIPT="/app/status_tools.py"
 
 python $STATUS_SCRIPT --completed 0 \
       --phases rag \
