@@ -7,6 +7,7 @@ import base64
 import asyncpg
 import os
 import logging
+from status_tools import StatusUpdater, WorkflowStatus
 
 
 app = FastAPI(
@@ -51,6 +52,13 @@ class SQLQueryResponse(BaseModel):
 @app.on_event("startup")
 async def startup():
     await init_pool()
+    updater = StatusUpdater()
+    updater.post_update(
+        status=WorkflowStatus.RUNNING,
+        accessible=True,
+        phases=["running"],
+        phase="running"
+    )
 
 
 @app.post("/sql/query")
