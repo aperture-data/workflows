@@ -114,9 +114,11 @@ echo "Pipeline completed with status $pipeline_status"
 
 if [ $pipeline_status -ne 0 ]; then
     echo "Pipeline failed with status $pipeline_status, shutting down server"
-    kill $server_pid 2>/dev/null || true
-    pkill -f 'uvicorn' || true
-    wait $server_pid 2>/dev/null || true
+    pgid="$(ps -o pgid= -p $$ | tr -d ' ')"
+    echo "Killing server with PGID $pgid"
+    kill -TERM "-$pgid" || true
+    sleep 1 # Give server time to shut down gracefully
+    kill -KILL "-$pgid" || true
     exit $pipeline_status
 fi
 

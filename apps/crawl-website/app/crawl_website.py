@@ -184,6 +184,11 @@ class ApertureDBSpider(CrawlSpider):
 
         doc_count = self.crawler.stats.get_value('itempipeline/item_count', 0)
         logging.info(f"Total documents processed: {doc_count}")
+        if doc_count == 0:
+            logging.error(
+                "No documents processed, this may indicate an issue with the crawl.")
+            self.crawler.engine.close_spider(self, "no_documents_processed")
+            os._exit(1)
 
 
 class ApertureDBPipeline:
