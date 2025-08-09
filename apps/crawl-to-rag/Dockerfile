@@ -1,9 +1,9 @@
 # Name the source images
 ARG VERSION=latest
-FROM aperturedata/workflows-crawl-website:${VERSION} as crawl-website
-FROM aperturedata/workflows-text-extraction:${VERSION} as text-extraction
-FROM aperturedata/workflows-text-embeddings:${VERSION} as text-embeddings
-FROM aperturedata/workflows-rag:${VERSION} as rag
+FROM aperturedata/workflows-crawl-website:${VERSION} AS crawl-website
+FROM aperturedata/workflows-text-extraction:${VERSION} AS text-extraction
+FROM aperturedata/workflows-text-embeddings:${VERSION} AS text-embeddings
+FROM aperturedata/workflows-rag:${VERSION} AS rag
 
 FROM aperturedata/workflows-base:${VERSION}
 
