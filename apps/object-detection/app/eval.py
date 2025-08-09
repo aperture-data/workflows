@@ -149,7 +149,7 @@ def main(params):
         except:
             print("Error getting total images:")
             db.print_last_response()
-            total = 0
+            raise
 
     if total == 0:
         print("No images to process.")
@@ -182,7 +182,7 @@ def main(params):
                 client, q, batch_size=1, label_prop="_uniqueid")
     except Exception as e:
         print("Error creating dataset:", e)
-        dataset = []
+        raise
 
     total = len(dataset)
     print("Total images in the dataset:", total)
