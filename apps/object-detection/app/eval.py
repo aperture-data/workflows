@@ -305,10 +305,11 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
         print("Something went wrong, exiting...")
+        raise
     except KeyboardInterrupt:
         stop = True
         print("Keyboard interrupt, exiting...")
-
-    dist.destroy_process_group()
+    finally:
+        dist.destroy_process_group()
 
     print("Done, bye.")
