@@ -32,7 +32,7 @@ class ArgumentParser:
                      **kwargs):
         if type is bool:
             type = self.str2bool
-        elif type is str:
+        elif type in (str, None):
             type = self.trim
 
         action = 'append' if sep else None
