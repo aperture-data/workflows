@@ -2,7 +2,7 @@ from typing import Callable, Any
 from pydoc import locate
 from pydantic import BaseModel, GetCoreSchemaHandler, GetJsonSchemaHandler, TypeAdapter
 from collections import defaultdict
-from typing import List, Optional, Dict, Callable, Any
+from typing import List, Optional, Dict, Callable, Any, Literal
 from multicorn import ColumnDefinition
 from dotenv import load_dotenv
 import logging
@@ -74,6 +74,27 @@ def get_schema() -> Dict:
             _SCHEMA = utils.get_schema()
             logger.info("Schema loaded")
     return _SCHEMA
+
+
+def get_classes(field: Literal["entities", "connections"],
+                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Get the classes for entities or connections from the schema.
+
+    Guarantees to return a (possibly empty) dict, even if the field is not present.
+    """
+    if schema is None:
+        schema = get_schema()
+    if schema.get(field) is None:
+        logger.warning(f"No {field} found in schema")
+        return {}
+    classes = schema.get(field, {}).get("classes", {})
+    if not classes:
+        logger.warning(f"No {field} classes found in schema")
+        return {}
+    assert classes, \
+        f"Expected {field}.classes to be a dict, got {type(schema[field]['classes'])}"
+    return classes
 
 
 # Mapping from ApertureDB types to PostgreSQL types.

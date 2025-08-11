@@ -5,7 +5,7 @@
 # SELECT * FROM "CrawlDocument" LIMIT 10;
 
 from multicorn import TableDefinition
-from .common import get_schema, Curry
+from .common import get_classes, Curry
 from .column import property_columns
 from .table import TableOptions, literal
 from typing import List
@@ -21,16 +21,7 @@ def entity_schema() -> List[TableDefinition]:
     """
     logger.info("Creating entity schema")
     results = []
-    schema = get_schema()
-    if schema.get("entities") is None:
-        logger.warning("No entities found in schema")
-        return results
-    classes = schema.get("entities", {}).get("classes", {})
-    if not classes:
-        logger.warning("No entity classes found in schema")
-        return results
-    assert classes, \
-        f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
+    classes = get_classes("entities")
     for entity, data in classes.items():
         if entity[0] != "_":
             results.append(entity_table(entity, data))
