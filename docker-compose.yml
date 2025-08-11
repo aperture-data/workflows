@@ -19,6 +19,14 @@ x-definitions:
         org.opencontainers.image.source: "${SOURCE_URL}"
 
 services:
+    # not a workflow, but provided for convenience; used in tests
+    aperturedb:
+        image: aperturedata/aperturedb:latest
+        ports:
+            - "55555:55555"
+        environment:
+            ADB_MASTER_KEY: admin
+
     # base image for all workflows; intended for build only
     base:
         build: 
@@ -144,6 +152,23 @@ services:
             WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
             WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
             WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"           
+
+    sql-server:
+        build: 
+            context: ./apps/sql-server
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-sql-server:${VERSION}"
+        image: aperturedata/workflows-sql-server:${VERSION}
+        ports:
+            - "5432:5432"
+            - "8005:80"
+        environment:
+            <<: *common-env
+            WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     text-embeddings:
         build: 

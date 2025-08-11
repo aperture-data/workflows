@@ -73,7 +73,7 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
             options=ColumnOptions(
                 count=data.get("matched", 0),
                 indexed=True,
-                type="string",
+                type="uniqueid",
             ).to_string()))
         columns.append(ColumnDefinition(
             column_name="_dst",
@@ -81,7 +81,7 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
             options=ColumnOptions(
                 count=data.get("matched", 0),
                 indexed=True,
-                type="string",
+                type="uniqueid",
             ).to_string()))
     except Exception as e:
         logger.exception(

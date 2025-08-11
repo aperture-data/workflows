@@ -7,6 +7,7 @@ import base64
 import asyncpg
 import os
 import logging
+import json
 
 
 app = FastAPI(
@@ -90,6 +91,16 @@ async def sql_query(
                         result_row.append(val.isoformat())
                     else:
                         result_row.append(val)
+                try:
+                    s = json.dumps(result_row)
+                except TypeError as e:
+                    logger.error(f"Error serializing row {result_row}: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Error serializing row: {e}"
+                    )
+                logger.debug(f"Serialized row: {s}")
+
                 result_rows.append(result_row)
 
             logger.debug(f"Result rows: {result_rows}")

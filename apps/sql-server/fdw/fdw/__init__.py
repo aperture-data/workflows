@@ -204,6 +204,9 @@ class FDW(ForeignDataWrapper):
         if self._options.modify_command_body:
             self._options.modify_command_body(command_body=command_body)
 
+        # apply constraints
+        self._apply_constraints(quals, columns, command_body=command_body)
+
         # Apply column modifications
         for qual in quals:
             if qual.field_name in modifying_columns:
@@ -233,14 +236,91 @@ class FDW(ForeignDataWrapper):
 
         return query
 
-    def _convert_qual_value(self, qual: Qual) -> Any:
+    def _apply_constraints(self, quals: List[Qual], columns: Set[str], command_body: Dict[str, Any]) -> None:
+        """
+        Apply constraints to the command body based on the provided qualifications and columns.
+        """
+        logger.debug(
+            f"Applying constraints for quals: {quals} and columns: {columns}")
+        listable_columns = {
+            col for col in columns if self._columns[col].listable}
+        for qual in quals:
+            if qual.field_name in listable_columns:
+                constraint = self._apply_constraint(qual)
+                if constraint is not None:
+                    logger.debug(
+                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name}")
+                    if "constraints" not in command_body:
+                        command_body["constraints"] = {}
+                    if qual.field_name not in command_body["constraints"]:
+                        command_body["constraints"][qual.field_name] = []
+                    command_body["constraints"][qual.field_name].extend(
+                        constraint)
+
+    def _apply_constraint(self, qual: Qual) -> Optional[List[Any]]:
+        """
+        Apply constraint to the command body based on the provided qualification.
+        """
+        col_type = self._columns[qual.field_name].type
+        value = self._convert_qual_value(qual, use_operator=False)
+        if col_type == "number":
+            assert value is None or isinstance(
+                value, (int, float)), f"Qual {qual} for column {qual.field_name} must be a number for operator {qual.operator}."
+        logger.debug(
+            f"Applying constraint for qual {qual} with field name {qual.field_name}, operator {qual.operator}, value {value} and column type {col_type}")
+        if qual.operator == "=":
+            return ["==", value]
+        elif qual.operator == "<>":
+            # SQL NULL semantics will not include results where a column is NULL, but ApertureDB will.
+            if value is None:
+                # This is a special case for NULL values; we want to include rows where the column is NULL.
+                return ["!=", None]
+            else:
+                return ["not in", [value, None]]
+        elif qual.operator == "IS":
+            assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS operator."
+            return ["==", value]
+        elif qual.operator == "IS NOT":
+            assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS NOT operator."
+            # This will include null values (if value is not None)
+            return ["!=", value]
+        elif qual.operator == "IN":
+            assert isinstance(
+                value, list), f"Qual {qual} for column {qual.field_name} must be a list for IN operator."
+            return ["in", value]
+        elif qual.operator == "NOT IN":
+            assert isinstance(
+                value, list), f"Qual {qual} for column {qual.field_name} must be a list for NOT IN operator."
+            return ["not in", value]
+        elif col_type == "boolean":
+            # Standard SQL does not support < or > for boolean columns, but this is a PostgreSQL-specific extension.
+            # FALSE < TRUE, and comparison with NULL is always UNKNOWN which is treated as FALSE.
+            if qual.operator == "<":
+                if qual.value is True:
+                    return ["==", False]
+            elif qual.operator == "<=":
+                if qual.value is False:
+                    return ["==", False]
+            elif qual.operator == ">":
+                if qual.value is False:
+                    return ["==", True]
+            elif qual.operator == ">=":
+                if qual.value is True:
+                    return ["==", True]
+            # everything else is a no-op for boolean columns
+        elif col_type in {"datetime", "number", "string"} and qual.operator in {"<", "<=", ">", ">="}:
+            return [qual.operator, value]
+        # Skip this qual; PostgreSQL will filter it out later if it's important.
+        return None
+
+    def _convert_qual_value(self, qual: Qual, use_operator=True) -> Any:
         """
         Convert qual value into an internal value, depending on type and operator.
         """
         col_type = self._columns[qual.field_name].type
         if col_type == "boolean":
-            value = qual.value == 't'
-            if qual.operator in ["<>", "IS NOT"]:
+            value = True if qual.value == 't' else False if qual.value == 'f' else None
+            if qual.operator in ["<>", "IS NOT"] and use_operator and value in [True, False]:
                 value = not value
         elif col_type == "json":
             try:
@@ -248,6 +328,13 @@ class FDW(ForeignDataWrapper):
             except json.JSONDecodeError as e:
                 raise ValueError(
                     f"Invalid JSON in {qual.field_name} clause: {e}")
+        elif col_type == "datetime":
+            # convert datetime datetime objects to the internal format
+            if isinstance(qual.value, datetime):
+                value = {"_date": qual.value.isoformat()}
+            else:
+                raise ValueError(
+                    f"Invalid datetime value for {qual.field_name}: {qual.value}. Expected a datetime object.")
         else:
             # TODO: Might be more conversions needed here
             value = qual.value

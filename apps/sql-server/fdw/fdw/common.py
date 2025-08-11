@@ -84,6 +84,8 @@ TYPE_MAP = {
     "datetime": "timestamptz",
     "json": "jsonb",
     "blob": "bytea",
+    # Not a real type, but used for _uniqueid, _src, and _dst columns because they have constraint operator restrictions.
+    "uniqueid": "text",
 }
 
 
