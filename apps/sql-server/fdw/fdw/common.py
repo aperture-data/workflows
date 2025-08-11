@@ -92,8 +92,6 @@ def get_classes(field: Literal["entities", "connections"],
     if not classes:
         logger.warning(f"No {field} classes found in schema")
         return {}
-    assert classes, \
-        f"Expected {field}.classes to be a dict, got {type(schema[field]['classes'])}"
     return classes
 
 
