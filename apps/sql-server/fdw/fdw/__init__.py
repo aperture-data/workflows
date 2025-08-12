@@ -343,7 +343,7 @@ class FDW(ForeignDataWrapper):
             return [qual.operator, value]
         # Skip this qual; PostgreSQL will filter it out later if it's important.
         logger.debug(
-            "Ignoring qual {qual}, col_type {col_type}, value {value}")
+            f"Ignoring qual {qual}, col_type {col_type}, value {value}")
         return None
 
     def _convert_qual_value(self, qual: Qual, use_operator=True) -> Any:
