@@ -81,8 +81,8 @@ SUPPORTED_CONSTRAINTS = [
     "b IS NULL AND s IS NOT NULL",
     # unique ids
     "_uniqueid = {unique_id}",
-    "_uniqueid IN {unique_ids}",
     "_uniqueid <> {unique_id}",
+    "_uniqueid IN {unique_ids}",
     "_uniqueid NOT IN {unique_ids}",
 ]
 
@@ -95,6 +95,8 @@ UNSUPPORTED_CONSTRAINTS = [
     "n NOT IN (0,1)",
     "s <> 'b'",
     "s NOT IN ('a', 'b')",
+    "_uniqueid IS NULL",
+    "_uniqueid IS NOT NULL",
 
     # Maybe these will be supported in the future, but currently not
     "b = TRUE OR n > 1",
@@ -107,6 +109,14 @@ UNSUPPORTED_CONSTRAINTS = [
     "s ILIKE 'b%'",
     "s SIMILAR TO 'b%'",
     "s ~ 'b'",
+    "_uniqueid LIKE {unique_id}",
+    "_uniqueid ILIKE {unique_id}",
+    "_uniqueid SIMILAR TO {unique_id}",
+    "_uniqueid ~ {unique_id}",
+    "_uniqueid >= {unique_id}",
+    "_uniqueid <= {unique_id}",
+    "_uniqueid < {unique_id}",
+    "_uniqueid > {unique_id}",
 ]
 
 CONSTRAINTS = [(constraint, True) for constraint in SUPPORTED_CONSTRAINTS] + \

@@ -278,13 +278,14 @@ class FDW(ForeignDataWrapper):
         if qual.operator == "=":
             if isinstance(value, list):
                 return ["in", value]
-            else:
+            elif col_type != 'uniqueid' or value is not None:
                 return ["==", value]
         elif qual.operator == "<>":
             # SQL NULL semantics will not include results where a column is NULL, but ApertureDB will.
             if value is None:
                 # Surpisingly, this arises from a clause like "b IS NOT NULL", and not from "b <> NULL".
-                return ["!=", None]  # Exclude all rows with NULL
+                if col_type != 'uniqueid':
+                    return ["!=", None]  # Exclude all rows with NULL
             elif isinstance(value, list):
                 return ["not in", value]
             elif col_type == 'boolean':
@@ -294,11 +295,13 @@ class FDW(ForeignDataWrapper):
                 return ["!=", value]
         elif qual.operator == "IS":
             assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS operator."
-            return ["==", value]
+            if col_type != 'uniqueid':
+                return ["==", value]
         elif qual.operator == "IS NOT":
             assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS NOT operator."
             # This will include null values (if value is not None)
-            return ["!=", value]
+            if col_type != 'uniqueid':
+                return ["!=", value]
         elif qual.operator == "IN" or qual.operator == ("=", True):
             assert isinstance(
                 value, list), f"Qual {qual} for column {qual.field_name} must be a list for IN operator."
