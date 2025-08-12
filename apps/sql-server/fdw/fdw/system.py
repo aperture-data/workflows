@@ -6,7 +6,7 @@
 # SELECT * FROM "DescriptorSet" LIMIT 10;
 
 from typing import List, Literal, Set, Any, Dict
-from .common import get_schema, TYPE_MAP, Curry
+from .common import get_classes, TYPE_MAP, Curry
 from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
@@ -26,13 +26,10 @@ def system_schema() -> List[TableDefinition]:
     """
     logger.info("Creating system schema")
     results = []
-    schema = get_schema()
-    if "entities" in schema and "classes" in schema["entities"]:
-        assert isinstance(schema["entities"]["classes"], dict), \
-            f"Expected entities.classes to be a dict, got {type(schema['entities']['classes'])}"
-        for entity, data in schema["entities"]["classes"].items():
-            if entity[0] == "_":
-                results.append(system_table(entity, data))
+    classes = get_classes("entities")
+    for entity, data in classes.items():
+        if entity[0] == "_":
+            results.append(system_table(entity, data))
 
     # We include special tables for class-independent entities and connections
     # These don't appear in the results of GetSchema.
@@ -164,10 +161,10 @@ def system_entity_table() -> TableDefinition:
     """
     table_name = "Entity"
 
-    schema = get_schema()
+    classes = get_classes("entities")
     count = sum(
-        data.get("matched", 0) for class_, data in schema.get("entities", {}).get("classes", {}).items() if class_[0] != "_"
-    ) if schema.get("entities") else 0
+        data.get("matched", 0) for class_, data in classes.items() if class_[0] != "_"
+    )
 
     options = TableOptions(
         table_name=f'system."{table_name}"',
@@ -201,11 +198,10 @@ def system_connection_table() -> TableDefinition:
     This table has all properties that are found in any connection class, provided that the types are compatible.
     """
     table_name = "Connection"
-
-    schema = get_schema()
+    classes = get_classes("connections")
     count = sum(
-        data.get("matched", 0) for class_, data in schema.get("connections", {}).get("classes", {}).items()
-    ) if schema.get("connections", {}) else 0
+        data.get("matched", 0) for class_, data in classes.items()
+    )
 
     options = TableOptions(
         table_name=f'system."{table_name}"',
@@ -255,19 +251,14 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     Get column definitions for properties that are consistently typed across all classes of a given type.
     """
     property_types = defaultdict(set)
-    schema = get_schema()
-    if not schema.get(type_):
-        logger.warning(f"No {type_} found in schema")
-        return []
-
-    if type_ in schema and "classes" in schema[type_]:
-        for data in schema[type_]["classes"].values():
-            if "properties" in data and data["properties"] is not None:
-                assert isinstance(data["properties"], dict), \
-                    f"Expected properties to be a dict, got {type(data['properties'])}"
-                for prop, prop_data in data["properties"].items():
-                    count, indexed, prop_type = prop_data
-                    property_types[prop].add(prop_type.lower())
+    classes = get_classes(type_)
+    for data in classes.values():
+        if "properties" in data and data["properties"] is not None:
+            assert isinstance(data["properties"], dict), \
+                f"Expected properties to be a dict, got {type(data['properties'])}"
+            for prop, prop_data in data["properties"].items():
+                count, indexed, prop_type = prop_data
+                property_types[prop].add(prop_type.lower())
 
     columns = []
     for prop, types in property_types.items():

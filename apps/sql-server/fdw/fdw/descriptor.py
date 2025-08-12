@@ -9,7 +9,7 @@
 
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import get_schema, get_pool, import_from_app, Curry
+from .common import get_classes, get_pool, import_from_app, Curry
 from .column import property_columns, ColumnOptions, blob_columns
 from .table import TableOptions, literal
 import logging
@@ -132,8 +132,8 @@ def property_columns_for_descriptors_in_set(name: str) -> List[ColumnDefinition]
 
     _, response, _ = get_pool().execute_query(query)
 
-    properties = response[1]["GetSchema"].get(
-        "entities", {}).get("classes", {}).get("_Descriptor", {})
+    classes = get_classes("entities", response[1]["GetSchema"])
+    properties = classes.get("_Descriptor", {})
 
     columns = property_columns(properties)
 
