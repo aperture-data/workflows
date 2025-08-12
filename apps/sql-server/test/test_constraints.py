@@ -2,6 +2,23 @@ import os
 import json
 import pytest
 import psycopg2
+from warnings import warn
+
+
+class UnsupportedConstraintFullFilterWarning(Warning):
+    """Warning for unsupported constraints that are fully pushed down.
+    Something unexpected happened, as these constraints should not be supported.
+    Maybe support was added, and the test needs to be updated?
+    """
+    pass
+
+
+class UnsupportedConstraintPartialFilterWarning(Warning):
+    """Warning for unsupported constraints that are partially-filtered.
+    Something unexpected happened, as these constraints should not be supported.
+    But the support is only partial, so they cannot be marked as fully supported.
+    """
+    pass
 
 
 @pytest.fixture(scope="session")
@@ -13,17 +30,20 @@ def sql_connection():
         user=os.getenv("SQL_USER", "aperturedb"),
         password=os.getenv("SQL_PASS", "test"),
     )
+    # This line makes sure that one crash doesn't leave the connection in a bad state
+    conn.autocommit = True
     yield conn
     conn.close()
 
 
-CONSTRAINTS = [
+# We expect these constraints to be fully pushed down by the FDW.
+SUPPORTED_CONSTRAINTS = [
     # boolean
     "b", "b = TRUE", "b <> TRUE", "b IS TRUE", "b IS NOT TRUE",
     "NOT b", "b = FALSE", "b <> FALSE", "b IS FALSE", "b IS NOT FALSE",
     "b IS NULL", "b IS NOT NULL", "b IN (TRUE)", "b NOT IN (TRUE)",
-    "b IN (FALSE)", "b NOT IN (FALSE)", 
-    "b IN (TRUE, FALSE)", "b NOT IN (TRUE, FALSE)", 
+    "b IN (FALSE)", "b NOT IN (FALSE)",
+    "b IN (TRUE, FALSE)", "b NOT IN (TRUE, FALSE)",
     # PG boolean ordering
     "b < TRUE", "b <= TRUE", "b > TRUE", "b >= TRUE",
     "b < FALSE", "b <= FALSE", "b > FALSE", "b >= FALSE",
@@ -35,18 +55,30 @@ CONSTRAINTS = [
     "s IS NULL", "s IS NOT NULL", "s IN ('a', 'b')", "s NOT IN ('a', 'b')",
     # combos
     "b = TRUE AND n > 1",
-    "b = TRUE OR n > 1",
     "b IS TRUE AND s = 'b'",
-    "b IS TRUE OR s = 'b'",
     "b IS NOT TRUE AND n < 1",
-    "b IS NOT TRUE OR n < 1",
     "b IS NULL AND s IS NOT NULL",
-    "b IS NULL OR s IS NOT NULL",
 ]
+
+# Not expected to filter, but should not crash or false-filter
+UNSUPPORTED_CONSTRAINTS = [
+    "b = TRUE OR n > 1",
+    "b IS TRUE OR s = 'b'",
+    "b IS NOT TRUE OR n < 1",
+    "b IS NULL OR s IS NOT NULL",
+    "s LIKE 'b%'",
+    "s ILIKE 'b%'",
+    "s SIMILAR TO 'b%'",
+    "s ~ 'b'",
+]
+
+CONSTRAINTS = SUPPORTED_CONSTRAINTS + UNSUPPORTED_CONSTRAINTS
 
 
 @pytest.mark.parametrize("constraint", CONSTRAINTS, ids=CONSTRAINTS)
 def test_constraints(constraint, sql_connection):
+    supported = constraint in SUPPORTED_CONSTRAINTS
+
     # 1) fully-pushed constraints
     sql1 = f"""
       EXPLAIN (ANALYZE, FORMAT JSON)
@@ -66,6 +98,7 @@ def test_constraints(constraint, sql_connection):
         if isinstance(result1, str):
             result1 = json.loads(result1)
         plan1 = result1[0]["Plan"]
+        multicorn_plan1 = multicorn_plan(plan1)
 
         cur.execute(sql2)
         result2 = cur.fetchone()[0]
@@ -77,15 +110,31 @@ def test_constraints(constraint, sql_connection):
     rows1 = plan_actual_rows(plan1)
     rows2 = plan_actual_rows(plan2)
     removed1 = sum_rows_removed_by_filter(plan1)
+    removed2 = sum_rows_removed_by_filter(plan2)
 
     # Debug line that shows up in pytest -q
-    print(f"{constraint}: rows1={rows1} rows2={rows2} removed_by_filter={removed1}, constraints={get_constraint(plan1)}")
+    print(f"{constraint}: rows1={rows1} rows2={rows2} removed_by_filter={removed1} - {multicorn_plan1}")
 
     # False negatives? (pushdown missed rows)
-    assert rows1 == rows2, f"Rowcount mismatch for: {constraint} - {get_constraint(plan1)}"
+    # This is severe, as the user will fail to receive rows they expect.
+    assert rows1 == rows2, f"SEVERE: Rowcount mismatch for: {constraint} - {multicorn_plan1}"
 
     # False positives? (server over-returned; PG had to filter)
-    assert removed1 == 0, f"Rows removed by Filter for: {constraint} → {removed1} - {get_constraint(plan1)}"
+    # This is mild, as the user will still receive rows they expect,
+    # but at higher cost.
+    if supported:  # We expected these to work
+        assert removed1 == 0, f"MILD: Rows removed by post-filter for: {constraint} → {removed1} - {multicorn_plan1}"
+    elif removed1 == 0:  # Expected not to work, but it did
+        warn(
+            f"Unsupported constraint {constraint} was fully pushed down, suggesting it is now supported - {multicorn_plan1}",
+            UnsupportedConstraintFullFilterWarning
+        )
+    elif removed1 > 0 and removed1 != removed2:  # expected not to work, but it did partially
+        warn(
+            f"Unsupported constraint {constraint} was partially pushed down, might be OK - {multicorn_plan1}",
+            UnsupportedConstraintPartialFilterWarning
+        )
+    # Else expected not to work, and it did not, so no warning needed
 
 
 def plan_actual_rows(plan_node: dict) -> int:
@@ -100,15 +149,9 @@ def sum_rows_removed_by_filter(plan_node: dict) -> int:
         removed += sum_rows_removed_by_filter(child)
     return removed
 
-def aperturedb_query(plan_node: dict) -> list:
-    if 'Multicorn' in plan_node:
-        s = plan_node['Multicorn'].split(":", 1)[1]
-        return json.loads(s)
-    return None
 
-def get_constraint(plan_node: dict) -> dict:
-    query = aperturedb_query(plan_node)
-    if query:
-        body = list(query[0].values())[0]
-        return body.get('constraints', {})
-    return {}
+def multicorn_plan(plan_node: dict) -> str:
+    """Extract the Multicorn plan from the plan node."""
+    if "Multicorn" in plan_node:
+        return json.dumps(json.loads(plan_node["Multicorn"]))
+    return None

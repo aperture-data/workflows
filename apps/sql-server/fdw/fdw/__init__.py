@@ -270,7 +270,7 @@ class FDW(ForeignDataWrapper):
         value = self._convert_qual_value(qual, use_operator=False)
         if col_type == "number":
             assert value is None or isinstance(
-                value, (int, float)), f"Qual {qual} for column {qual.field_name} must be a number for operator {qual.operator}, found {value} is {type(value)} (was {type(qual.value)})."
+                value, (int, float)) or (isinstance(value, list) and all(isinstance(x, (int, float)) for x in value)), f"Qual {qual} for column {qual.field_name} must be a number for operator {qual.operator}, found {value} is {type(value)} (was {type(qual.value)})."
         logger.debug(
             f"Applying constraint for qual {qual} with field name {qual.field_name}, operator {qual.operator}, value {value} and column type {col_type}")
         if qual.operator == "=":
@@ -296,14 +296,19 @@ class FDW(ForeignDataWrapper):
             assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS NOT operator."
             # This will include null values (if value is not None)
             return ["!=", value]
-        elif qual.operator == "IN":
+        elif qual.operator == "IN" or qual.operator == ("=", True):
             assert isinstance(
                 value, list), f"Qual {qual} for column {qual.field_name} must be a list for IN operator."
+            if None in value:  # SQL NULL handling rules
+                value.remove(None)
             return ["in", value]
-        elif qual.operator == "NOT IN":
+        elif qual.operator == "NOT IN" or qual.operator == ("<>", False):
             assert isinstance(
                 value, list), f"Qual {qual} for column {qual.field_name} must be a list for NOT IN operator."
-            return ["not in", value]
+            if None in value:
+                return ["in", []]  # exclude all rows; SQL NULL handling rules
+            else:
+                return ["not in", value, "!=", None]
         elif col_type == "boolean":
             # Standard SQL does not support < or > for boolean columns, but this is a PostgreSQL-specific extension.
             # FALSE < TRUE, and comparison with NULL is always UNKNOWN which is treated as FALSE.
@@ -311,7 +316,7 @@ class FDW(ForeignDataWrapper):
                 if value is True:
                     return ["==", False]
                 elif value is False:
-                    return ["in", []] # surprisingly this is allowed
+                    return ["in", []]  # surprisingly this is allowed
             elif qual.operator == "<=":
                 if value is False:
                     return ["==", False]
@@ -321,7 +326,7 @@ class FDW(ForeignDataWrapper):
                 if value is False:
                     return ["==", True]
                 elif value is True:
-                    return ["in", []] # surprisingly this is allowed
+                    return ["in", []]  # surprisingly this is allowed
             elif qual.operator == ">=":
                 if value is True:
                     return ["==", True]
@@ -331,7 +336,8 @@ class FDW(ForeignDataWrapper):
         elif col_type in {"datetime", "number", "string"} and qual.operator in {"<", "<=", ">", ">="}:
             return [qual.operator, value]
         # Skip this qual; PostgreSQL will filter it out later if it's important.
-        logger.debug("Ignoring qual {qual}, col_type {col_type}, value {value}")
+        logger.debug(
+            "Ignoring qual {qual}, col_type {col_type}, value {value}")
         return None
 
     def _convert_qual_value(self, qual: Qual, use_operator=True) -> Any:
@@ -339,7 +345,7 @@ class FDW(ForeignDataWrapper):
         Convert qual value into an internal value, depending on type and operator.
         """
         if isinstance(qual.value, (list, tuple)):
-            return [ self._convert_qual_value(Qual(qual.field_name, qual.operator, x), use_operator=use_operator) for x in qual.value]
+            return [self._convert_qual_value(Qual(qual.field_name, qual.operator, x), use_operator=use_operator) for x in qual.value]
 
         col_type = self._columns[qual.field_name].type
         if col_type == "boolean":
@@ -527,16 +533,21 @@ class FDW(ForeignDataWrapper):
             f"Explaining FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
         self._check_quals(quals, columns)
 
-        result = [f"FDW: {self._options.table_name}"]
-        query = self._get_query(quals, columns)
-        result.append(f"AQL: {compact_pretty_json(query, indent=2)}")
-        query_blobs = self._get_query_blobs(quals, columns)
-        # This part isn't verbose, but can be much slower
-        if query_blobs and verbose:
-            result.append(
-                f"Query Blob: {len(query_blobs[0])} bytes - {query_blobs[0][:10]}... (truncated)")
+        result = {}
 
-        return result
+        result["table_name"] = self._options.table_name
+        result["quals"] = [[qual.field_name, qual.operator, qual.value]
+                           for qual in quals]
+        result["columns"] = list(columns)
+        result["aql"] = self._get_query(quals, columns)
+        # This part isn't verbose, but can be much slower
+        if verbose:
+            query_blobs = self._get_query_blobs(quals, columns)
+            if query_blobs:
+                result["query_blob_lengths"] = [
+                    len(blob) for blob in query_blobs]
+
+        return [compact_pretty_json(result)]
 
 
 logger.info("FDW class defined successfully")
