@@ -36,22 +36,7 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN -f $COMPOSE_TEST"
 
-# Build and run. We rely on:
-# - aperturedb service from the main compose
-# - this workflow’s image from the main compose
-# - the test overlay adds seed + tests + healthchecks
+# Should the test script be building sql-server?
 $COMMAND build test-base sql-server
   
-$COMMAND up --no-build -d aperturedb
-# $COMMAND logs -f aperturedb &
-$COMMAND up --wait aperturedb
-
-$COMMAND run --rm seed
-
-$COMMAND up --no-build -d sql-server
-# $COMMAND logs -f sql-server &
-$COMMAND up --wait sql-server
-
-$COMMAND up --attach-dependencies --no-deps --exit-code-from tests tests
-
-# $COMMAND up --no-build --exit-code-from tests tests
+$COMMAND up --no-build --exit-code-from tests tests
