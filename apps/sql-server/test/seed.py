@@ -35,9 +35,11 @@ if __name__ == "__main__":
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
+    print(f"{DB_HOST=}, {DB_PORT=}, {DB_USER=}, {DB_PASS}")
     client = Connector(host=DB_HOST, user=DB_USER,
                        port=DB_PORT, password=DB_PASS)
 
+    print(f"host={client.host}")
     load_testdata(client)
     print("Test data loaded successfully.")
 

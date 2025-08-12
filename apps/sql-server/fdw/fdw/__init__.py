@@ -197,9 +197,6 @@ class FDW(ForeignDataWrapper):
 
         command_body = {}
 
-        if listable_columns:
-            command_body["results"] = {"list": list(listable_columns)}
-
         # Apply table modification, e.g. with_class, set
         if self._options.modify_command_body:
             self._options.modify_command_body(command_body=command_body)
@@ -229,6 +226,14 @@ class FDW(ForeignDataWrapper):
             "batch_id": 0,
             "batch_size": batch_size
         }
+
+        # In SQL it is legal to query a table with no result columns.
+        # This will (by design) cause an error in ApertureDB.
+        if not blobs and not listable_columns:
+            listable_columns = {"_uniqueid"}
+
+        if listable_columns:
+            command_body["results"] = {"list": list(listable_columns)}
 
         query = [{self._options.command: command_body}]
         logger.debug(
@@ -265,16 +270,23 @@ class FDW(ForeignDataWrapper):
         value = self._convert_qual_value(qual, use_operator=False)
         if col_type == "number":
             assert value is None or isinstance(
-                value, (int, float)), f"Qual {qual} for column {qual.field_name} must be a number for operator {qual.operator}."
+                value, (int, float)), f"Qual {qual} for column {qual.field_name} must be a number for operator {qual.operator}, found {value} is {type(value)} (was {type(qual.value)})."
         logger.debug(
             f"Applying constraint for qual {qual} with field name {qual.field_name}, operator {qual.operator}, value {value} and column type {col_type}")
         if qual.operator == "=":
-            return ["==", value]
+            if isinstance(value, list):
+                return ["in", value]
+            else:
+                return ["==", value]
         elif qual.operator == "<>":
             # SQL NULL semantics will not include results where a column is NULL, but ApertureDB will.
             if value is None:
                 # This is a special case for NULL values; we want to include rows where the column is NULL.
                 return ["!=", None]
+            elif isinstance(value, list):
+                return ["not in", value]
+            elif col_type == 'boolean':
+                return ["==", not value]
             else:
                 return ["not in", [value, None]]
         elif qual.operator == "IS":
@@ -296,27 +308,39 @@ class FDW(ForeignDataWrapper):
             # Standard SQL does not support < or > for boolean columns, but this is a PostgreSQL-specific extension.
             # FALSE < TRUE, and comparison with NULL is always UNKNOWN which is treated as FALSE.
             if qual.operator == "<":
-                if qual.value is True:
+                if value is True:
                     return ["==", False]
+                elif value is False:
+                    return ["in", []] # surprisingly this is allowed
             elif qual.operator == "<=":
-                if qual.value is False:
+                if value is False:
                     return ["==", False]
+                elif value is True:
+                    return ["!=", None]
             elif qual.operator == ">":
-                if qual.value is False:
+                if value is False:
                     return ["==", True]
+                elif value is True:
+                    return ["in", []] # surprisingly this is allowed
             elif qual.operator == ">=":
-                if qual.value is True:
+                if value is True:
                     return ["==", True]
+                elif value is False:
+                    return ["in", [False, True]]
             # everything else is a no-op for boolean columns
         elif col_type in {"datetime", "number", "string"} and qual.operator in {"<", "<=", ">", ">="}:
             return [qual.operator, value]
         # Skip this qual; PostgreSQL will filter it out later if it's important.
+        logger.debug("Ignoring qual {qual}, col_type {col_type}, value {value}")
         return None
 
     def _convert_qual_value(self, qual: Qual, use_operator=True) -> Any:
         """
         Convert qual value into an internal value, depending on type and operator.
         """
+        if isinstance(qual.value, (list, tuple)):
+            return [ self._convert_qual_value(Qual(qual.field_name, qual.operator, x), use_operator=use_operator) for x in qual.value]
+
         col_type = self._columns[qual.field_name].type
         if col_type == "boolean":
             value = True if qual.value == 't' else False if qual.value == 'f' else None
@@ -335,6 +359,8 @@ class FDW(ForeignDataWrapper):
             else:
                 raise ValueError(
                     f"Invalid datetime value for {qual.field_name}: {qual.value}. Expected a datetime object.")
+        elif col_type == "number":
+            value = float(qual.value) if qual.value is not None else None
         else:
             # TODO: Might be more conversions needed here
             value = qual.value

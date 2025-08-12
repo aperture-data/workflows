@@ -63,6 +63,8 @@ def get_pool() -> "ConnectionPool":
             from connection_pool import ConnectionPool
         _POOL = ConnectionPool()
         logger.info("Connection pool initialized")
+        with _POOL.get_connection() as c:
+            logger.info(f"connection host = {c.host}")
     return _POOL
 
 
@@ -234,7 +236,8 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
             val_str = compact_pretty_json(
                 value, line_length, level + 1, indent)
             lines.append(" " * ((level + 1) * indent) +
-                         key_str + val_str.lstrip())
+                         key_str + val_str.lstrip() + 
+                         ("," if i + 1 < len(data) else ""))
         lines.append(prefix + "}")
         return "\n".join(lines)
 

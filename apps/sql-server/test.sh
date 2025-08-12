@@ -33,15 +33,25 @@ trap cleanup EXIT
 # ---- run tests ----
 echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN -f $COMPOSE_TEST"
+
 # Build and run. We rely on:
 # - aperturedb service from the main compose
 # - this workflow’s image from the main compose
 # - the test overlay adds seed + tests + healthchecks
-$COMPOSE_SCRIPT -v -p "$COMPOSE_PROJECT_NAME" \
-  -f "$COMPOSE_MAIN" -f "$COMPOSE_TEST" \
-  build test-base
+$COMMAND build test-base sql-server
   
-$COMPOSE_SCRIPT -v -p "$COMPOSE_PROJECT_NAME" \
-  -f "$COMPOSE_MAIN" -f "$COMPOSE_TEST" \
-  up aperturedb seed sql-server tests
+$COMMAND up --no-build -d aperturedb
+# $COMMAND logs -f aperturedb &
+$COMMAND up --wait aperturedb
 
+$COMMAND run --rm seed
+
+$COMMAND up --no-build -d sql-server
+# $COMMAND logs -f sql-server &
+$COMMAND up --wait sql-server
+
+$COMMAND up --attach-dependencies --no-deps --exit-code-from tests tests
+
+# $COMMAND up --no-build --exit-code-from tests tests

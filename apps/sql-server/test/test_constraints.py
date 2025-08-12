@@ -21,16 +21,18 @@ CONSTRAINTS = [
     # boolean
     "b", "b = TRUE", "b <> TRUE", "b IS TRUE", "b IS NOT TRUE",
     "NOT b", "b = FALSE", "b <> FALSE", "b IS FALSE", "b IS NOT FALSE",
-    "b IS NULL", "b IS NOT NULL",
+    "b IS NULL", "b IS NOT NULL", "b IN (TRUE)", "b NOT IN (TRUE)",
+    "b IN (FALSE)", "b NOT IN (FALSE)", 
+    "b IN (TRUE, FALSE)", "b NOT IN (TRUE, FALSE)", 
     # PG boolean ordering
     "b < TRUE", "b <= TRUE", "b > TRUE", "b >= TRUE",
     "b < FALSE", "b <= FALSE", "b > FALSE", "b >= FALSE",
     # number
     "n = 1", "n <> 1", "n > 1", "n >= 1", "n < 1", "n <= 1",
-    "n IS NULL", "n IS NOT NULL",
+    "n IS NULL", "n IS NOT NULL", "n IN (0,1)", "n NOT IN (0,1)",
     # string
     "s = 'b'", "s <> 'b'", "s > 'b'", "s >= 'b'", "s < 'b'", "s <= 'b'",
-    "s IS NULL", "s IS NOT NULL",
+    "s IS NULL", "s IS NOT NULL", "s IN ('a', 'b')", "s NOT IN ('a', 'b')",
     # combos
     "b = TRUE AND n > 1",
     "b = TRUE OR n > 1",
@@ -60,23 +62,30 @@ def test_constraints(constraint, sql_connection):
 
     with sql_connection.cursor() as cur:
         cur.execute(sql1)
-        plan1 = json.loads(cur.fetchone()[0])[0]["Plan"]
+        result1 = cur.fetchone()[0]
+        if isinstance(result1, str):
+            result1 = json.loads(result1)
+        plan1 = result1[0]["Plan"]
 
         cur.execute(sql2)
-        plan2 = json.loads(cur.fetchone()[0])[0]["Plan"]
+        result2 = cur.fetchone()[0]
+        if isinstance(result2, str):
+            result2 = json.loads(result2)
+        plan2 = result2[0]["Plan"]
 
+    print(json.dumps(plan1))
     rows1 = plan_actual_rows(plan1)
     rows2 = plan_actual_rows(plan2)
     removed1 = sum_rows_removed_by_filter(plan1)
 
     # Debug line that shows up in pytest -q
-    print(f"{constraint}: rows1={rows1} rows2={rows2} removed_by_filter={removed1}")
+    print(f"{constraint}: rows1={rows1} rows2={rows2} removed_by_filter={removed1}, constraints={get_constraint(plan1)}")
 
     # False negatives? (pushdown missed rows)
-    assert rows1 == rows2, f"Rowcount mismatch for: {constraint}"
+    assert rows1 == rows2, f"Rowcount mismatch for: {constraint} - {get_constraint(plan1)}"
 
     # False positives? (server over-returned; PG had to filter)
-    assert removed1 == 0, f"Rows removed by Filter for: {constraint} → {removed1}"
+    assert removed1 == 0, f"Rows removed by Filter for: {constraint} → {removed1} - {get_constraint(plan1)}"
 
 
 def plan_actual_rows(plan_node: dict) -> int:
@@ -90,3 +99,16 @@ def sum_rows_removed_by_filter(plan_node: dict) -> int:
     for child in plan_node.get("Plans", []) or []:
         removed += sum_rows_removed_by_filter(child)
     return removed
+
+def aperturedb_query(plan_node: dict) -> list:
+    if 'Multicorn' in plan_node:
+        s = plan_node['Multicorn'].split(":", 1)[1]
+        return json.loads(s)
+    return None
+
+def get_constraint(plan_node: dict) -> dict:
+    query = aperturedb_query(plan_node)
+    if query:
+        body = list(query[0].values())[0]
+        return body.get('constraints', {})
+    return {}

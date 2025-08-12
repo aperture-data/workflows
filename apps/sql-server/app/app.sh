@@ -48,7 +48,7 @@ until pg_isready -U postgres -h /var/run/postgresql ; do
   echo "Waiting for postgres..."
   sleep 1
 done
-b
+
 # Set the password for the 'aperturedb' user
 echo "Setting $SQL_USER password... to $SQL_PASS"
 # Be careful to avoid problems with special characters in the password
