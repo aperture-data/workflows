@@ -32,6 +32,9 @@ class ArgumentParser:
                      **kwargs):
         if type is bool:
             type = self.str2bool
+        elif type in (str, None):
+            type = self.trim
+
         action = 'append' if sep else None
         name = names[0]
         default = self.get_default(name, default, sep)
@@ -64,6 +67,10 @@ class ArgumentParser:
         if sep and result is not None:
             return result.split(sep)
         return result
+
+    @staticmethod
+    def trim(s):
+        return s.strip()
 
     @staticmethod
     def str2bool(v):
