@@ -23,7 +23,7 @@ fi
 
 
 # CI should provide these variables, but we need defaults for local builds
-export VERSION="${VERSION:-dev}"
+export VERSION="${VERSION:-local}"
 GITHUB_SHA="${GITHUB_SHA:-$(git -C "$TOP" rev-parse HEAD)}"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-aperture-data/workflows}"
 

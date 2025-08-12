@@ -1,0 +1,3 @@
+aperturedb
+psycopg2-binary
+pytest
