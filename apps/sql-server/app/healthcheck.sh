@@ -8,7 +8,6 @@ SQL_PORT=5432
 SQL_NAME=aperturedb
 SQL_USER=aperturedb
 SQL_PASS=$WF_AUTH_TOKEN
-# echo "Running healthcheck for SQL Server: $(date)"
 
 # Check Postgres server on TCP port 5432
 pg_isready --host $SQL_HOST --port $SQL_PORT
@@ -27,14 +26,7 @@ echo "HTTP API is ready on $SQL_HOST:80"
 PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command '\dt *.*'
 echo "Database $SQL_NAME is accessible by user $SQL_USER"
 
-PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command '\des+'
-PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command '\dew+'
-PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command '\det+ *.*'
-
 PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command 'SELECT _uniqueid FROM system."Entity" LIMIT 1;'
-
-PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command 'SELECT _uniqueid FROM entity."TestRow" LIMIT 1;'
-
 echo "Entity table is accessible by user $SQL_USER"
 
 echo "Healthcheck passed for SQL Server: $(date)"
