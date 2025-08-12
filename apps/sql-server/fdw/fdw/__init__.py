@@ -15,7 +15,7 @@ from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
 import pydantic
 import sys
 import importlib.util
-from aperturedb import execute_query
+from .aperturedb import execute_query
 
 
 # Configure logging

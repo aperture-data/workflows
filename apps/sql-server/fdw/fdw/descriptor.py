@@ -16,7 +16,7 @@ import logging
 import numpy as np
 import json
 from datetime import datetime
-from aperturedb import execute_query
+from .aperturedb import execute_query
 
 with import_from_app():
     from embeddings import Embedder

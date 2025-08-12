@@ -3,3 +3,4 @@ fastapi
 uvicorn
 asyncpg
 pydantic
+python-multipart

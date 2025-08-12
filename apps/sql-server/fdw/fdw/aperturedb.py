@@ -10,6 +10,9 @@ import json
 import base64
 import uuid
 from typing import List, Optional, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -47,6 +50,8 @@ def execute_query(
     blobs: Optional[List[bytes]] = None,
     uds_path: str = "/tmp/aperturedb-proxy.sock",
 ) -> Tuple[int, List[dict], Optional[List[bytes]]]:
+    logger.info(
+        f"Executing query: {json_query} with blobs: {len(blobs) if blobs else 0}")
     boundary = "----apdb-" + uuid.uuid4().hex
     body = _multipart(boundary, json_query, blobs)
 
@@ -63,6 +68,8 @@ def execute_query(
     conn.close()
 
     if resp_status < 200 or resp_status >= 300:
+        logger.error(
+            f"HTTP error {resp_status} from ApertureDB proxy: {data.decode('utf-8')}")
         raise RuntimeError(
             f"HTTP error {resp_status} from ApertureDB proxy: {data.decode('utf-8')}"
         )
@@ -71,4 +78,6 @@ def execute_query(
     out_json = parsed["json"]
     out_blobs = [base64.b64decode(s) for s in parsed.get("blobs", [])] or None
     out_status = parsed.get('status', 0)
+    logger.info(
+        f"Query executed successfully, status: {out_status}, json: {out_json}, blobs: {len(out_blobs) if out_blobs else 0}")
     return out_status, out_json, out_blobs

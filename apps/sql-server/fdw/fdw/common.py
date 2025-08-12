@@ -12,7 +12,7 @@ import json
 from contextlib import contextmanager
 from pydantic_core import core_schema
 import inspect
-from aperturedb import execute_query
+from .aperturedb import execute_query
 
 logger = logging.getLogger(__name__)
 
