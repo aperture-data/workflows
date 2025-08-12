@@ -36,6 +36,26 @@ def sql_connection():
     conn.close()
 
 
+@pytest.fixture(scope="session")
+def constraint_formatter(sql_connection):
+    """
+    Fixture to format constraints for testing.
+    This allows us to use the unique IDs from the TestRow table.
+    """
+    sql = """SELECT _uniqueid FROM "TestRow" LIMIT 5;"""
+    with sql_connection.cursor() as cur:
+        cur.execute(sql)
+        result = cur.fetchall()
+    # extract unique IDs for the test
+    unique_ids = [row[0] for row in result]
+    unique_ids_str = '(' + ', '.join(f"'{uid}'" for uid in unique_ids) + ')'
+    unique_id_str = f"'{unique_ids[0]}'"
+    return lambda constraint: constraint.format(
+        unique_id=unique_id_str,
+        unique_ids=unique_ids_str,
+    )
+
+
 # We expect these constraints to be fully pushed down by the FDW.
 SUPPORTED_CONSTRAINTS = [
     # boolean
@@ -59,6 +79,11 @@ SUPPORTED_CONSTRAINTS = [
     "b IS TRUE AND s = 'b'",
     "b IS NOT TRUE AND n < 1",
     "b IS NULL AND s IS NOT NULL",
+    # unique ids
+    "_uniqueid = {unique_id}",
+    "_uniqueid IN {unique_ids}",
+    "_uniqueid <> {unique_id}",
+    "_uniqueid NOT IN {unique_ids}",
 ]
 
 # Not expected to filter, but should not crash or false-filter
@@ -91,7 +116,8 @@ IDS = [f"{constraint} ({'supported' if supported else 'unsupported'})" for const
 
 
 @pytest.mark.parametrize("constraint,supported", CONSTRAINTS, ids=IDS)
-def test_constraints(constraint, supported, sql_connection):
+def test_constraints(constraint, supported, sql_connection, constraint_formatter):
+    constraint = constraint_formatter(constraint)
     # 1) fully-pushed constraints
     sql1 = f"""
       EXPLAIN (ANALYZE, FORMAT JSON)
