@@ -222,7 +222,7 @@ def system_connection_table() -> TableDefinition:
         type_name="text",
         options=ColumnOptions(
             indexed=True,
-            type="string",
+            type="uniqueid",
         ).to_string()))
 
     columns.append(ColumnDefinition(
@@ -230,7 +230,7 @@ def system_connection_table() -> TableDefinition:
         type_name="text",
         options=ColumnOptions(
             indexed=True,
-            type="string",
+            type="uniqueid",
         ).to_string()))
 
     logger.debug(

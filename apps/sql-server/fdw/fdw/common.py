@@ -63,6 +63,8 @@ def get_pool() -> "ConnectionPool":
             from connection_pool import ConnectionPool
         _POOL = ConnectionPool()
         logger.info("Connection pool initialized")
+        with _POOL.get_connection() as c:
+            logger.info(f"connection host = {c.host}")
     return _POOL
 
 
@@ -103,6 +105,8 @@ TYPE_MAP = {
     "datetime": "timestamptz",
     "json": "jsonb",
     "blob": "bytea",
+    # Not a real type, but used for _uniqueid, _src, and _dst columns because they have constraint operator restrictions.
+    "uniqueid": "text",
 }
 
 
@@ -219,9 +223,10 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
 
     if isinstance(data, (list, tuple)):
         lines = [prefix + "["]
-        for item in data:
+        for i, item in enumerate(data):
             lines.append(compact_pretty_json(
-                item, line_length, level + 1, indent))
+                item, line_length, level + 1, indent) +
+                ("," if i != len(data) - 1 else ""))
         lines.append(prefix + "]")
         return "\n".join(lines)
 
@@ -232,7 +237,8 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
             val_str = compact_pretty_json(
                 value, line_length, level + 1, indent)
             lines.append(" " * ((level + 1) * indent) +
-                         key_str + val_str.lstrip())
+                         key_str + val_str.lstrip() +
+                         ("," if i + 1 < len(data) else ""))
         lines.append(prefix + "}")
         return "\n".join(lines)
 

@@ -16,7 +16,7 @@ class ColumnOptions(BaseModel):
     indexed: bool = False  # whether the column is indexed
     # AQL type of the column: "string", "number", "boolean", "json", "blob"
     type: Optional[Literal["string",
-                           "number", "boolean", "json", "blob", "datetime"]] = None
+                           "number", "boolean", "json", "blob", "datetime", "uniqueid"]] = None
     listable: bool = True  # whether the column can be passed to results/list
     unique: bool = False  # whether the column is unique, used for _uniqueid
 
@@ -179,5 +179,5 @@ def uniqueid_column(count: int = 0) -> ColumnDefinition:
             count=count,
             indexed=True,
             unique=True,
-            type="string"
+            type="uniqueid"
         ).to_string())
