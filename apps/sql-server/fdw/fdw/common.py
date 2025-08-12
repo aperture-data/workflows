@@ -12,6 +12,7 @@ import json
 from contextlib import contextmanager
 from pydantic_core import core_schema
 import inspect
+from aperturedb import execute_query
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,6 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     load_dotenv(dotenv_path=path, override=True)
 
 
-_POOL = None  # Global connection pool; see get_pool()
 _SCHEMA = None  # Global schema variable; see get_schema()
 
 
@@ -54,25 +54,13 @@ def get_log_level() -> int:
     return getattr(logging, log_level, logging.WARN)
 
 
-def get_pool() -> "ConnectionPool":
-    """Get the global connection pool. Lazy initialization."""
-    load_aperturedb_env()
-    global _POOL
-    if _POOL is None:
-        with import_from_app():
-            from connection_pool import ConnectionPool
-        _POOL = ConnectionPool()
-        logger.info("Connection pool initialized")
-    return _POOL
-
-
 def get_schema() -> Dict:
     """Get the global schema. Lazy initialization."""
     global _SCHEMA
     if _SCHEMA is None:
-        with get_pool().get_utils() as utils:
-            _SCHEMA = utils.get_schema()
-            logger.info("Schema loaded")
+        _, response, _ = execute_query('[{"GetSchema": {}}]')
+        _SCHEMA = (response[0] or {}).get("GetSchema", {})
+
     return _SCHEMA
 
 

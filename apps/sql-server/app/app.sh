@@ -18,6 +18,20 @@ echo "APERTUREDB_KEY=$APERTUREDB_KEY" >/app/aperturedb.env
 WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARN}
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
 
+# Start proxy server
+echo "Starting ApertureDB proxy server..."
+SOCK=/tmp/aperturedb-proxy.sock
+if [ -S "$SOCK" ]; then
+  echo "Removing existing socket file at $SOCK"
+  rm -f "$SOCK"
+fi
+
+# Uvicorn likes lower-case log levels
+UVICORN_LOG_LEVEL=${WF_LOG_LEVEL,,}
+uvicorn proxy:app --uds "$SOCK" --log-level ${UVICORN_LOG_LEVEL} &
+PROXY_PID=$!
+
+
 # Check if WF_AUTH_TOKEN is set
 if [ -z "$WF_AUTH_TOKEN" ]; then
   echo "Error: WF_AUTH_TOKEN environment variable is not set."
@@ -104,5 +118,8 @@ UVICORN_STATUS=$?
 # If uvicorn exits, kill the tail process and exit with uvicorn's status
 kill $TAIL_PID
 wait $TAIL_PID 2>/dev/null
+
+kill $PROXY_PID
+wait $PROXY_PID 2>/dev/null
 
 exit $UVICORN_STATUS

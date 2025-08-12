@@ -42,7 +42,7 @@ RUN git clone  --single-branch --branch main https://github.com/pgsql-io/multico
  && make PYTHON=/usr/bin/python3 \
  && make install
 
-RUN pip install --no-cache-dir aperturedb dotenv numpy pydantic
+RUN pip install --no-cache-dir dotenv numpy pydantic
 
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt

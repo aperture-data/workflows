@@ -1,4 +1,4 @@
-from .common import get_pool, get_log_level, compact_pretty_json
+from .common import get_log_level, compact_pretty_json
 from .table import TableOptions
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
@@ -15,6 +15,7 @@ from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
 import pydantic
 import sys
 import importlib.util
+from aperturedb import execute_query
 
 
 # Configure logging
@@ -276,7 +277,7 @@ class FDW(ForeignDataWrapper):
         logger.debug(f"Executing query: {query}")
 
         start_time = datetime.now()
-        _, results, response_blobs = get_pool().execute_query(query, query_blobs)
+        _, results, response_blobs = execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
         logger.info(
             f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
