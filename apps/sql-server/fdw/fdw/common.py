@@ -58,7 +58,7 @@ def get_schema() -> Dict:
     """Get the global schema. Lazy initialization."""
     global _SCHEMA
     if _SCHEMA is None:
-        _, response, _ = execute_query('[{"GetSchema": {}}]')
+        _, response, _ = execute_query([{"GetSchema": {}}])
         _SCHEMA = (response[0] or {}).get("GetSchema", {})
 
     return _SCHEMA
