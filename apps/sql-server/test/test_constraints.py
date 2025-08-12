@@ -43,16 +43,16 @@ SUPPORTED_CONSTRAINTS = [
     "NOT b", "b = FALSE", "b <> FALSE", "b IS FALSE", "b IS NOT FALSE",
     "b IS NULL", "b IS NOT NULL", "b IN (TRUE)", "b NOT IN (TRUE)",
     "b IN (FALSE)", "b NOT IN (FALSE)",
-    "b IN (TRUE, FALSE)", "b NOT IN (TRUE, FALSE)",
+    "b IN (TRUE, FALSE)",
     # PG boolean ordering
     "b < TRUE", "b <= TRUE", "b > TRUE", "b >= TRUE",
     "b < FALSE", "b <= FALSE", "b > FALSE", "b >= FALSE",
     # number
-    "n = 1", "n <> 1", "n > 1", "n >= 1", "n < 1", "n <= 1",
-    "n IS NULL", "n IS NOT NULL", "n IN (0,1)", "n NOT IN (0,1)",
+    "n = 1",  "n > 1", "n >= 1", "n < 1", "n <= 1",
+    "n IS NULL", "n IS NOT NULL", "n IN (0,1)",
     # string
-    "s = 'b'", "s <> 'b'", "s > 'b'", "s >= 'b'", "s < 'b'", "s <= 'b'",
-    "s IS NULL", "s IS NOT NULL", "s IN ('a', 'b')", "s NOT IN ('a', 'b')",
+    "s = 'b'", "s > 'b'", "s >= 'b'", "s < 'b'", "s <= 'b'",
+    "s IS NULL", "s IS NOT NULL", "s IN ('a', 'b')",
     # combos
     "b = TRUE AND n > 1",
     "b IS TRUE AND s = 'b'",
@@ -62,23 +62,35 @@ SUPPORTED_CONSTRAINTS = [
 
 # Not expected to filter, but should not crash or false-filter
 UNSUPPORTED_CONSTRAINTS = [
+    # These feel like they ought to be supported,
+    # but SQL and AQL have different rules for NULL handling
+    "b NOT IN (TRUE, FALSE)",
+    "n <> 1",
+    "n NOT IN (0,1)",
+    "s <> 'b'",
+    "s NOT IN ('a', 'b')",
+
+    # Maybe these will be supported in the future, but currently not
     "b = TRUE OR n > 1",
     "b IS TRUE OR s = 'b'",
     "b IS NOT TRUE OR n < 1",
     "b IS NULL OR s IS NOT NULL",
+
+    # We will never be able to support these in AQL
     "s LIKE 'b%'",
     "s ILIKE 'b%'",
     "s SIMILAR TO 'b%'",
     "s ~ 'b'",
 ]
 
-CONSTRAINTS = SUPPORTED_CONSTRAINTS + UNSUPPORTED_CONSTRAINTS
+CONSTRAINTS = [(constraint, True) for constraint in SUPPORTED_CONSTRAINTS] + \
+    [(constraint, False) for constraint in UNSUPPORTED_CONSTRAINTS]
+IDS = [f"{constraint} ({'supported' if supported else 'unsupported'})" for constraint,
+       supported in CONSTRAINTS]
 
 
-@pytest.mark.parametrize("constraint", CONSTRAINTS, ids=CONSTRAINTS)
-def test_constraints(constraint, sql_connection):
-    supported = constraint in SUPPORTED_CONSTRAINTS
-
+@pytest.mark.parametrize("constraint,supported", CONSTRAINTS, ids=IDS)
+def test_constraints(constraint, supported, sql_connection):
     # 1) fully-pushed constraints
     sql1 = f"""
       EXPLAIN (ANALYZE, FORMAT JSON)

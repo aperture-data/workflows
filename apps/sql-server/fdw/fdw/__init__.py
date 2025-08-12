@@ -308,7 +308,8 @@ class FDW(ForeignDataWrapper):
             if None in value:
                 return ["in", []]  # exclude all rows; SQL NULL handling rules
             else:
-                return ["not in", value, "!=", None]
+                # PARTIAL: This should not include null values, but ApertureDB will include them. Safe because of post-filter.
+                return ["not in", value]
         elif col_type == "boolean":
             # Standard SQL does not support < or > for boolean columns, but this is a PostgreSQL-specific extension.
             # FALSE < TRUE, and comparison with NULL is always UNKNOWN which is treated as FALSE.
