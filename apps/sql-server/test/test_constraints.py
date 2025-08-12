@@ -44,6 +44,7 @@ SUPPORTED_CONSTRAINTS = [
     "b IS NULL", "b IS NOT NULL", "b IN (TRUE)", "b NOT IN (TRUE)",
     "b IN (FALSE)", "b NOT IN (FALSE)",
     "b IN (TRUE, FALSE)",
+    "b = NULL", "b <> NULL",
     # PG boolean ordering
     "b < TRUE", "b <= TRUE", "b > TRUE", "b >= TRUE",
     "b < FALSE", "b <= FALSE", "b > FALSE", "b >= FALSE",

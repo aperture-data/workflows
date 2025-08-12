@@ -266,6 +266,8 @@ class FDW(ForeignDataWrapper):
         """
         Apply constraint to the command body based on the provided qualification.
         """
+        exclude_all = ["in", []]  # Exclude all rows
+
         col_type = self._columns[qual.field_name].type
         value = self._convert_qual_value(qual, use_operator=False)
         if col_type == "number":
@@ -281,14 +283,15 @@ class FDW(ForeignDataWrapper):
         elif qual.operator == "<>":
             # SQL NULL semantics will not include results where a column is NULL, but ApertureDB will.
             if value is None:
-                # This is a special case for NULL values; we want to include rows where the column is NULL.
-                return ["!=", None]
+                # Surpisingly, this arises from a clause like "b IS NOT NULL", and not from "b <> NULL".
+                return ["!=", None]  # Exclude all rows with NULL
             elif isinstance(value, list):
                 return ["not in", value]
             elif col_type == 'boolean':
                 return ["==", not value]
             else:
-                return ["not in", [value, None]]
+                # PARTIAL: Will include unset values, but will be post-filtered by PostgreSQL.
+                return ["!=", value]
         elif qual.operator == "IS":
             assert col_type == 'boolean' or value is None, f"Qual {qual} for column {qual.field_name} must be boolean or None for IS operator."
             return ["==", value]
@@ -300,13 +303,15 @@ class FDW(ForeignDataWrapper):
             assert isinstance(
                 value, list), f"Qual {qual} for column {qual.field_name} must be a list for IN operator."
             if None in value:  # SQL NULL handling rules
-                value.remove(None)
-            return ["in", value]
+                value_without_none = [v for v in value if v is not None]
+                return ["in", value_without_none]
+            else:
+                return ["in", value]
         elif qual.operator == "NOT IN" or qual.operator == ("<>", False):
             assert isinstance(
                 value, list), f"Qual {qual} for column {qual.field_name} must be a list for NOT IN operator."
             if None in value:
-                return ["in", []]  # exclude all rows; SQL NULL handling rules
+                return exclude_all  # exclude all rows; SQL NULL handling rules
             else:
                 # PARTIAL: This should not include null values, but ApertureDB will include them. Safe because of post-filter.
                 return ["not in", value]
@@ -317,7 +322,7 @@ class FDW(ForeignDataWrapper):
                 if value is True:
                     return ["==", False]
                 elif value is False:
-                    return ["in", []]  # surprisingly this is allowed
+                    return exclude_all
             elif qual.operator == "<=":
                 if value is False:
                     return ["==", False]
@@ -327,7 +332,7 @@ class FDW(ForeignDataWrapper):
                 if value is False:
                     return ["==", True]
                 elif value is True:
-                    return ["in", []]  # surprisingly this is allowed
+                    return exclude_all
             elif qual.operator == ">=":
                 if value is True:
                     return ["==", True]
