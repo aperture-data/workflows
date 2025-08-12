@@ -5,7 +5,7 @@ import os
 import sys
 
 import datetime
-from status import StatusUpdater
+from status_tools import StatusUpdater
 from typer import Typer
 import subprocess
 

@@ -18,7 +18,7 @@ from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from status import StatusUpdater
+from status_tools import StatusUpdater
 
 
 logger = logging.getLogger(__name__)

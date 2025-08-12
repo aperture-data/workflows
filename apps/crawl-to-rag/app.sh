@@ -5,7 +5,7 @@ set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
 NOT_READY_FILE=/workflows/rag/not-ready.txt
-STATUS_SCRIPT="/app/status.py"
+STATUS_SCRIPT="/app/status_tools.py"
 
 python $STATUS_SCRIPT --completed 0 \
       --phases rag \
@@ -82,15 +82,15 @@ COMMON_PARAMETERS="DB_HOST DB_HOST_PUBLIC DB_HOST_PRIVATE_TCP DB_HOST_PRIVATE_HT
 (
     log_status "Starting crawl"
 
-    with_env_only crawl-website $COMMON_PARAMETERS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN
+    with_env_only crawl-website $COMMON_PARAMETERS WF_START_URLS WF_ALLOWED_DOMAINS WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CONCURRENT_REQUESTS WF_DOWNLOAD_DELAY WF_CONCURRENT_REQUESTS_PER_DOMAIN PYTHONPATH
 
     log_status "Crawl complete; starting text-extraction"
 
-    with_env_only text-extraction $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR
+    with_env_only text-extraction $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_CSS_SELECTOR PYTHONPATH
 
     log_status "Text-extraction complete; starting text-embeddings"
 
-    with_env_only text-embeddings $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE
+    with_env_only text-embeddings $COMMON_PARAMETERS WF_INPUT WF_OUTPUT WF_CLEAN WF_LOG_LEVEL WF_MODEL WF_ENGINE PYTHONPATH
 
     log_status "Text-embeddings complete"
     set_ready
@@ -100,7 +100,7 @@ pipeline_pid=$!
 (
     echo "Running webserver for RAG API"
 
-    with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS
+    with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS PYTHONPATH
 )&
 server_pid=$!
 
@@ -114,9 +114,15 @@ echo "Pipeline completed with status $pipeline_status"
 
 if [ $pipeline_status -ne 0 ]; then
     echo "Pipeline failed with status $pipeline_status, shutting down server"
-    kill $server_pid 2>/dev/null || true
-    pkill -f 'uvicorn' || true
-    wait $server_pid 2>/dev/null || true
+    pgid="$(ps -o pgid= -p $$ | tr -d ' ')"
+    if [ -z "$pgid" ]; then
+        echo "Error: Failed to get process group ID. Cannot kill server process group." >&2
+        exit 1
+    fi
+    echo "Killing server with PGID $pgid"
+    kill -TERM "-$pgid" || true
+    sleep 1 # Give server time to shut down gracefully
+    kill -KILL "-$pgid" || true
     exit $pipeline_status
 fi
 

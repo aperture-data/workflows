@@ -8,7 +8,7 @@
 
 import logging
 from typing import List
-from .common import get_schema, Curry
+from .common import get_classes, Curry
 from .column import property_columns, ColumnOptions
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
@@ -24,17 +24,7 @@ def connection_schema() -> List[TableDefinition]:
     """
     logger.info("Creating connection schema")
     results = []
-    schema = get_schema()
-    if schema.get("connections") is None:
-        logger.warning("No connections found in schema")
-        return results
-    classes = schema.get("connections", {}).get("classes", {})
-    if not classes:
-        logger.warning("No connection classes found in schema")
-        return results
-
-    assert classes, \
-        f"Expected connections.classes to be a dict, got {type(schema['connections']['classes'])}"
+    classes = get_classes("connections")
     for connection, data in classes.items():
         # We don't currently allow `with_class` to be used with internal connection classes.
         if connection[0] == "_":

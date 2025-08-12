@@ -1,7 +1,7 @@
 import argparse
 import os
 import logging
-from typing import List, Optional
+
 
 # TODO: Elevate this to a shared library
 # This class wraps argparse and adds support for environment variables.

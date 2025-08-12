@@ -2,7 +2,8 @@ import os
 import argparse
 from prometheus_client import start_http_server
 import time
-from status import Status, WorkFlowError
+from status import Status
+from status_tools import WorkFlowError
 
 
 workflow_status = Status(phases = ["phase1", "module"])
