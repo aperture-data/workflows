@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 import json
 import base64
 from connection_pool import ConnectionPool
+from typing import List, Optional
 
 app = FastAPI()
 
