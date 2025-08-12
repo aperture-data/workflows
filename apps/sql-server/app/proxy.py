@@ -17,7 +17,7 @@ pool = ConnectionPool()
 @app.post("/aperturedb")
 async def query_multipart(
     query: str = Form(...),
-    blobs: list[UploadFile] | None = File(None),
+    blobs: Optional[List[UploadFile]] = File(None),
 ):
     in_json = json.loads(query)
     in_blobs = [await b.read() for b in (blobs or [])]
