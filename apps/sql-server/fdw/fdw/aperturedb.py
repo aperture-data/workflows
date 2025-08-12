@@ -25,7 +25,7 @@ class UnixHTTPConnection(http.client.HTTPConnection):
         self.sock.connect(self.uds_path)
 
 
-def _multipart(boundary: str, query: list[dict], blobs: Optional[List[bytes]]) -> bytes:
+def _multipart(boundary: str, query: List[dict], blobs: Optional[List[bytes]]) -> bytes:
     sep = f"--{boundary}\r\n".encode()
     end = f"--{boundary}--\r\n".encode()
     body = bytearray()
