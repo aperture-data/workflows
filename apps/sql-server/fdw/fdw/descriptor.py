@@ -10,7 +10,7 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import get_classes, import_from_app, Curry
-from .column import property_columns, ColumnOptions, blob_columns
+from .column import property_columns, ColumnOptions, blob_columns, get_path_keys
 from .table import TableOptions, literal
 import logging
 import numpy as np
@@ -45,15 +45,6 @@ def descriptor_schema() -> List[TableDefinition]:
         # this is a good heuristic to avoid unnecessary complexity.
         find_similar = Embedder.check_properties(properties)
 
-        options = TableOptions(
-            table_name=f'descriptor."{table_name}"',
-            count=properties["_count"],
-            command="FindDescriptor",
-            result_field="entities",
-            modify_command_body=Curry(
-                literal, {"set": name, "distances": True}),
-        )
-
         columns = property_columns_for_descriptors_in_set(name)
 
         if find_similar:
@@ -85,6 +76,18 @@ def descriptor_schema() -> List[TableDefinition]:
         # and does appear in the schema, so we skip it here.
 
         columns.extend(blob_columns("_vector"))
+
+        path_keys = get_path_keys(columns)
+
+        options = TableOptions(
+            table_name=f'descriptor."{table_name}"',
+            count=properties["_count"],
+            command="FindDescriptor",
+            result_field="entities",
+            modify_command_body=Curry(
+                literal, {"set": name, "distances": True}),
+            path_keys=path_keys,
+        )
 
         logger.debug(
             f"Creating table {table_name} with options {options.to_string()} and columns {columns}")

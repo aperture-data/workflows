@@ -9,7 +9,7 @@
 import logging
 from typing import List
 from .common import get_classes, Curry
-from .column import property_columns, ColumnOptions
+from .column import property_columns, ColumnOptions, get_path_keys
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 
@@ -43,14 +43,6 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
 
     table_name = connection
 
-    options = TableOptions(
-        table_name=f'connection."{table_name}"',
-        count=data.get("matched", 0),
-        command="FindConnection",
-        result_field="connections",
-        modify_command_body=Curry(literal, {"with_class": connection}),
-    )
-
     columns = []
 
     try:
@@ -77,6 +69,17 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
         logger.exception(
             f"Error processing properties for connection {connection}: {e}")
         raise
+
+    path_keys = get_path_keys(columns)
+
+    options = TableOptions(
+        table_name=f'connection."{table_name}"',
+        count=data.get("matched", 0),
+        command="FindConnection",
+        result_field="connections",
+        modify_command_body=Curry(literal, {"with_class": connection}),
+        path_keys=path_keys,
+    )
 
     logger.debug(
         f"Creating connection table for {connection} with columns: {columns} and options: {options}")

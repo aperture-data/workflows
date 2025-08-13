@@ -45,6 +45,17 @@ atexit.register(flush_logs)
 BATCH_SIZE = 100
 BATCH_SIZE_WITH_BLOBS = 10
 
+# Estimated size of a column in bytes.
+TYPE_SIZE_ESTIMATE = {
+    "boolean": 1,
+    "number": 4,  # float32
+    "datetime": 8,  # int64 for timestamp
+    "string": 40,  # average string length
+    "json": 100,  # average JSON size
+    "blob": 1000,  # average blob size
+    "uniqueid": 16,  # UUID size
+}
+
 
 class FDW(ForeignDataWrapper):
     """
@@ -203,7 +214,9 @@ class FDW(ForeignDataWrapper):
             self._options.modify_command_body(command_body=command_body)
 
         # apply constraints
-        self._apply_constraints(quals, columns, command_body=command_body)
+        constraints = self._apply_constraints(quals, columns)
+        if constraints:
+            command_body["constraints"] = constraints
 
         # Apply column modifications
         for qual in quals:
@@ -242,12 +255,13 @@ class FDW(ForeignDataWrapper):
 
         return query
 
-    def _apply_constraints(self, quals: List[Qual], columns: Set[str], command_body: Dict[str, Any]) -> None:
+    def _apply_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
         """
         Apply constraints to the command body based on the provided qualifications and columns.
         """
         logger.debug(
             f"Applying constraints for quals: {quals} and columns: {columns}")
+        constraints = {}
         listable_columns = {
             col for col in columns if self._columns[col].listable}
         for qual in quals:
@@ -256,12 +270,10 @@ class FDW(ForeignDataWrapper):
                 if constraint is not None:
                     logger.debug(
                         f"Applying constraint {constraint} for qual {qual} on column {qual.field_name}")
-                    if "constraints" not in command_body:
-                        command_body["constraints"] = {}
-                    if qual.field_name not in command_body["constraints"]:
-                        command_body["constraints"][qual.field_name] = []
-                    command_body["constraints"][qual.field_name].extend(
-                        constraint)
+                    if qual.field_name not in constraints:
+                        constraints[qual.field_name] = []
+                    constraints[qual.field_name].extend(constraint)
+        return constraints
 
     def _apply_constraint(self, qual: Qual) -> Optional[List[Any]]:
         """
@@ -558,6 +570,50 @@ class FDW(ForeignDataWrapper):
                     len(blob) for blob in query_blobs]
 
         return [compact_pretty_json(result)]
+
+    def get_rel_size(self, quals: List[Qual], columns: Set[str]) -> Tuple[int, int]:
+        """
+        https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L172
+        https://www.postgresql.org/docs/current/fdw-callbacks.html#FDW-CALLBACKS-SCAN
+        """
+        logger.info(
+            f"Estimating relation size for FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+        query = self._get_query(quals, columns)
+        command_body = query[0][self._options.command]
+        blobs = command_body.get("blobs", False)
+
+        n_rows = self._options.count
+        for col, constraints in command_body.get("constraints", {}).items():
+            col_type = self._columns[col].type
+            if col == "_uniqueid":
+                if constraints[0] == "==":
+                    n_rows = 1  # Unique ID means only one row can match
+                elif constraints[0] == "in":
+                    # Number of unique IDs in the list
+                    n_rows = len(constraints[1])
+                # negative constraints don't significantly affect the number of rows
+            elif col_type == "boolean":
+                n_rows //= 2  # Boolean constraints halve the number of rows
+            elif col_type in {"number", "datetime", "uniqueid", "string"}:
+                if constraints[0] in {"==", "in"}:
+                    n_rows //= 10  # Equality constraints reduce the number of rows significantly
+                elif constraints[0] in {"<", "<=", ">", ">="}:
+                    n_rows //= 2  # Range constraints halve the number of rows
+
+        n_rows = max(n_rows, 1)  # Ensure at least one row
+
+        width = sum(
+            TYPE_SIZE_ESTIMATE[self._columns[col].type] for col in columns if blobs or self._columns[col].type != "blob")
+
+        logger.info(
+            f"Estimated size for FDW {self._options.table_name}: {n_rows} rows, width {width} bytes per row")
+        return (n_rows, width)
+
+    def get_path_keys(self) -> List[Tuple[List[str], int]]:
+        keys = self._options.path_keys
+        logger.info(
+            f"Getting path keys for FDW {self._options.table_name} -> {keys}")
+        return keys
 
 
 logger.info("FDW class defined successfully")

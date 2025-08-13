@@ -7,7 +7,7 @@
 
 from typing import List, Literal, Set, Any, Dict
 from .common import get_classes, TYPE_MAP, Curry
-from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough
+from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough, get_path_keys
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 import logging
@@ -123,18 +123,19 @@ def system_table(entity: str, data: dict) -> TableDefinition:
 
     try:
         columns.extend(property_columns(data))
+        if entity in OBJECT_COLUMNS_HANDLERS:
+            columns.extend(OBJECT_COLUMNS_HANDLERS[entity]())
 
         table_name = entity[1:]
+        path_keys = get_path_keys(columns)
 
         options = TableOptions(
             table_name=f'system."{table_name}"',
             count=data.get("matched", 0),
             command=f"Find{entity[1:]}",  # e.g. FindBlob, FindImage, etc.
             result_field="entities",
+            path_keys=path_keys,
         )
-
-        if entity in OBJECT_COLUMNS_HANDLERS:
-            columns.extend(OBJECT_COLUMNS_HANDLERS[entity]())
 
     except Exception as e:
         logger.exception(
@@ -166,18 +167,19 @@ def system_entity_table() -> TableDefinition:
         data.get("matched", 0) for class_, data in classes.items() if class_[0] != "_"
     )
 
+    columns = []
+    columns.append(uniqueid_column(count))
+    columns.extend(get_consistent_properties("entities"))
+
+    path_keys = get_path_keys(columns)
+
     options = TableOptions(
         table_name=f'system."{table_name}"',
         count=count,
         command=f"FindEntity",
         result_field="entities",
+        path_keys=path_keys,
     )
-
-    columns = []
-
-    columns.append(uniqueid_column(count))
-
-    columns.extend(get_consistent_properties("entities"))
 
     logger.debug(
         f"Creating system entity table as {table_name} with columns: {columns} and options: {options}")
@@ -203,17 +205,8 @@ def system_connection_table() -> TableDefinition:
         data.get("matched", 0) for class_, data in classes.items()
     )
 
-    options = TableOptions(
-        table_name=f'system."{table_name}"',
-        count=count,
-        command="FindConnection",
-        result_field="connections",
-    )
-
     columns = []
-
     columns.append(uniqueid_column(count))
-
     columns.extend(get_consistent_properties("connections"))
 
     # Add the _src, and _dst columns
@@ -232,6 +225,16 @@ def system_connection_table() -> TableDefinition:
             indexed=True,
             type="uniqueid",
         ).to_string()))
+
+    path_keys = get_path_keys(columns)
+
+    options = TableOptions(
+        table_name=f'system."{table_name}"',
+        count=count,
+        command="FindConnection",
+        result_field="connections",
+        path_keys=path_keys,
+    )
 
     logger.debug(
         f"Creating system connection table as {table_name} with columns: {columns} and options: {options}")

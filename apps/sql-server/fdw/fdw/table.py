@@ -1,7 +1,7 @@
 from .common import Curry
 import logging
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,8 @@ class TableOptions(BaseModel):
     command: str = "FindEntity"
     # field to look for in the response, e.g. "entities", "connections"
     result_field: str = "entities"
+    # path keys for the table; see https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L215
+    path_keys: List[Tuple[List[str], int]] = []
 
     # This hook is used to modify the command body before executing it.
     # It is passed the command body as `command_body`.
