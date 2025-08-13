@@ -30,10 +30,10 @@ class ConnectionPool:
         self._pool_size = pool_size
         self._connection_factory = connection_factory
         # A thread-safe queue to hold the available connections
-        self._pool = queue.Queue(maxsize=pool_size)
+        self._pool = queue.LifoQueue(maxsize=pool_size)
 
         # A lock to ensure the initial population is thread-safe, just in case.
-        self._lock = threading.Lock()
+        # self._lock = threading.Lock()
 
         # Pre-populate the pool with connections
         for _ in range(pool_size):
