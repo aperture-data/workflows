@@ -50,7 +50,7 @@ def execute_query(
     blobs: Optional[List[bytes]] = None,
     uds_path: str = "/tmp/aperturedb-proxy.sock",
 ) -> Tuple[int, List[dict], Optional[List[bytes]]]:
-    logger.info(
+    logger.debug(
         f"Executing query: {json_query} with blobs: {len(blobs) if blobs else 0}")
     boundary = "----apdb-" + uuid.uuid4().hex
     body = _multipart(boundary, json_query, blobs)
