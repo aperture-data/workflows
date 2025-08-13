@@ -9,13 +9,14 @@
 
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import get_classes, get_pool, import_from_app, Curry
+from .common import get_classes, import_from_app, Curry
 from .column import property_columns, ColumnOptions, blob_columns
 from .table import TableOptions, literal
 import logging
 import numpy as np
 import json
 from datetime import datetime
+from .aperturedb import execute_query
 
 with import_from_app():
     from embeddings import Embedder
@@ -105,7 +106,7 @@ def get_descriptor_sets() -> dict:
     """
     query = [{"FindDescriptorSet": {"results": {"all_properties": True},
                                     "counts": True, "engines": True, "dimensions": True, "metrics": True}}]
-    _, response, _ = get_pool().execute_query(query)
+    _, response, _ = execute_query(query)
     if "entities" not in response[0]["FindDescriptorSet"]:
         return {}
 
@@ -130,7 +131,7 @@ def property_columns_for_descriptors_in_set(name: str) -> List[ColumnDefinition]
         }
     }]
 
-    _, response, _ = get_pool().execute_query(query)
+    _, response, _ = execute_query(query)
 
     classes = get_classes("entities", response[1]["GetSchema"])
     properties = classes.get("_Descriptor", {})

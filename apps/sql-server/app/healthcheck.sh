@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux -o pipefail
+set -eu -o pipefail
 
 trap 'error on line $LINENO' ERR
 
@@ -8,6 +8,11 @@ SQL_PORT=5432
 SQL_NAME=aperturedb
 SQL_USER=aperturedb
 SQL_PASS=$WF_AUTH_TOKEN
+
+curl -fsS --unix-socket /tmp/aperturedb-proxy.sock \
+  -F 'query=[{"GetStatus": {}}];type=application/json' \
+  http://127.0.0.1/aperturedb
+echo "ApertureDB proxy is ready"
 
 # Check Postgres server on TCP port 5432
 pg_isready --host $SQL_HOST --port $SQL_PORT
@@ -22,9 +27,6 @@ curl -fsS --connect-timeout 2 --max-time 3 \
   --data-raw '{"query":"SELECT 1;"}' \
   | jq -e '(.rows // .data // .result | flatten | first) == 1' >/dev/null
 echo "HTTP API is ready on $SQL_HOST:80"
-
-PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command '\dt *.*'
-echo "Database $SQL_NAME is accessible by user $SQL_USER"
 
 PGPASSWORD="${SQL_PASS}" psql --host $SQL_HOST --port $SQL_PORT --username $SQL_USER --dbname $SQL_NAME --command 'SELECT _uniqueid FROM system."Entity" LIMIT 1;'
 echo "Entity table is accessible by user $SQL_USER"
