@@ -35,7 +35,7 @@ ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV PYTHONPATH=""
 
 # Install multicorn2 Python module into system Python
-RUN /usr/bin/python3 -m pip install --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
+RUN /usr/bin/python3 -m pip install --compile --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
 
 # Build and install multicorn2 Postgres extension 
 RUN git clone --single-branch --branch main https://github.com/pgsql-io/multicorn2.git /multicorn2 \
@@ -51,9 +51,9 @@ RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
 
 # Copy and install our FDW into system Python
 COPY fdw /fdw
-RUN cd /fdw && /usr/bin/python3 -m pip install .
-
-# Restore virtual environment
+RUN cd /fdw && /usr/bin/python3 -m pip install --compile .
+\
+    # Restore virtual environment
 ENV VIRTUAL_ENV=${OLD_VIRTUAL_ENV}
 ENV PATH="${OLD_PATH}"
 ENV PYTHONPATH="/app:${OLD_PYTHONPATH}"
