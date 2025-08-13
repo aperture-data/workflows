@@ -56,16 +56,19 @@ def execute_query(
     body = _multipart(boundary, json_query, blobs)
 
     conn = UnixHTTPConnection(uds_path)
-    conn.putrequest("POST", "/aperturedb")
-    conn.putheader("Content-Type", f"multipart/form-data; boundary={boundary}")
-    conn.putheader("Content-Length", str(len(body)))
-    conn.endheaders()
-    conn.send(body)
+    try:
+        conn.putrequest("POST", "/aperturedb")
+        conn.putheader(
+            "Content-Type", f"multipart/form-data; boundary={boundary}")
+        conn.putheader("Content-Length", str(len(body)))
+        conn.endheaders()
+        conn.send(body)
 
-    resp = conn.getresponse()
-    resp_status = resp.status
-    data = resp.read()
-    conn.close()
+        resp = conn.getresponse()
+        resp_status = resp.status
+        data = resp.read()
+    finally:
+        conn.close()
 
     if resp_status < 200 or resp_status >= 300:
         logger.error(
