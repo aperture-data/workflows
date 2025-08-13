@@ -78,6 +78,6 @@ def execute_query(
     out_json = parsed["json"]
     out_blobs = [base64.b64decode(s) for s in parsed.get("blobs", [])] or None
     out_status = parsed.get('status', 0)
-    logger.info(
+    logger.debug(
         f"Query executed successfully, status: {out_status}, json: {out_json}, blobs: {len(out_blobs) if out_blobs else 0}")
     return out_status, out_json, out_blobs
