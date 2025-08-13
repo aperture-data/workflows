@@ -1,5 +1,6 @@
 # Pull base image with Python and ApertureDB tools
-FROM aperturedata/workflows-base
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-sql-server
 ENV POSTGRES_VERSION=17
