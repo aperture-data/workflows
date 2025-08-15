@@ -579,7 +579,7 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Estimating relation size for FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
         query = self._get_query(quals, columns)[0]
-        command_body = query[-1][self._options.command]
+        command_body = get_command_body(query[-1])
         blobs = command_body.get("blobs", False)
 
         n_rows = self._options.count

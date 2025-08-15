@@ -104,6 +104,8 @@ def connection(class_name: Optional[str],
     # Does it request or constrain _src or _dst?
     # Does it request or constrain any other connection properties?
     is_system_class = class_name and class_name.startswith("_")
+    assert "FindConnection" in query[0], \
+        "This hook should only be used with a FindConnection command"
     command_body = get_command_body(query[0])
     constraints = command_body.get("constraints", {})
     src_constraint = constraints.get("_src")

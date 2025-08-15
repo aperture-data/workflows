@@ -3,14 +3,7 @@ import json
 import pytest
 import psycopg2
 from warnings import warn
-
-
-class UnsupportedConstraintFullFilterWarning(Warning):
-    """Warning for unsupported constraints that are fully pushed down.
-    Something unexpected happened, as these constraints should not be supported.
-    Maybe support was added, and the test needs to be updated?
-    """
-    pass
+from dataclasses import dataclass
 
 
 class UnsupportedConstraintPartialFilterWarning(Warning):
@@ -49,84 +42,156 @@ def constraint_formatter(sql_connection):
     # extract unique IDs for the test
     unique_ids = [row[0] for row in result]
     unique_ids_str = '(' + ', '.join(f"'{uid}'" for uid in unique_ids) + ')'
-    unique_id_str = f"'{unique_ids[0]}'"
+    unique_id_str = f"'{unique_ids[2]}'"
+
+    sql = """SELECT _src, _dst, _uniqueid FROM "edge";"""
+    with sql_connection.cursor() as cur:
+        cur.execute(sql)
+        result = cur.fetchall()
+    src_unique_ids = [row[0] for row in result]
+    src_unique_ids_str = '(' + \
+        ', '.join(f"'{uid}'" for uid in src_unique_ids) + ')'
+    dst_unique_ids = [row[1] for row in result]
+    dst_unique_ids_str = '(' + \
+        ', '.join(f"'{uid}'" for uid in dst_unique_ids) + ')'
+    edge_unique_ids = [row[2] for row in result]
+    edge_unique_ids_str = '(' + \
+        ', '.join(f"'{uid}'" for uid in edge_unique_ids) + ')'
+
     return lambda constraint: constraint.format(
         unique_id=unique_id_str,
         unique_ids=unique_ids_str,
+        src_unique_ids=src_unique_ids_str,
+        dst_unique_ids=dst_unique_ids_str,
+        edge_unique_ids=edge_unique_ids_str,
     )
 
 
-# We expect these constraints to be fully pushed down by the FDW.
-SUPPORTED_CONSTRAINTS = [
-    # boolean
-    "b", "b = TRUE", "b <> TRUE", "b IS TRUE", "b IS NOT TRUE",
-    "NOT b", "b = FALSE", "b <> FALSE", "b IS FALSE", "b IS NOT FALSE",
-    "b IS NULL", "b IS NOT NULL", "b IN (TRUE)", "b NOT IN (TRUE)",
-    "b IN (FALSE)", "b NOT IN (FALSE)",
-    "b IN (TRUE, FALSE)",
-    "b = NULL", "b <> NULL",
-    # PG boolean ordering
-    "b < TRUE", "b <= TRUE", "b > TRUE", "b >= TRUE",
-    "b < FALSE", "b <= FALSE", "b > FALSE", "b >= FALSE",
-    # number
-    "n = 1",  "n > 1", "n >= 1", "n < 1", "n <= 1",
-    "n IS NULL", "n IS NOT NULL", "n IN (0,1)",
-    # string
-    "s = 'b'", "s > 'b'", "s >= 'b'", "s < 'b'", "s <= 'b'",
-    "s IS NULL", "s IS NOT NULL", "s IN ('a', 'b')",
-    # combos
-    "b = TRUE AND n > 1",
-    "b IS TRUE AND s = 'b'",
-    "b IS NOT TRUE AND n < 1",
-    "b IS NULL AND s IS NOT NULL",
-    # unique ids
-    "_uniqueid = {unique_id}",
-    "_uniqueid <> {unique_id}",
-    "_uniqueid IN {unique_ids}",
-    "_uniqueid NOT IN {unique_ids}",
+@dataclass
+class ConstraintTestCase:
+    """
+    Represents a test case for constraints.
+    """
+    constraint: str
+    expected_pushdown: bool = True
+    expected_empty: bool = False
+
+    def get_no_filtering(self) -> str:
+        return self.constraint
+
+    def get_pushdown(self) -> str:
+        if self.expected_pushdown:
+            return self.constraint
+        else:  # expected to fail
+            return pytest.param(self.constraint, marks=pytest.mark.xfail(reason="Unsupported constraint should not be fully pushed down"))
+
+
+TEST_CASES = [
+    ConstraintTestCase("b"),
+    ConstraintTestCase("b = TRUE"),
+    ConstraintTestCase("b <> TRUE"),
+    ConstraintTestCase("b IS TRUE"),
+    ConstraintTestCase("b IS NOT TRUE"),
+    ConstraintTestCase("NOT b"),
+    ConstraintTestCase("b = FALSE"),
+    ConstraintTestCase("b <> FALSE"),
+    ConstraintTestCase("b IS FALSE"),
+    ConstraintTestCase("b IS NOT FALSE"),
+    ConstraintTestCase("b IS NULL"),
+    ConstraintTestCase("b IS NOT NULL"),
+    ConstraintTestCase("b IN (TRUE)"),
+    ConstraintTestCase("b NOT IN (TRUE)"),
+    ConstraintTestCase("b IN (FALSE)"),
+    ConstraintTestCase("b NOT IN (FALSE)"),
+    ConstraintTestCase("b IN (TRUE, FALSE)"),
+    ConstraintTestCase("b = NULL"),
+    ConstraintTestCase("b <> NULL"),
+    ConstraintTestCase("b < TRUE"),
+    ConstraintTestCase("b <= TRUE"),
+    ConstraintTestCase("b > TRUE"),
+    ConstraintTestCase("b >= TRUE"),
+    ConstraintTestCase("b < FALSE"),
+    ConstraintTestCase("b <= FALSE"),
+    ConstraintTestCase("b > FALSE"),
+    ConstraintTestCase("b >= FALSE"),
+    ConstraintTestCase("n = 1"),
+    ConstraintTestCase("n > 1"),
+    ConstraintTestCase("n >= 1"),
+    ConstraintTestCase("n < 1"),
+    ConstraintTestCase("n <= 1"),
+    ConstraintTestCase("n IS NULL"),
+    ConstraintTestCase("n IS NOT NULL"),
+    ConstraintTestCase("n IN (0,1)"),
+    ConstraintTestCase("s = 'b'"),
+    ConstraintTestCase("s > 'b'"),
+    ConstraintTestCase("s >= 'b'"),
+    ConstraintTestCase("s < 'b'"),
+    ConstraintTestCase("s <= 'b'"),
+    ConstraintTestCase("s IS NULL"),
+    ConstraintTestCase("s IS NOT NULL"),
+    ConstraintTestCase("s IN ('a', 'b')"),
+    ConstraintTestCase("b = TRUE AND n > 1"),
+    ConstraintTestCase("b IS TRUE AND s = 'b'"),
+    ConstraintTestCase("b IS NOT TRUE AND n < 1"),
+    ConstraintTestCase("b IS NULL AND s IS NOT NULL"),
+    ConstraintTestCase("_uniqueid = {unique_id}"),
+    ConstraintTestCase("_uniqueid <> {unique_id}"),
+    ConstraintTestCase("_uniqueid IN {unique_ids}"),
+    ConstraintTestCase("_uniqueid NOT IN {unique_ids}"),
+    ConstraintTestCase("_uniqueid IS NOT NULL"),
+    ConstraintTestCase("b NOT IN (TRUE, FALSE)", expected_pushdown=False),
+    ConstraintTestCase("n <> 1", expected_pushdown=False),
+    ConstraintTestCase("n NOT IN (0,1)", expected_pushdown=False),
+    ConstraintTestCase("s <> 'b'", expected_pushdown=False),
+    ConstraintTestCase("s NOT IN ('a', 'b')", expected_pushdown=False),
+    ConstraintTestCase("b = TRUE OR n > 1", expected_pushdown=False),
+    ConstraintTestCase("b IS TRUE OR s = 'b'", expected_pushdown=False),
+    ConstraintTestCase("b IS NOT TRUE OR n < 1", expected_pushdown=False),
+    ConstraintTestCase("b IS NULL OR s IS NOT NULL", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid IS NULL",
+                       expected_pushdown=False, expected_empty=True),
+    ConstraintTestCase("s LIKE 'b%'", expected_pushdown=False),
+    ConstraintTestCase("s ILIKE 'b%'", expected_pushdown=False),
+    ConstraintTestCase("s SIMILAR TO 'b%'", expected_pushdown=False),
+    ConstraintTestCase("s ~ 'b'", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid LIKE {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid ILIKE {unique_id}", expected_pushdown=False),
+    ConstraintTestCase(
+        "_uniqueid SIMILAR TO {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid ~ {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid >= {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid <= {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid < {unique_id}", expected_pushdown=False),
+    ConstraintTestCase("_uniqueid > {unique_id}", expected_pushdown=False),
+
+
 ]
 
-# Not expected to filter, but should not crash or false-filter
-UNSUPPORTED_CONSTRAINTS = [
-    # These feel like they ought to be supported,
-    # but SQL and AQL have different rules for NULL handling
-    "b NOT IN (TRUE, FALSE)",
-    "n <> 1",
-    "n NOT IN (0,1)",
-    "s <> 'b'",
-    "s NOT IN ('a', 'b')",
-    "_uniqueid IS NULL",
-    "_uniqueid IS NOT NULL",
 
-    # Maybe these will be supported in the future, but currently not
-    "b = TRUE OR n > 1",
-    "b IS TRUE OR s = 'b'",
-    "b IS NOT TRUE OR n < 1",
-    "b IS NULL OR s IS NOT NULL",
-
-    # We will never be able to support these in AQL
-    "s LIKE 'b%'",
-    "s ILIKE 'b%'",
-    "s SIMILAR TO 'b%'",
-    "s ~ 'b'",
-    "_uniqueid LIKE {unique_id}",
-    "_uniqueid ILIKE {unique_id}",
-    "_uniqueid SIMILAR TO {unique_id}",
-    "_uniqueid ~ {unique_id}",
-    "_uniqueid >= {unique_id}",
-    "_uniqueid <= {unique_id}",
-    "_uniqueid < {unique_id}",
-    "_uniqueid > {unique_id}",
-]
-
-CONSTRAINTS = [(constraint, True) for constraint in SUPPORTED_CONSTRAINTS] + \
-    [(constraint, False) for constraint in UNSUPPORTED_CONSTRAINTS]
-IDS = [f"{constraint} ({'supported' if supported else 'unsupported'})" for constraint,
-       supported in CONSTRAINTS]
+@pytest.mark.parametrize("constraint", [tc.get_no_filtering() for tc in TEST_CASES])
+def test_no_filtering(constraint, sql_connection, constraint_formatter):
+    """
+    Test that we don't filter out rows that should be returned.
+    No constraint should fail this, regardless of whether it is supported or not.
+    """
+    data = _test_constraints_inner(
+        constraint, sql_connection, constraint_formatter)
+    assert data["rows1"] == data[
+        "rows2"], f"SEVERE: Rowcount mismatch for: {constraint} - {data['multicorn_plan1']}"
 
 
-@pytest.mark.parametrize("constraint,supported", CONSTRAINTS, ids=IDS)
-def test_constraints(constraint, supported, sql_connection, constraint_formatter):
+@pytest.mark.parametrize("constraint", [tc.get_pushdown() for tc in TEST_CASES])
+def test_pushdown(constraint, sql_connection, constraint_formatter):
+    """
+    Test that we filter out rows that should not be returned.
+    This indicates successful pushdown of the constraint.
+    """
+    data = _test_constraints_inner(
+        constraint, sql_connection, constraint_formatter)
+    assert data["removed1"] == 0, f"Rows removed by post-filter for: {constraint} → {data['removed1']} - {data['multicorn_plan1']}"
+
+
+def _test_constraints_inner(constraint, sql_connection, constraint_formatter):
     constraint = constraint_formatter(constraint)
     # 1) fully-pushed constraints
     sql1 = f"""
@@ -155,7 +220,6 @@ def test_constraints(constraint, supported, sql_connection, constraint_formatter
             result2 = json.loads(result2)
         plan2 = result2[0]["Plan"]
 
-    print(json.dumps(plan1))
     rows1 = plan_actual_rows(plan1)
     rows2 = plan_actual_rows(plan2)
     removed1 = sum_rows_removed_by_filter(plan1)
@@ -164,26 +228,14 @@ def test_constraints(constraint, supported, sql_connection, constraint_formatter
     # Debug line that shows up in pytest -q
     print(f"{constraint}: rows1={rows1} rows2={rows2} removed_by_filter={removed1} - {multicorn_plan1}")
 
-    # False negatives? (pushdown missed rows)
-    # This is severe, as the user will fail to receive rows they expect.
-    assert rows1 == rows2, f"SEVERE: Rowcount mismatch for: {constraint} - {multicorn_plan1}"
-
-    # False positives? (server over-returned; PG had to filter)
-    # This is mild, as the user will still receive rows they expect,
-    # but at higher cost.
-    if supported:  # We expected these to work
-        assert removed1 == 0, f"MILD: Rows removed by post-filter for: {constraint} → {removed1} - {multicorn_plan1}"
-    elif removed1 == 0:  # Expected not to work, but it did
-        warn(
-            f"Unsupported constraint {constraint} was fully pushed down, suggesting it is now supported - {multicorn_plan1}",
-            UnsupportedConstraintFullFilterWarning
-        )
-    elif removed1 > 0 and removed1 != removed2:  # expected not to work, but it did partially
-        warn(
-            f"Unsupported constraint {constraint} was partially pushed down, might be OK - {multicorn_plan1}",
-            UnsupportedConstraintPartialFilterWarning
-        )
-    # Else expected not to work, and it did not, so no warning needed
+    return dict(
+        constraint=constraint,
+        rows1=rows1,
+        rows2=rows2,
+        removed1=removed1,
+        removed2=removed2,
+        multicorn_plan1=multicorn_plan1,
+    )
 
 
 def plan_actual_rows(plan_node: dict) -> int:
@@ -204,3 +256,53 @@ def multicorn_plan(plan_node: dict) -> str:
     if "Multicorn" in plan_node:
         return json.dumps(json.loads(plan_node["Multicorn"]))
     return None
+
+
+@pytest.mark.parametrize("query", [
+    "SELECT source_key FROM \"SourceNode\";",
+    "SELECT destination_key FROM \"DestinationNode\";",
+    "SELECT edge_key FROM \"edge\";",
+    "SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid;",
+    "SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid WHERE source_key = edge_key;",
+    "SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid;",
+    "SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid WHERE destination_key = edge_key;",
+    "SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid;",
+    "SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid WHERE source_key = destination_key;",
+    "SELECT source_key FROM \"SourceNode\" WHERE _uniqueid in {src_unique_ids};",
+    "SELECT destination_key FROM \"DestinationNode\" WHERE _uniqueid in {dst_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _dst IN {dst_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};",
+    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
+])
+def test_join_query(query, sql_connection, constraint_formatter):
+    """
+    Test the execution of join queries.
+    """
+    query = constraint_formatter(query)
+    try:
+        with sql_connection.cursor() as cur:
+            cur.execute(query)
+            result = cur.fetchall()
+    except Exception as e:
+        print(
+            f"Error executing query: {e} - {query} - {query_aql(query, sql_connection)}")
+
+    assert len(
+        result) == 5, f"Expected 5 rows, got {len(result)} for query: {query}, {query_aql(query, sql_connection)}"
+
+
+def query_aql(query: str, sql_connection) -> str:
+    query = f"EXPLAIN (FORMAT JSON) {query};"
+    with sql_connection.cursor() as cur:
+        cur.execute(query)
+        result1 = cur.fetchone()[0]
+    if isinstance(result1, str):
+        result1 = json.loads(result1)
+    plan1 = result1[0]["Plan"]
+    multicorn_plan1 = multicorn_plan(plan1)
+    aql = json.loads(multicorn_plan1).get("aql", "")
+    return aql
