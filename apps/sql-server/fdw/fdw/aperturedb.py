@@ -11,6 +11,7 @@ import base64
 import uuid
 from typing import List, Optional, Tuple
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ def execute_query(
     blobs: Optional[List[bytes]] = None,
     uds_path: str = "/tmp/aperturedb-proxy.sock",
 ) -> Tuple[int, List[dict], Optional[List[bytes]]]:
+    start_time = datetime.now()
     logger.debug(
         f"Executing query: {json_query} with blobs: {len(blobs) if blobs else 0}")
     boundary = "----apdb-" + uuid.uuid4().hex
@@ -81,6 +83,7 @@ def execute_query(
     out_json = parsed["json"]
     out_blobs = [base64.b64decode(s) for s in parsed.get("blobs", [])] or None
     out_status = parsed.get('status', 0)
+    elapsed_time = datetime.now() - start_time
     logger.debug(
-        f"Query executed successfully, status: {out_status}, json: {out_json}, blobs: {len(out_blobs) if out_blobs else 0}")
+        f"Query executed successfully in {elapsed_time.total_seconds()} seconds, status: {out_status}, json: {json.dumps(out_json)[:200]}{'...' if len(json.dumps(out_json))  > 200 else ''}, blobs: {len(out_blobs) if out_blobs else 0}")
     return out_status, out_json, out_blobs

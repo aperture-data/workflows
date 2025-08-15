@@ -282,6 +282,6 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
                 logger.warning(
                     f"Unknown type '{prop_type}' for property '{prop}' in system {type_} table.")
         else:
-            logger.warning(
+            logger.debug(
                 f"Property '{prop}' has multiple types: {types}. Skipping.")
     return columns

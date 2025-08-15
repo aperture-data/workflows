@@ -74,7 +74,7 @@ class ColumnOptions(BaseModel):
         This is used to extract the path keys from the column definition.
         """
         if self.indexed or self.type == "uniqueid":
-            expected_rows = 1 if name == "_uniqueid" else 1000
+            expected_rows = 1 if name == "_uniqueid" else 1000  # See FDW.get_path_keys
             yield ([name], expected_rows)
             if name == "_src":
                 yield (["_src", "_dst"], 1)

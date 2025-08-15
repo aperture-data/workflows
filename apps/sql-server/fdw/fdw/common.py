@@ -170,7 +170,6 @@ class Curry:
 
     @classmethod
     def _validate(cls, value: Any) -> "Curry":
-        logger.debug(f"Validating Curry: {value}")
         if isinstance(value, cls):
             return value
         elif isinstance(value, dict):

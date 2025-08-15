@@ -88,7 +88,7 @@ def connection(class_name: Optional[str],
     are converted to a pair of Find<Object> commands using "is_connected_to".
 
     So the input query is a single FindConnection command, and the output has one of these six forms:
-    1. Single FindConnection command.
+    1. Single FindConnection command
     2. A Find<Object> command ref-tied to `src` in FindConnection
     3. A Find<Object> command ref-tied to `dst` in FindConnection
     4. Two Find<Object> commands ref-tied respectively to `src` and `dst` in FindConnection
@@ -113,6 +113,9 @@ def connection(class_name: Optional[str],
     list_columns = command_body.get("result", {}).get(
         "list", [])  # We never use all_properties, even for "*"
     other_columns = [c for c in list_columns if c not in ["_src", "_dst"]]
+
+    if class_name and not is_system_class:
+        command_body["with_class"] = class_name
 
     result_query = []
 
@@ -170,13 +173,17 @@ def connection(class_name: Optional[str],
 
         if src_command:
             if dst_command:
-                logger.debug("connection table case 4")
+                logger.debug(
+                    f"connection table case 4: A {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command ref-tied to `src` and a {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command ref-tied to `dst` in FindConnection{'(class='+class_name+')' if class_name else ''}")
             else:
-                logger.debug("connection table case 2")
+                logger.debug(
+                    f"connection table case 2: A {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command ref-tied to `src` in FindConnection{'(class='+class_name+')' if class_name else ''}")
         elif dst_command:
-            logger.debug("connection table case 3")
+            logger.debug(
+                f"connection table case 3: A {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command ref-tied to `dst` in FindConnection{'(class='+class_name+')' if class_name else ''}")
         else:
-            logger.debug("connection table case 1")
+            logger.debug(
+                f"connection table case 1: Single FindConnection{'(class='+class_name+')' if class_name else ''} command")
 
     else:  # 5 or 6, no FindConnection command; add is_connected_to
         def get_result_objects(response: List[dict], direction: Literal["in", "out"]) -> Iterable[dict]:
@@ -193,13 +200,14 @@ def connection(class_name: Optional[str],
                         yield {"_src": x["_uniqueid"], "_dst": k}
 
         assert src_command and dst_command, \
-            "Cannot drop FindConnection without src and dst commands"
+            "Cannot drop FindConnection without both src and dst commands"
         classes = get_classes("entities")
         src_count = classes.get(src_class, {}).get("matched", 0)
         dst_count = classes.get(dst_class, {}).get("matched", 0)
 
         if src_count < dst_count:  # case 5
-            logger.debug("connection table case 5")
+            logger.debug(
+                f"connection table case 5: A {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command, and a {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command with is_connected_to(direction=out{', class='+class_name if class_name else ''})")
             dst_command_body["is_connected_to"] = {
                 **({"with_class": class_name} if class_name else {}),
                 "direction": "out",
@@ -211,7 +219,8 @@ def connection(class_name: Optional[str],
             del dst_command_body["_ref"]
             def return_fn(r): return get_result_objects(r, "out")
         else:  # case 6
-            logger.debug("connection table case 6")
+            logger.debug(
+                f"connection table case 6: A {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command, and a {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command with is_connected_to(direction='in'{', class='+class_name if class_name else ''})")
             src_command_body["is_connected_to"] = {
                 **({"with_class": class_name} if class_name else {}),
                 "direction": "in",

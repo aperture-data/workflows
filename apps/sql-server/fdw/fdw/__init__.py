@@ -117,7 +117,7 @@ class FDW(ForeignDataWrapper):
         self._columns = {
             name: ColumnOptions.from_string(col.options)
             for name, col in fdw_columns.items()}
-        logger.info("FDW initialized with options: %s", fdw_options)
+        logger.info(f"FDW {self._options.table_name} initialized")
 
     def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
         """ Execute the FDW query with the given quals and columns.
@@ -154,7 +154,7 @@ class FDW(ForeignDataWrapper):
                             quals, columns, row, blob)
 
                         logger.debug(
-                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)} blob {len(blob) if blob else None}"
+                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()})} blob {len(blob) if blob else None}"
                         )
                         n_results += 1
                         if n_results % 1000 == 0:
@@ -263,8 +263,6 @@ class FDW(ForeignDataWrapper):
         """
         Apply constraints to the command body based on the provided qualifications and columns.
         """
-        logger.debug(
-            f"Applying constraints for quals: {quals} and columns: {columns}")
         constraints = {}
         listable_columns = {
             col for col in columns if self._columns[col].listable}
@@ -273,7 +271,7 @@ class FDW(ForeignDataWrapper):
                 constraint = self._apply_constraint(qual)
                 if constraint is not None:
                     logger.debug(
-                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name}")
+                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name} in {self._options.table_name}")
                     if qual.field_name not in constraints:
                         constraints[qual.field_name] = []
                     constraints[qual.field_name].extend(constraint)
@@ -419,13 +417,9 @@ class FDW(ForeignDataWrapper):
                            query_blobs: List[bytes],
                            get_result_objects: Optional[Callable],
                            ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
-        logger.debug(f"Executing query: {query}")
-
         start_time = datetime.now()
         _, results, response_blobs = execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
-        logger.info(
-            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
 
         if not results or len(results) != len(query):
             logger.warning(
@@ -513,15 +507,10 @@ class FDW(ForeignDataWrapper):
 
         So we just copy the qual constraints into the row.
         """
-        logger.debug(
-            f"Adding non-list columns to row: {row}, quals: {quals}, columns: {columns}")
         row = row.copy()  # Avoid modifying the original row
         for qual in quals:
             if not self._columns[qual.field_name].listable:
                 assert qual.field_name not in row, f"Column {qual.field_name} should not be in the row. It is a non-list column."
-                logger.debug(
-                    f"Adding non-list column {qual.field_name} with value {qual.value} to row"
-                )
                 # This double-conversion is necessary because of negative qual operators like IS NOT and <>.
                 value = self._convert_qual_value(qual)
                 value = self._convert_adb_value(value, qual.field_name)
@@ -618,10 +607,28 @@ class FDW(ForeignDataWrapper):
 
         logger.info(
             f"Estimated size for FDW {self._options.table_name}: {n_rows} rows, width {width} bytes per row")
-        return (n_rows, width)
+        inflation = 10  # inflate the size as a crude way to account for per-query overhead; see comment in get_path_keys
+        return (n_rows * inflation, width)
 
     def get_path_keys(self) -> List[Tuple[List[str], int]]:
+        """
+        https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L215
+
+        This method is roughy intended to return the indexed keys for the foreign table.
+        It is used to optimize the query planning by PostgreSQL.
+        """
         keys = self._options.path_keys
+
+        # Unfortunately, full implementation of this feature can result in Postgres doing joins one row at a time,
+        # as it does not perceive any static per-query overhead.
+        # This is not ideal, so we do not implement it fully.
+        # In the long term, we might want to extend Multicorn to support static costs for queries.
+
+        filter_uniqueids = True
+        if filter_uniqueids:
+            keys = [key for key in keys if not any(
+                self._columns[col].type == "uniqueid" for col in key[0])]
+
         logger.info(
             f"Getting path keys for FDW {self._options.table_name} -> {keys}")
         return keys
