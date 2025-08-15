@@ -5,19 +5,24 @@ logger = logging.getLogger(__name__)
 
 
 class QAChain:
-    def __init__(self, retriever, context_builder, llm):
+    def __init__(self, retriever, context_builder, llm, rewrite_query=False):
         self.retriever = retriever
         self.context_builder = context_builder
         self.llm = llm
         self.separator = context_builder.separator
         self.separator_length = len(self.separator)
+        self.rewrite_query = rewrite_query
 
     async def run(self, query: str, history: str) -> Tuple[str, str]:
-        rewritten_query = await self._rewrite_query(query, history)
-        logger.debug(f"Rewritten query: {rewritten_query}")
-        if not rewritten_query:
-            logger.error(
-                "Rewritten query is empty, using original query; check that the LLM is working.")
+        if self.rewrite_query:
+            rewritten_query = await self._rewrite_query(query, history)
+            logger.debug(f"Rewritten query: {rewritten_query}")
+            if not rewritten_query:
+                logger.error(
+                    "Rewritten query is empty, using original query; check that the LLM is working.")
+                rewritten_query = query
+        else:
+            logger.debug("Not rewriting query")
             rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         logger.debug(f"Retrieved {len(docs)} documents")
@@ -40,10 +45,14 @@ class QAChain:
         return answer, new_history, rewritten_query, docs
 
     async def stream_run(self, query: str, history: str) -> Tuple[Iterator[str], Callable]:
-        rewritten_query = await self._rewrite_query(query, history)
-        if not rewritten_query:
-            logger.error(
-                "Rewritten query is empty, using original query; check that the LLM is working.")
+        if self.rewrite_query:
+            rewritten_query = await self._rewrite_query(query, history)
+            if not rewritten_query:
+                logger.error(
+                    "Rewritten query is empty, using original query; check that the LLM is working.")
+                rewritten_query = query
+        else:
+            logger.debug("Not rewriting query")
             rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         # Use original query and history for context

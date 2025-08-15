@@ -1,2 +1,4 @@
 open_clip_torch>=2.23
 git+https://github.com/openai/CLIP.git
+gpt4all
+sentence-transformers
