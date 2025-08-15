@@ -415,7 +415,7 @@ async def main(args):
     retriever = get_retriever(args.input, args.n_documents)
 
     global qa_chain
-    qa_chain = QAChain(retriever, context_builder, llm)
+    qa_chain = QAChain(retriever, context_builder, llm, args.rewrite_query)
 
     global ready
     ready = True
@@ -485,6 +485,10 @@ def get_args(argv=[]):
     obj.add_argument('--aimon-llm-model-name',
                      help='Name of the LLM model',
                      default="")
+
+    obj.add_argument('--rewrite-query',
+                     help='Whether to rewrite the query using the LLM',
+                     default=False)
 
     params = obj.parse_args(argv)
     del params.model  # no longer used; reads from descriptor set
