@@ -26,7 +26,7 @@ def get_workflow_status():
     # print("Fetching status from the server...")
     RESPONSE["completeness"] = min(count / 10.0, 1.0)  # Simulate progress
     try:
-        response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PORT')}/status")
+        response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PROMETHEUS_PORT')}/")
     except Exception as e:
         # print("Connection refused. The server might not be running.")
         RESPONSE["accessible"] = False
