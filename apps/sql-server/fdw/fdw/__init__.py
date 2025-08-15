@@ -134,7 +134,7 @@ class FDW(ForeignDataWrapper):
 
         self._check_quals(quals, columns)
 
-        query = self._get_query(quals, columns)
+        query, get_result_objects = self._get_query(quals, columns)
 
         query_blobs = self._get_query_blobs(quals, columns)
 
@@ -145,7 +145,8 @@ class FDW(ForeignDataWrapper):
         try:
             while query:
                 n_queries += 1
-                gen = self._get_query_results(query, query_blobs)
+                gen = self._get_query_results(
+                    query, query_blobs, get_result_objects)
                 try:
                     while True:
                         row, blob = next(gen)
@@ -209,10 +210,6 @@ class FDW(ForeignDataWrapper):
 
         command_body = {}
 
-        # Apply table modification, e.g. with_class, set
-        if self._options.modify_command_body:
-            self._options.modify_command_body(command_body=command_body)
-
         # apply constraints
         constraints = self._apply_constraints(quals, columns)
         if constraints:
@@ -253,7 +250,13 @@ class FDW(ForeignDataWrapper):
         logger.debug(
             f"Constructed query: {compact_pretty_json(query, indent=2)}")
 
-        return query
+        # Apply table modification, e.g. with_class, set
+        if self._options.modify_query:
+            get_result_objects = self._options.modify_query(query=query)
+        else:
+            get_result_objects = None
+
+        return query, get_result_objects
 
     def _apply_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
         """
@@ -413,6 +416,7 @@ class FDW(ForeignDataWrapper):
     def _get_query_results(self,
                            query: List[dict],
                            query_blobs: List[bytes],
+                           get_result_objects: Optional[Callable],
                            ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
         logger.debug(f"Executing query: {query}")
 
@@ -428,8 +432,13 @@ class FDW(ForeignDataWrapper):
             raise ValueError(
                 f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
 
-        result_objects = results[0].get(
-            self._options.command, {}).get(self._options.result_field, [])
+        if get_result_objects:
+            # If a special function is provided, apply it to the results.
+            result_objects = get_result_objects(results)
+        else:
+            result_objects = results[-1].get(
+                self._options.command, {}).get(self._options.result_field, [])
+
         if not response_blobs:
             for row in result_objects:
                 yield row, None
@@ -529,8 +538,9 @@ class FDW(ForeignDataWrapper):
                 f"No results found for query: {query} -> {response}")
             return None
 
-        if "batch" not in response[0][self._options.command]:
-            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
+        if "batch" not in response[-1].values()[0]:
+            # Some commands (like FindConnection) might not handle batching, so we assume all results are returned at once.
+            # https://github.com/aperture-data/athena/issues/1727
             logger.info(
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None

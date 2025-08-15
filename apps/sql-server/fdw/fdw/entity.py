@@ -55,7 +55,7 @@ def entity_table(entity: str, data: dict) -> TableDefinition:
         count=data.get("matched", 0),
         command="FindEntity",
         result_field="entities",
-        modify_command_body=Curry(literal, {"with_class": entity}),
+        modify_query=Curry(literal, {"with_class": entity}),
         path_keys=path_keys,
     )
 

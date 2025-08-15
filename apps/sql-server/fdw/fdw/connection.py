@@ -26,11 +26,6 @@ def connection_schema() -> List[TableDefinition]:
     results = []
     classes = get_classes("connections")
     for connection, data in classes.items():
-        # We don't currently allow `with_class` to be used with internal connection classes.
-        if connection[0] == "_":
-            logger.warning(
-                f"Skipping connection {connection} as it starts with an underscore")
-            continue
         results.append(connection_table(connection, data))
     return results
 
@@ -44,9 +39,11 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
     table_name = connection
 
     columns = []
+    is_system_class = connection[0] == "_"
 
     try:
-        columns.extend(property_columns(data))
+        if not is_system_class:
+            columns.extend(property_columns(data))
 
         # Add the _src, and _dst columns
         columns.append(ColumnDefinition(
@@ -77,7 +74,8 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
         count=data.get("matched", 0),
         command="FindConnection",
         result_field="connections",
-        modify_command_body=Curry(literal, {"with_class": connection}),
+        modify_query=Curry(connection, class_name=connection,
+                           src_class=data["src"], dst_class=data["dst"]),
         path_keys=path_keys,
     )
 
