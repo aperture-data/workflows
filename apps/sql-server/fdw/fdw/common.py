@@ -230,3 +230,11 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
 
     else:
         return prefix + json.dumps(data, ensure_ascii=False)
+
+
+def get_command_body(command: dict) -> dict:
+    """
+    Extract the command body from a command dictionary.
+    This is used to get the command body for modify_query hooks.
+    """
+    return next(iter(command.values()))

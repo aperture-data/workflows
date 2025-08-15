@@ -8,7 +8,7 @@
 from typing import List, Literal, Set, Any, Dict
 from .common import get_classes, TYPE_MAP, Curry
 from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough, get_path_keys
-from .table import TableOptions, literal
+from .table import TableOptions, literal, connection as table_connection
 from multicorn import TableDefinition, ColumnDefinition
 import logging
 from collections import defaultdict
@@ -234,7 +234,7 @@ def system_connection_table() -> TableDefinition:
         command="FindConnection",
         result_field="connections",
         path_keys=path_keys,
-        modify_query=Curry(connection,
+        modify_query=Curry(table_connection,
                            class_name=None,  # No specific class name for system connections
                            src_class=None,
                            dst_class=None,)
@@ -261,8 +261,8 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     classes = get_classes(type_)
     for data in classes.values():
         if "properties" in data and data["properties"] is not None:
-            assert isinstance(data["properties"], dict),
-            f"Expected properties to be a dict, got {type(data['properties'])}"
+            assert isinstance(data["properties"], dict), \
+                f"Expected properties to be a dict, got {type(data['properties'])}"
             for prop, prop_data in data["properties"].items():
                 count, indexed, prop_type = prop_data
                 property_types[prop].add(prop_type.lower())

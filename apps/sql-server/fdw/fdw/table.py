@@ -1,8 +1,7 @@
-from .common import Curry
+from .common import Curry, get_classes, get_command_body
 import logging
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional, Tuple, Callable
-from common import get_classes
+from typing import List, Dict, Any, Optional, Tuple, Callable, Literal, Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ class TableOptions(BaseModel):
         """
         # Check that modify_query has a valid function signature
         if self.modify_query:
-            self.modify_query.validate_signature({"query": List[dict]})
+            self.modify_query.validate_signature({"query"})
 
     @classmethod
     def from_string(cls, options_str: Dict[str, str]) -> "TableOptions":
@@ -68,7 +67,7 @@ def literal(parameters: Dict[str, Any],
     Adds the value to the query under the given name.
     This is used to modify the query before executing it.
     """
-    command_body = query[0].values()[0]
+    command_body = get_command_body(query[0])
     command_body.update(parameters)
     return None
 
@@ -105,7 +104,7 @@ def connection(class_name: Optional[str],
     # Does it request or constrain _src or _dst?
     # Does it request or constrain any other connection properties?
     is_system_class = class_name and class_name.startswith("_")
-    command_body = query[0].values()[0]
+    command_body = get_command_body(query[0])
     constraints = command_body.get("constraints", {})
     src_constraint = constraints.get("_src")
     dst_constraint = constraints.get("_dst")
@@ -131,6 +130,7 @@ def connection(class_name: Optional[str],
                 "_ref": src_ref
             }
         }
+        src_command_body = get_command_body(src_command)
         result_query.append(src_command)
 
     if dst_constraint:  # cases 3, 4, 5 or 6
@@ -144,9 +144,11 @@ def connection(class_name: Optional[str],
                 "_ref": dst_ref
             }
         }
+        dst_command_body = get_command_body(dst_command)
         result_query.append(dst_command)
 
-    if other_columns or other_constraints:  # cases 1, 2, 3, or 4
+    # cases 1, 2, 3, or 4
+    if other_columns or other_constraints or not (src_command and dst_command):
         assert not is_system_class, \
             "Cannot use FindConnection with other constraints or columns on a system class"
         command_body["constraints"] = other_constraints
@@ -157,9 +159,9 @@ def connection(class_name: Optional[str],
 
         connection_command = query[0].copy()
         if src_command:
-            connection_command["FindConnection"]["src"] = src_command["_ref"]
+            connection_command["FindConnection"]["src"] = src_ref
         if dst_command:
-            connection_command["FindConnection"]["dst"] = dst_command["_ref"]
+            connection_command["FindConnection"]["dst"] = dst_ref
         if other_constraints:
             connection_command["FindConnection"]["constraints"] = other_constraints
         else:
@@ -182,7 +184,7 @@ def connection(class_name: Optional[str],
             Extracts the result objects from the response.
             This is used to rewrite the results for cases 5 and 6.
             """
-            d = response[-1].values()[0]["entities"]
+            d = get_command_body(response[-1])
             for k, v in d.items():
                 for x in v:
                     if direction == "out":
@@ -198,7 +200,6 @@ def connection(class_name: Optional[str],
 
         if src_count < dst_count:  # case 5
             logger.debug("connection table case 5")
-            dst_command_body = dst_command.values()[0]
             dst_command_body["is_connected_to"] = {
                 **({"with_class": class_name} if class_name else {}),
                 "direction": "out",
@@ -211,7 +212,6 @@ def connection(class_name: Optional[str],
             def return_fn(r): return get_result_objects(r, "out")
         else:  # case 6
             logger.debug("connection table case 6")
-            src_command_body = src_command.values()[0]
             src_command_body["is_connected_to"] = {
                 **({"with_class": class_name} if class_name else {}),
                 "direction": "in",

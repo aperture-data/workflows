@@ -1,4 +1,4 @@
-from .common import get_log_level, compact_pretty_json
+from .common import get_log_level, compact_pretty_json, get_command_body
 from .table import TableOptions
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 import sys
 from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable, Callable
 
 import pydantic
 import sys
@@ -247,14 +247,15 @@ class FDW(ForeignDataWrapper):
             command_body["results"] = {"list": list(listable_columns)}
 
         query = [{self._options.command: command_body}]
-        logger.debug(
-            f"Constructed query: {compact_pretty_json(query, indent=2)}")
 
         # Apply table modification, e.g. with_class, set
         if self._options.modify_query:
             get_result_objects = self._options.modify_query(query=query)
         else:
             get_result_objects = None
+
+        logger.debug(
+            f"Constructed query: {compact_pretty_json(query, indent=2)}")
 
         return query, get_result_objects
 
@@ -426,7 +427,7 @@ class FDW(ForeignDataWrapper):
         logger.info(
             f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
 
-        if not results or len(results) != 1:
+        if not results or len(results) != len(query):
             logger.warning(
                 f"No results found for entity query. {query} -> {results}")
             raise ValueError(
@@ -538,22 +539,22 @@ class FDW(ForeignDataWrapper):
                 f"No results found for query: {query} -> {response}")
             return None
 
-        if "batch" not in response[-1].values()[0]:
+        if "batch" not in get_command_body(response[-1]):
             # Some commands (like FindConnection) might not handle batching, so we assume all results are returned at once.
             # https://github.com/aperture-data/athena/issues/1727
             logger.info(
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None
 
-        batch_id = response[0][self._options.command]["batch"]["batch_id"]
-        total_elements = response[0][self._options.command]["batch"]["total_elements"]
-        end = response[0][self._options.command]["batch"]["end"]
+        batch_id = response[-1][self._options.command]["batch"]["batch_id"]
+        total_elements = response[-1][self._options.command]["batch"]["total_elements"]
+        end = response[-1][self._options.command]["batch"]["end"]
 
         if end >= total_elements:  # No more batches to process
             return None
 
         next_query = query.copy()
-        next_query[0][self._options.command]["batch"]["batch_id"] += 1
+        next_query[-1][self._options.command]["batch"]["batch_id"] += 1
         return next_query
 
     def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
@@ -571,7 +572,7 @@ class FDW(ForeignDataWrapper):
         result["quals"] = [[qual.field_name, qual.operator, qual.value]
                            for qual in quals]
         result["columns"] = list(columns)
-        result["aql"] = self._get_query(quals, columns)
+        result["aql"] = self._get_query(quals, columns)[0]
         # This part isn't verbose, but can be much slower
         if verbose:
             query_blobs = self._get_query_blobs(quals, columns)
@@ -579,7 +580,7 @@ class FDW(ForeignDataWrapper):
                 result["query_blob_lengths"] = [
                     len(blob) for blob in query_blobs]
 
-        return [compact_pretty_json(result)]
+        return [compact_pretty_json(result) if verbose else json.dumps(result)]
 
     def get_rel_size(self, quals: List[Qual], columns: Set[str]) -> Tuple[int, int]:
         """
@@ -588,8 +589,8 @@ class FDW(ForeignDataWrapper):
         """
         logger.info(
             f"Estimating relation size for FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
-        query = self._get_query(quals, columns)
-        command_body = query[0][self._options.command]
+        query = self._get_query(quals, columns)[0]
+        command_body = query[-1][self._options.command]
         blobs = command_body.get("blobs", False)
 
         n_rows = self._options.count

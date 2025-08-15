@@ -10,7 +10,7 @@ import logging
 from typing import List
 from .common import get_classes, Curry
 from .column import property_columns, ColumnOptions, get_path_keys
-from .table import TableOptions, literal
+from .table import TableOptions, literal, connection as table_connection
 from multicorn import TableDefinition, ColumnDefinition
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
         count=data.get("matched", 0),
         command="FindConnection",
         result_field="connections",
-        modify_query=Curry(connection, class_name=connection,
+        modify_query=Curry(table_connection, class_name=connection,
                            src_class=data["src"], dst_class=data["dst"]),
         path_keys=path_keys,
     )
