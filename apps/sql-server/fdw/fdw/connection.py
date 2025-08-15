@@ -10,7 +10,7 @@ import logging
 from typing import List
 from .common import get_classes, Curry
 from .column import property_columns, ColumnOptions, get_path_keys
-from .table import TableOptions, literal, connection as table_connection
+from .table import TableOptions, connection as table_connection
 from multicorn import TableDefinition, ColumnDefinition
 
 logger = logging.getLogger(__name__)

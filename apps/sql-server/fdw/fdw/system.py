@@ -8,7 +8,7 @@
 from typing import List, Literal, Set, Any, Dict
 from .common import get_classes, TYPE_MAP, Curry
 from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough, get_path_keys
-from .table import TableOptions, literal, connection as table_connection
+from .table import TableOptions, connection as table_connection
 from multicorn import TableDefinition, ColumnDefinition
 import logging
 from collections import defaultdict
