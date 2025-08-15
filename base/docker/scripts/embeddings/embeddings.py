@@ -324,9 +324,11 @@ class Embedder():
     def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
         if self.provider == "gpt4all":
-            return [np.array(self.model.embed(texts), dtype=np.float32)]
+            return [np.array(embedding, dtype=np.float32) for embedding in self.model.embed(texts)]
         elif self.provider == "sentence-transformers":
-            return [self.model.encode(texts)]
+            # self.model.encode(texts) returns a (len(texts), embedding_dim) array
+            embeddings = self.model.encode(texts)
+            return [embeddings[i] for i in range(len(texts))]
         tokens = self._tokenize(texts)
 
         with torch.no_grad():

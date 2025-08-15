@@ -22,7 +22,7 @@ class QAChain:
                     "Rewritten query is empty, using original query; check that the LLM is working.")
                 rewritten_query = query
         else:
-            logger.info("Not rewriting query")
+            logger.debug("Not rewriting query")
             rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         logger.debug(f"Retrieved {len(docs)} documents")
@@ -52,7 +52,7 @@ class QAChain:
                     "Rewritten query is empty, using original query; check that the LLM is working.")
                 rewritten_query = query
         else:
-            logger.info("Not rewriting query")
+            logger.debug("Not rewriting query")
             rewritten_query = query
         docs = self.retriever.invoke(rewritten_query)
         # Use original query and history for context
