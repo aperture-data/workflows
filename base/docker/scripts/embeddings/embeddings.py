@@ -400,7 +400,7 @@ class Embedder():
     @property
     def dimensions(self) -> int:
         if self.provider == "gpt4all":
-            return np.array(self.model.embed("Hello, world!"), dtype=np.float32).shape[0]
+            return np.array(self.model.embed(FINGERPRINT_TEXT), dtype=np.float32).shape[0]
         elif self.provider == "sentence-transformers":
             return self.model.get_sentence_embedding_dimension()
         return self.model.visual.output_dim if hasattr(self.model, 'visual') else self.model.output_dim
