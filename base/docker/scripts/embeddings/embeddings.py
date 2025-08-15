@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # provider model pretrained
 # Keep this short to reduce docker build time and image size
 SUPPORTED_MODELS = [
+    "sentence-transformers all-MiniLM-L6-v2 Qwen/Qwen3-Embedding-4B",
     "gpt4all all-MiniLM-L6-v2.gguf2.f16.gguf",
     "openclip ViT-B-32 laion2b_s34b_b79k",
     "openclip ViT-L-14 laion2b_s32b_b82k",
@@ -56,9 +57,9 @@ class Embedder():
 
     All of these methods return a the embedded vectors as Numpy arrays. To use this as a blob in an ApertureDB query call `tobytes()`.
     """
-    supported_providers = ["clip", "openclip", "gpt4all"]
+    supported_providers = ["clip", "openclip", "gpt4all", "sentence-transformers"]
     def __init__(self,
-                 provider: Literal["clip", "openclip", "gpt4all"] = None,
+                 provider: Literal["clip", "openclip", "gpt4all", "sentence-transformers"] = None,
                  model_name: str = None,
                  pretrained: str = None,
                  descriptor_set: str = None,
@@ -81,7 +82,7 @@ class Embedder():
 
         if not pretrained and provider == "clip":
             pretrained = "openai"
-        if not pretrained and provider == "gpt4all":
+        if not pretrained and provider in ["gpt4all", "sentence-transformers"]:
             pretrained = "figure_me_out"
         assert pretrained, "Pretrained corpus must be specified for OpenCLIP."
         self.pretrained = pretrained
@@ -146,6 +147,9 @@ class Embedder():
         elif self.provider == "gpt4all":
             from gpt4all import Embed4All
             self.model = Embed4All(model_name=self.model_name)
+        elif self.provider == "sentence-transformers":
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(self.model_name)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -321,6 +325,8 @@ class Embedder():
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
         if self.provider == "gpt4all":
             return [np.array(self.model.embed(texts), dtype=np.float32)]
+        elif self.provider == "sentence-transformers":
+            return [self.model.encode(texts)]
         tokens = self._tokenize(texts)
 
         with torch.no_grad():
@@ -395,6 +401,8 @@ class Embedder():
     def dimensions(self) -> int:
         if self.provider == "gpt4all":
             return np.array(self.model.embed("Hello, world!"), dtype=np.float32).shape[0]
+        elif self.provider == "sentence-transformers":
+            return self.model.get_sentence_embedding_dimension()
         return self.model.visual.output_dim if hasattr(self.model, 'visual') else self.model.output_dim
 
     def summarize(self, canonical_text: str = FINGERPRINT_TEXT):
