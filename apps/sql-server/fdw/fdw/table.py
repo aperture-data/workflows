@@ -193,6 +193,8 @@ def connection(class_name: Optional[str],
             Extracts the result objects from the response.
             This is used to rewrite the results for cases 5 and 6.
             """
+            assert isinstance(response, list) and len(response) == 2, \
+                f"Response should have exactly two elements for is_connected_to: {response}"
             d = get_command_body(response[-1])
             for k, v in d.items():
                 for x in v:

@@ -418,14 +418,14 @@ class FDW(ForeignDataWrapper):
                            get_result_objects: Optional[Callable],
                            ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
         start_time = datetime.now()
-        _, results, response_blobs = execute_query(query, query_blobs)
+        status, results, response_blobs = execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
 
-        if not results or len(results) != len(query):
+        if not results or len(results) != len(query) or not isinstance(results, list) or status != 0:
             logger.warning(
-                f"No results found for entity query. {query} -> {results}")
+                f"No results found for entity query. {query} -> {status} {results}")
             raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+                f"No results found for entity query: {query}. Please check the class and columns. Results: {status} {results}")
 
         if get_result_objects:
             # If a special function is provided, apply it to the results.

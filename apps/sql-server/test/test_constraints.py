@@ -290,6 +290,7 @@ def test_join_query(query, sql_connection, constraint_formatter):
     except Exception as e:
         print(
             f"Error executing query: {e} - {query} - {query_aql(query, sql_connection)}")
+        raise
 
     assert len(
         result) == 5, f"Expected 5 rows, got {len(result)} for query: {query}, {query_aql(query, sql_connection)}"
