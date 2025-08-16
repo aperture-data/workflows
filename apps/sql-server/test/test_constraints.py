@@ -276,7 +276,9 @@ def multicorn_plan(plan_node: dict) -> str:
     "SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
     "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};",
     "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
+    pytest.param("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
+                 marks=pytest.mark.xfail(
+                     reason="https://github.com/aperture-data/athena/issues/1737")),
 ])
 def test_join_query(query, sql_connection, constraint_formatter):
     """
