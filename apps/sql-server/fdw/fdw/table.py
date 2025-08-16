@@ -195,7 +195,7 @@ def connection(class_name: Optional[str],
             """
             assert isinstance(response, list) and len(response) == 2, \
                 f"Response should have exactly two elements for is_connected_to: {response}"
-            d = get_command_body(response[-1])
+            d = get_command_body(response[-1]).get("entities", {})
             for k, v in d.items():
                 for x in v:
                     if direction == "out":
@@ -213,28 +213,40 @@ def connection(class_name: Optional[str],
             logger.debug(
                 f"connection table case 5: A {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command, and a {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command with is_connected_to(direction=out{', class='+class_name if class_name else ''})")
             dst_command_body["is_connected_to"] = {
-                **({"with_class": class_name} if class_name else {}),
+                **({"connection_class": class_name} if class_name else {}),
                 "direction": "out",
-                "_ref": src_ref
+                "ref": src_ref
             }
             dst_command_body["group_by_source"] = True
             if "batch" in command_body:
-                dst_command_body["batch"] = command_body["batch"]
+                # Cannot use batch with group_by_source
+                dst_command_body["limit"] = command_body["batch"]["batch_size"]
             del dst_command_body["_ref"]
+            if not get_command_body(result_query[-1]).get("results", {}):
+                # If the original query did not specify a list, we default to _uniqueid
+                get_command_body(
+                    result_query[-1])["results"] = {"list": ["_uniqueid"]}
+
             def return_fn(r): return get_result_objects(r, "out")
         else:  # case 6
             logger.debug(
                 f"connection table case 6: A {dst_command_name}{'(class='+dst_class+')' if dst_class[0] != '_' else ''} command, and a {src_command_name}{'(class='+src_class+')' if src_class[0] != '_' else ''} command with is_connected_to(direction='in'{', class='+class_name if class_name else ''})")
             src_command_body["is_connected_to"] = {
-                **({"with_class": class_name} if class_name else {}),
+                **({"connection_class": class_name} if class_name else {}),
                 "direction": "in",
-                "_ref": dst_ref
+                "ref": dst_ref
             }
             src_command_body["group_by_source"] = True
             if "batch" in command_body:
-                src_command_body["batch"] = command_body["batch"]
+                # Cannot use batch with group_by_source
+                src_command_body["limit"] = command_body["batch"]["batch_size"]
             del src_command_body["_ref"]
             result_query.reverse()  # Reverse the order so it is [dst, src]
+            if not get_command_body(result_query[-1]).get("results", {}):
+                # If the original query did not specify a list, we default to _uniqueid
+                get_command_body(
+                    result_query[-1])["results"] = {"list": ["_uniqueid"]}
+
             def return_fn(r): return get_result_objects(r, "in")
 
     # Replace query with the result query

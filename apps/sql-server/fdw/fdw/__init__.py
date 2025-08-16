@@ -523,28 +523,46 @@ class FDW(ForeignDataWrapper):
         Get the next query to execute based on the response from the previous query.
         This is used to handle batching.
         """
-        if not response or len(response) != 1:
+        if not response or len(response) != len(query) or not isinstance(response, list):
             logger.warning(
                 f"No results found for query: {query} -> {response}")
             return None
 
-        if "batch" not in get_command_body(response[-1]):
+        command_body = get_command_body(query[-1])
+        response_body = get_command_body(response[-1])
+
+        if "batch" in response_body:
+            batch_id = response_body["batch"]["batch_id"]
+            total_elements = response_body["batch"]["total_elements"]
+            end = response_body["batch"]["end"]
+
+            if end >= total_elements:  # No more batches to process
+                return None
+
+            next_query = query.copy()
+            next_command_body = get_command_body(next_query[-1])
+            next_command_body["batch"]["batch_id"] += 1
+            return next_query
+        elif "limit" in command_body:
+            # fallback mode for commands that don't support batching
+            limit = command_body["limit"]
+            returned = response_body.get("returned", 0)
+            if returned == 0:
+                logger.info(
+                    f"No results returned for query: {query} -> {response[:10]}")
+                return None
+            offset = command_body.get("offset", 0)
+
+            next_query = query.copy()
+            next_command_body = get_command_body(next_query[-1])
+            next_command_body["offset"] = offset + limit
+            return next_query
+        else:
             # Some commands (like FindConnection) might not handle batching, so we assume all results are returned at once.
             # https://github.com/aperture-data/athena/issues/1727
             logger.info(
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None
-
-        batch_id = response[-1][self._options.command]["batch"]["batch_id"]
-        total_elements = response[-1][self._options.command]["batch"]["total_elements"]
-        end = response[-1][self._options.command]["batch"]["end"]
-
-        if end >= total_elements:  # No more batches to process
-            return None
-
-        next_query = query.copy()
-        next_query[-1][self._options.command]["batch"]["batch_id"] += 1
-        return next_query
 
     def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
         """
