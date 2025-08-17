@@ -19,6 +19,7 @@ import json
 from datetime import datetime
 from .aperturedb import execute_query
 from .embedding import embed_texts, embed_images
+import base64
 
 
 logger = logging.getLogger(__name__)
@@ -221,12 +222,24 @@ def find_similar_query_blobs(
         # convert to bytes
         vector = struct.pack(f"<{dimensions}f", *raw_vector)
     else:
+        start_time = datetime.now()
+        model_key = dict(
+            provider=properties.get("embeddings_provider"),
+            model=properties.get("embeddings_model"),
+            corpus=properties.get("embeddings_pretrained")
+        )
         if "text" in find_similar and find_similar["text"] is not None:
             text = find_similar["text"]
-            vector = embed_texts([text])[0]
+            assert isinstance(text, str), "Text must be a string"
+            vector = embed_texts(**model_key, texts=[text])[0]
+            assert isinstance(vector, bytes), "Vector must be bytes"
         elif "image" in find_similar and find_similar["image"] is not None:
-            image = find_similar["image"]
-            vector = embed_images([image])[0]
+            # BYTEA encoded to base64 by FIND_SIMILAR function
+            image = base64.b64decode(find_similar["image"])
+            assert isinstance(
+                image, bytes), f"Image must be bytes, got {type(image)}"
+            vector = embed_images(**model_key, images=[image])[0]
+            assert isinstance(vector, bytes), "Vector must be bytes"
         else:
             raise ValueError(
                 "find_similar must have one of 'text', 'image', or 'vector' to embed.")

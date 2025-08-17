@@ -49,16 +49,20 @@ TEXTS = [
     "A family enjoying a picnic by the lake."
 ]
 
+# Tests will assume 512 dimensions
 IMAGE_MODELS = [
-    {"provider": "clip", "model": "RN50", "corpus": "openai", "dimensions": 512},
-    {"provider": "openclip", "model": "ViT-L-16-SigLIP-256",
-        "corpus": "webli", "dimensions": 512}
+    {"provider": "clip", "model": "ViT-B/16",
+        "corpus": "openai", "dimensions": 512},
+    {"provider": "openclip", "model": "ViT-B-32",
+        "corpus": "laion2b_s34b_b79k", "dimensions": 512}
 ]
 
+# Tests will assume 512 dimensions
 TEXT_MODELS = [
-    {"provider": "clip", "model": "RN50", "corpus": "openai", "dimensions": 512},
-    {"provider": "openclip", "model": "ViT-L-16-SigLIP-256",
-        "corpus": "webli", "dimensions": 512}
+    {"provider": "clip", "model": "ViT-B/16",
+        "corpus": "openai", "dimensions": 512},
+    {"provider": "openclip", "model": "ViT-B-32",
+        "corpus": "laion2b_s34b_b79k", "dimensions": 512}
 ]
 
 
@@ -101,9 +105,9 @@ def load_text_descriptors_testdata(client):
                 "name": set_name,
                 "properties": {
                     "description": "Test set for descriptor suite",
-                    "embedding_provider": model["provider"],
-                    "embedding_model": model["model"],
-                    "embedding_pretrained": model["corpus"],
+                    "embeddings_provider": model["provider"],
+                    "embeddings_model": model["model"],
+                    "embeddings_pretrained": model["corpus"],
                 },
                 "dimensions": model["dimensions"],
                 "metric": "CS",
@@ -148,9 +152,9 @@ def load_images_testdata(client):
                 "name": set_name,
                 "properties": {
                     "description": "Test set for descriptor suite",
-                    "embedding_provider": model["provider"],
-                    "embedding_model": model["model"],
-                    "embedding_pretrained": model["corpus"],
+                    "embeddings_provider": model["provider"],
+                    "embeddings_model": model["model"],
+                    "embeddings_pretrained": model["corpus"],
                 },
                 "dimensions": model["dimensions"],
                 "metric": "CS",

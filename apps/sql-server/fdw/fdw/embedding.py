@@ -70,6 +70,8 @@ def embed_images(
 ) -> List[bytes]:
     logger.debug(
         f"Embedding {len(images)} images using {provider}/{model}/{corpus}")
+    assert all(isinstance(i, bytes)
+               for i in images), "All images must be bytes"
     payload = {
         "provider": provider,
         "model": model,
