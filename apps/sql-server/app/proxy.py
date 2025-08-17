@@ -4,7 +4,7 @@
 
 
 from fastapi import FastAPI, Form, File, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTTPException
 import json
 import base64
 from connection_pool import ConnectionPool
@@ -152,7 +152,4 @@ async def forward_embed_images(input: EmbedImageInput) -> EmbedImageOutput:
         return EmbedImageOutput.from_embeddings(embeddings)
     except Exception as e:
         logger.error(f"Error in embedding request: {e}")
-        return JSONResponse(
-            status_code=500, content={"detail": str(e)}
-        )
-        # raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

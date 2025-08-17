@@ -98,7 +98,7 @@ def test_images(set_name, image, sql_connection):
         cur.execute(sql, (psycopg2.Binary(image),))
         result = cur.fetchall()
     assert len(
-        result) == N_NEIGHBORS, f"Wrong number of results for image: {image}: {len(result)}"
+        result) == N_NEIGHBORS, f"Wrong number of results for image: {len(result)}"
 
 
 @pytest.mark.parametrize("set_name", SETS)
