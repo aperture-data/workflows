@@ -40,9 +40,11 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
 $COMMAND build test-base sql-server
 
 # This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
 (
   sleep 5
-  $COMMAND logs -f > $BIN_DIR/test.log
+  $COMMAND logs -f > $TEST_LOG
 ) &
 LOG_PID=$!
 
