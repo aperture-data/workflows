@@ -4,15 +4,6 @@ set -e
 # Dump log file on error
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
 
-# Multicorn runs in a secure Python without access to environment variables
-# This will allow it to access the ApertureDB instance.
-APERTUREDB_KEY=$(python -c "from aperturedb.CommonLibrary import create_connector; c = create_connector(); print(c.config.deflate())")
-if [ $? -ne 0 ] || [ -z "$APERTUREDB_KEY" ]; then
-  echo "Error: Failed to generate APERTUREDB_KEY using Python command."
-  exit 1
-fi
-echo "APERTUREDB_KEY=$APERTUREDB_KEY" >/app/aperturedb.env
-
 WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARN}
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
 

@@ -8,7 +8,8 @@
 
 import logging
 from typing import List
-from .common import get_classes, Curry
+from .common import Curry
+from .aperturedb import get_classes
 from .column import property_columns, ColumnOptions
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition

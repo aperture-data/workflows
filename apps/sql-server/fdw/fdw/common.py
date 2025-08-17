@@ -12,26 +12,10 @@ import json
 from contextlib import contextmanager
 from pydantic_core import core_schema
 import inspect
-from .aperturedb import execute_query
+import http.client
+import socket
 
 logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def import_path(path):
-    original = list(sys.path)
-    sys.path.insert(0, path)
-    try:
-        yield
-    finally:
-        sys.path = original
-
-
-@contextmanager
-def import_from_app():
-    """We don't control the import path, so we need to ensure the app directory is in the path."""
-    with import_path('/app'):
-        yield
 
 
 def load_aperturedb_env(path="/app/aperturedb.env"):
@@ -44,43 +28,11 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
     load_dotenv(dotenv_path=path, override=True)
 
 
-_SCHEMA = None  # Global schema variable; see get_schema()
-
-
 def get_log_level() -> int:
     """Get the log level from the environment variable."""
     load_aperturedb_env()
     log_level = os.getenv("WF_LOG_LEVEL", "WARN").upper()
     return getattr(logging, log_level, logging.WARN)
-
-
-def get_schema() -> Dict:
-    """Get the global schema. Lazy initialization."""
-    global _SCHEMA
-    if _SCHEMA is None:
-        _, response, _ = execute_query([{"GetSchema": {}}])
-        _SCHEMA = (response[0] or {}).get("GetSchema", {})
-
-    return _SCHEMA
-
-
-def get_classes(field: Literal["entities", "connections"],
-                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """
-    Get the classes for entities or connections from the schema.
-
-    Guarantees to return a (possibly empty) dict, even if the field is not present.
-    """
-    if schema is None:
-        schema = get_schema()
-    if schema.get(field) is None:
-        logger.warning(f"No {field} found in schema")
-        return {}
-    classes = schema.get(field, {}).get("classes", {})
-    if not classes:
-        logger.warning(f"No {field} classes found in schema")
-        return {}
-    return classes
 
 
 # Mapping from ApertureDB types to PostgreSQL types.
@@ -230,3 +182,16 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
 
     else:
         return prefix + json.dumps(data, ensure_ascii=False)
+
+
+PROXY_SOCKET_PATH = "/tmp/aperturedb-proxy.sock"
+
+
+class UnixHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, uds_path: str):
+        super().__init__("localhost")  # host is ignored
+        self.uds_path = uds_path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self.uds_path)
