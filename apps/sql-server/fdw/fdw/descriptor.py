@@ -11,18 +11,27 @@ from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import get_classes, import_from_app, Curry
 from .column import property_columns, ColumnOptions, blob_columns, get_path_keys
+from .aperturedb import get_classes
 from .table import TableOptions, literal
 import logging
-import numpy as np
+import struct
 import json
 from datetime import datetime
 from .aperturedb import execute_query
-
-with import_from_app():
-    from embeddings import Embedder
+from .embedding import embed_texts, embed_images
+import base64
 
 
 logger = logging.getLogger(__name__)
+
+
+def descriptor_set_supports_find_similar(properties: dict) -> bool:
+    """
+    Check if the descriptor set supports find-similar queries.
+    This is determined by the presence of properties that allow embedding.
+    """
+    return all(properties.get(x)
+               for x in ["embeddings_provider", "embeddings_model", "embeddings_pretrained"])
 
 
 def descriptor_schema() -> List[TableDefinition]:
@@ -43,7 +52,7 @@ def descriptor_schema() -> List[TableDefinition]:
         # has properties that allow us to find the correct embedding model.
         # Notionally we could allow direct vector queries regardless, but
         # this is a good heuristic to avoid unnecessary complexity.
-        find_similar = Embedder.check_properties(properties)
+        find_similar = descriptor_set_supports_find_similar(properties)
 
         columns = property_columns_for_descriptors_in_set(name)
 
@@ -213,28 +222,27 @@ def find_similar_query_blobs(
         if not all(isinstance(x, (int, float)) for x in raw_vector):
             raise ValueError(
                 f"Invalid vector contents: {raw_vector}. All elements must be numeric (int or float).")
-        vector = np.array(raw_vector, dtype=np.float32)
+        # convert to bytes
+        vector = struct.pack(f"<{dimensions}f", *raw_vector)
     else:
-        # This takes ~7s the first time, but ~1s on subsequent calls because of a file cache.
-        # Could consider caching the embedder and maybe even doing cache warmup,
-        # but the peculiar invocation environment of Python within PostgreSQL
-        # makes this tricky, because we can't consistently persist state across calls.
         start_time = datetime.now()
-        embedder = Embedder.from_properties(
-            properties=properties,
-            descriptor_set=descriptor_set,
+        model_key = dict(
+            provider=properties.get("embeddings_provider"),
+            model=properties.get("embeddings_model"),
+            corpus=properties.get("embeddings_pretrained")
         )
-        elapsed_time = datetime.now() - start_time
-        logger.debug(
-            f"Creating embedder took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
-
-        start_time = datetime.now()
         if "text" in find_similar and find_similar["text"] is not None:
             text = find_similar["text"]
-            vector = embedder.embed_text(text)
+            assert isinstance(text, str), "Text must be a string"
+            vector = embed_texts(**model_key, texts=[text])[0]
+            assert isinstance(vector, bytes), "Vector must be bytes"
         elif "image" in find_similar and find_similar["image"] is not None:
-            image = find_similar["image"]
-            vector = embedder.embed_image(image)
+            # BYTEA encoded to base64 by FIND_SIMILAR function
+            image = base64.b64decode(find_similar["image"])
+            assert isinstance(
+                image, bytes), f"Image must be bytes, got {type(image)}"
+            vector = embed_images(**model_key, images=[image])[0]
+            assert isinstance(vector, bytes), "Vector must be bytes"
         else:
             raise ValueError(
                 "find_similar must have one of 'text', 'image', or 'vector' to embed.")
@@ -242,8 +250,4 @@ def find_similar_query_blobs(
         logger.debug(
             f"Embedding took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
 
-    # Use .data.tobytes() to avoid unnecessary copying if the array is contiguous
-    if not vector.flags['C_CONTIGUOUS']:
-        vector = np.ascontiguousarray(vector, dtype=np.float32)
-    blob = vector.data.tobytes()
-    return [blob]  # Return as a list of one blob
+    return [vector]  # Return as a list of one blob

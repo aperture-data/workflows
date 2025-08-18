@@ -45,7 +45,8 @@ echo "Starting Status Server: ..."
 # This is used to provide a status endpoint for the workflow.
 STATUS_SERVER_HOSTNAME=$(hostname -f)
 STATUS_SERVER_PORT=8080
-HOSTNAME=${STATUS_SERVER_HOSTNAME} PORT=${STATUS_SERVER_PORT} python3 status_server.py &
+PROMETHEUS_PORT=8001
+HOSTNAME=${STATUS_SERVER_HOSTNAME} PORT=${STATUS_SERVER_PORT} PROMETHEUS_PORT=${PROMETHEUS_PORT} python3 status_server.py &
 # Wait for the status server to start
 while [ -z "$(lsof -i:8080)" ]; do
     echo "Waiting for Status Server to start on port 8080..."

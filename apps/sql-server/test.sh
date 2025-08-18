@@ -39,11 +39,17 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
 # Should the test script be building sql-server?
 $COMMAND build test-base sql-server
 
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
 (
   sleep 5
-  $COMMAND logs -f >$TEST_DIR/test.log 2>&1 
+  $COMMAND logs -f > $TEST_LOG
 ) &
 LOG_PID=$!
-  
+
 $COMMAND up --no-build --exit-code-from tests tests
+# $COMMAND up --no-build seed
+
+# Wait for logs to finish
 kill $LOG_PID || true

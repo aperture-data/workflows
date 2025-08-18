@@ -7,6 +7,7 @@
 from multicorn import TableDefinition
 from .common import get_classes, Curry
 from .column import property_columns, get_path_keys
+from .aperturedb import get_classes
 from .table import TableOptions, literal
 from typing import List
 import logging

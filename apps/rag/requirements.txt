@@ -8,7 +8,4 @@ fastapi
 uvicorn[standard]
 huggingface-hub
 accelerate
-open_clip_torch>=2.23
-git+https://github.com/openai/CLIP.git
-numpy
 aimon

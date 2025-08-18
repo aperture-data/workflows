@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 # provider model pretrained
 # Keep this short to reduce docker build time and image size
 SUPPORTED_MODELS = [
+    "sentence-transformers all-MiniLM-L6-v2 Qwen/Qwen3-Embedding-4B",
+    "gpt4all all-MiniLM-L6-v2.gguf2.f16.gguf",
     "openclip ViT-B-32 laion2b_s34b_b79k",
     "openclip ViT-L-14 laion2b_s32b_b82k",
     "openclip RN50 yfcc15m",
@@ -55,9 +57,12 @@ class Embedder():
 
     All of these methods return a the embedded vectors as Numpy arrays. To use this as a blob in an ApertureDB query call `tobytes()`.
     """
+    supported_providers = ["clip", "openclip",
+                           "gpt4all", "sentence-transformers"]
 
     def __init__(self,
-                 provider: Literal["clip", "openclip"] = None,
+                 provider: Literal["clip", "openclip",
+                                   "gpt4all", "sentence-transformers"] = None,
                  model_name: str = None,
                  pretrained: str = None,
                  descriptor_set: str = None,
@@ -71,8 +76,8 @@ class Embedder():
             descriptor_set (str): The name of the descriptor set to use for this embedder.
             device (str): The device to run the model on. Default is to auto-detect.
         """
-        assert provider in ["clip", "openclip"], \
-            f"Unsupported provider: {provider}. Supported providers are 'clip' and 'openclip'."
+        assert provider in self.supported_providers, \
+            f"Unsupported provider: {provider}. {self.supported_providers=}"
         self.provider = provider
 
         assert model_name, "Model name must be specified."
@@ -80,14 +85,20 @@ class Embedder():
 
         if not pretrained and provider == "clip":
             pretrained = "openai"
+        if not pretrained and provider in ["gpt4all", "sentence-transformers"]:
+            pretrained = "figure_me_out"
         assert pretrained, "Pretrained corpus must be specified for OpenCLIP."
         self.pretrained = pretrained
 
         self.descriptor_set = descriptor_set
 
         # This should be "cpu" during docker build
-        self.device = torch.device(device or (
-            "cuda" if torch.cuda.is_available() else "cpu"))
+        device_name = device or (
+            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(device_name)
+
+        # https://github.com/nomic-ai/gpt4all/tree/main/gpt4all-bindings/python
+        self.gpt4all_device_name = "gpu" if device_name == "cuda" else "intel"
 
         self._load_model()  # sets self.preprocess, self.tokenizer
 
@@ -136,6 +147,12 @@ class Embedder():
             self.tokenizer = clip.tokenize
             self.context_length = inspect.signature(
                 self.tokenizer).parameters["context_length"].default
+        elif self.provider == "gpt4all":
+            from gpt4all import Embed4All
+            self.model = Embed4All(model_name=self.model_name)
+        elif self.provider == "sentence-transformers":
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(self.model_name)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -178,13 +195,13 @@ class Embedder():
     def from_properties(cls,
                         properties: dict,
                         descriptor_set: str,
-                        device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
-        """Create an Embedder instance from properties."""
-        provider = properties.get("embeddings_provider")
-        model_name = properties.get("embeddings_model")
-        pretrained = properties.get("embeddings_pretrained")
+                        device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder"
+    """Create an Embedder instance from properties."""
+    provider = properties.get("embeddings_provider")
+     model_name = properties.get("embeddings_model")
+      pretrained = properties.get("embeddings_pretrained")
 
-        if not provider or not model_name or not pretrained:
+       if not provider or not model_name or not pretrained:
             raise ValueError(
                 f"Properties must contain 'embeddings_provider', 'embeddings_model', and 'embeddings_pretrained': {descriptor_set} - {properties}.")
 
@@ -309,7 +326,12 @@ class Embedder():
 
     def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
         logger.debug(f"Embedding {len(texts)} texts on {self.device}")
-
+        if self.provider == "gpt4all":
+            return [np.array(embedding, dtype=np.float32) for embedding in self.model.embed(texts)]
+        elif self.provider == "sentence-transformers":
+            # self.model.encode(texts) returns a (len(texts), embedding_dim) array
+            embeddings = self.model.encode(texts)
+            return [embeddings[i] for i in range(len(texts))]
         tokens = self._tokenize(texts)
 
         with torch.no_grad():
@@ -349,6 +371,8 @@ class Embedder():
 
         for i, b in enumerate(images):
             try:
+                assert isinstance(b, bytes), \
+                    f"Image {i} must be bytes, got {type(b)}"
                 nparr = np.frombuffer(b, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -382,6 +406,10 @@ class Embedder():
 
     @property
     def dimensions(self) -> int:
+        if self.provider == "gpt4all":
+            return np.array(self.model.embed(FINGERPRINT_TEXT), dtype=np.float32).shape[0]
+        elif self.provider == "sentence-transformers":
+            return self.model.get_sentence_embedding_dimension()
         return self.model.visual.output_dim if hasattr(self.model, 'visual') else self.model.output_dim
 
     def summarize(self, canonical_text: str = FINGERPRINT_TEXT):

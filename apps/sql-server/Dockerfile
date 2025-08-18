@@ -43,20 +43,20 @@ RUN git clone --single-branch --branch main https://github.com/pgsql-io/multicor
  && make PYTHON=/usr/bin/python3 \
  && make install
 
-RUN pip install --no-cache-dir dotenv numpy pydantic aperturedb
-
-# Install dependencies for embeddings
-RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
-RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+RUN pip install --no-cache-dir numpy pydantic dotenv
 
 # Copy and install our FDW into system Python
 COPY fdw /fdw
 RUN cd /fdw && /usr/bin/python3 -m pip install --compile .
-\
-    # Restore virtual environment
+
+# Restore virtual environment
 ENV VIRTUAL_ENV=${OLD_VIRTUAL_ENV}
 ENV PATH="${OLD_PATH}"
 ENV PYTHONPATH="/app:${OLD_PYTHONPATH}"
+
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
 
 # Install application requirements
 COPY requirements.txt /requirements.txt
