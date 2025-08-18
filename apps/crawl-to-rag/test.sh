@@ -13,4 +13,8 @@ cd ../text-embeddings
 bash ../build.sh
 cd -
 
+cd ../rag
+bash ../builds.sh
+cd -
+
 bash ../build.sh
