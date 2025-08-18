@@ -14,7 +14,7 @@ bash ../build.sh
 cd -
 
 cd ../rag
-bash ../builds.sh
+bash ../build.sh
 cd -
 
 bash ../build.sh
