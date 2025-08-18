@@ -6,7 +6,8 @@
 # SELECT * FROM "DescriptorSet" LIMIT 10;
 
 from typing import List, Literal, Set, Any, Dict
-from .common import get_classes, TYPE_MAP, Curry
+from .common import TYPE_MAP, Curry
+from .aperturedb import get_classes
 from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough
 from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition

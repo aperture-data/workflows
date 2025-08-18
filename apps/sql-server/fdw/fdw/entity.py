@@ -5,7 +5,8 @@
 # SELECT * FROM "CrawlDocument" LIMIT 10;
 
 from multicorn import TableDefinition
-from .common import get_classes, Curry
+from .common import Curry
+from .aperturedb import get_classes
 from .column import property_columns
 from .table import TableOptions, literal
 from typing import List

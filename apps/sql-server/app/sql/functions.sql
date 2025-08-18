@@ -133,7 +133,7 @@ BEGIN
     RETURN jsonb_build_object(
         'type', 'find_similar',
         'text', text,
-        'image', image,
+        'image', CASE WHEN image IS NOT NULL THEN ENCODE(image, 'base64') ELSE NULL END,
         'vector', vector,
         'k_neighbors', k,
         'knn_first', knn_first

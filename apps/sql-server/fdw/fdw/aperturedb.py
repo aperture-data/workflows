@@ -4,25 +4,14 @@
 #
 # The protocol is roughly based on the HTTP/REST protocol, but has no authentication, and supports a "status" field in the response.
 
-import http.client
-import socket
 import json
 import base64
 import uuid
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any, Literal
 import logging
+from .common import PROXY_SOCKET_PATH, UnixHTTPConnection
 
 logger = logging.getLogger(__name__)
-
-
-class UnixHTTPConnection(http.client.HTTPConnection):
-    def __init__(self, uds_path: str):
-        super().__init__("localhost")  # host is ignored
-        self.uds_path = uds_path
-
-    def connect(self):
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.connect(self.uds_path)
 
 
 def _multipart(boundary: str, query: List[dict], blobs: Optional[List[bytes]]) -> bytes:
@@ -48,7 +37,7 @@ def _multipart(boundary: str, query: List[dict], blobs: Optional[List[bytes]]) -
 def execute_query(
     json_query: List[dict],
     blobs: Optional[List[bytes]] = None,
-    uds_path: str = "/tmp/aperturedb-proxy.sock",
+    uds_path: str = PROXY_SOCKET_PATH,
 ) -> Tuple[int, List[dict], Optional[List[bytes]]]:
     logger.debug(
         f"Executing query: {json_query} with blobs: {len(blobs) if blobs else 0}")
@@ -84,3 +73,35 @@ def execute_query(
     logger.debug(
         f"Query executed successfully, status: {out_status}, json: {out_json}, blobs: {len(out_blobs) if out_blobs else 0}")
     return out_status, out_json, out_blobs
+
+
+_SCHEMA = None  # Global schema variable; see get_schema()
+
+
+def get_schema() -> Dict:
+    """Get the global schema. Lazy initialization."""
+    global _SCHEMA
+    if _SCHEMA is None:
+        _, response, _ = execute_query([{"GetSchema": {}}])
+        _SCHEMA = (response[0] or {}).get("GetSchema", {})
+
+    return _SCHEMA
+
+
+def get_classes(field: Literal["entities", "connections"],
+                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Get the classes for entities or connections from the schema.
+
+    Guarantees to return a (possibly empty) dict, even if the field is not present.
+    """
+    if schema is None:
+        schema = get_schema()
+    if schema.get(field) is None:
+        logger.warning(f"No {field} found in schema")
+        return {}
+    classes = schema.get(field, {}).get("classes", {})
+    if not classes:
+        logger.warning(f"No {field} classes found in schema")
+        return {}
+    return classes

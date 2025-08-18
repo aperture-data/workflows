@@ -47,7 +47,6 @@ services:
       timeout: 3s
       start_period: 20s
       retries: 60
-    ports: []
     environment:
       DB_HOST: aperturedb
       DB_PORT: 55555

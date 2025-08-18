@@ -57,9 +57,12 @@ class Embedder():
 
     All of these methods return a the embedded vectors as Numpy arrays. To use this as a blob in an ApertureDB query call `tobytes()`.
     """
-    supported_providers = ["clip", "openclip", "gpt4all", "sentence-transformers"]
+    supported_providers = ["clip", "openclip",
+                           "gpt4all", "sentence-transformers"]
+
     def __init__(self,
-                 provider: Literal["clip", "openclip", "gpt4all", "sentence-transformers"] = None,
+                 provider: Literal["clip", "openclip",
+                                   "gpt4all", "sentence-transformers"] = None,
                  model_name: str = None,
                  pretrained: str = None,
                  descriptor_set: str = None,
@@ -94,7 +97,7 @@ class Embedder():
             "cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device_name)
 
-        #https://github.com/nomic-ai/gpt4all/tree/main/gpt4all-bindings/python
+        # https://github.com/nomic-ai/gpt4all/tree/main/gpt4all-bindings/python
         self.gpt4all_device_name = "gpu" if device_name == "cuda" else "intel"
 
         self._load_model()  # sets self.preprocess, self.tokenizer
@@ -368,6 +371,8 @@ class Embedder():
 
         for i, b in enumerate(images):
             try:
+                assert isinstance(b, bytes), \
+                    f"Image {i} must be bytes, got {type(b)}"
                 nparr = np.frombuffer(b, np.uint8)
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
