@@ -1,4 +1,4 @@
-from .common import get_log_level, compact_pretty_json, get_command_body
+from .common import get_log_level, compact_pretty_json, get_command_body, PathKey
 from .table import TableOptions
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
@@ -119,7 +119,7 @@ class FDW(ForeignDataWrapper):
             for name, col in fdw_columns.items()}
         logger.info(f"FDW {self._options.table_name} initialized")
 
-    def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
+    def execute(self, quals: List[Qual], columns: Set[str]) -> Iterable[dict]:
         """ Execute the FDW query with the given quals and columns.
 
         Args:
@@ -211,7 +211,7 @@ class FDW(ForeignDataWrapper):
         command_body = {}
 
         # apply constraints
-        constraints = self._apply_constraints(quals, columns)
+        constraints = self._generate_constraints(quals, columns)
         if constraints:
             command_body["constraints"] = constraints
 
@@ -259,16 +259,16 @@ class FDW(ForeignDataWrapper):
 
         return query, get_result_objects
 
-    def _apply_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
+    def _generate_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
         """
-        Apply constraints to the command body based on the provided qualifications and columns.
+        Generate constraints for the command body based on the provided qualifications and columns.
         """
         constraints = {}
         listable_columns = {
             col for col in columns if self._columns[col].listable}
         for qual in quals:
             if qual.field_name in listable_columns:
-                constraint = self._apply_constraint(qual)
+                constraint = self._qual_to_constraint(qual)
                 if constraint is not None:
                     logger.debug(
                         f"Applying constraint {constraint} for qual {qual} on column {qual.field_name} in {self._options.table_name}")
@@ -277,9 +277,9 @@ class FDW(ForeignDataWrapper):
                     constraints[qual.field_name].extend(constraint)
         return constraints
 
-    def _apply_constraint(self, qual: Qual) -> Optional[List[Any]]:
+    def _qual_to_constraint(self, qual: Qual) -> Optional[List[Any]]:
         """
-        Apply constraint to the command body based on the provided qualification.
+        Generate constraint for the command body based on the provided qualification.
         """
         exclude_all = ["in", []]  # Exclude all rows
 
@@ -421,11 +421,14 @@ class FDW(ForeignDataWrapper):
         status, results, response_blobs = execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
 
-        if not results or len(results) != len(query) or not isinstance(results, list) or status != 0:
+        if not results or \
+            len(results) != len(query) or \
+                not isinstance(results, list) or \
+            status != 0:
             logger.warning(
-                f"No results found for entity query. {query} -> {status} {results}")
+                f"Query Error:{query} -> {status} {results}")
             raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {status} {results}")
+                f"Query Error: {query}. Please check the class and columns. Results: {status} {results}")
 
         if get_result_objects:
             # If a special function is provided, apply it to the results.
@@ -635,7 +638,7 @@ class FDW(ForeignDataWrapper):
         This method is roughy intended to return the indexed keys for the foreign table.
         It is used to optimize the query planning by PostgreSQL.
         """
-        keys = self._options.path_keys
+        keys: List[PathKey] = self._options.path_keys
 
         # Unfortunately, full implementation of this feature can result in Postgres doing joins one row at a time,
         # as it does not perceive any static per-query overhead.
@@ -645,11 +648,15 @@ class FDW(ForeignDataWrapper):
         filter_uniqueids = True
         if filter_uniqueids:
             keys = [key for key in keys if not any(
-                self._columns[col].type == "uniqueid" for col in key[0])]
+                self._columns[col].type == "uniqueid" for col in key.columns)]
 
         logger.info(
             f"Getting path keys for FDW {self._options.table_name} -> {keys}")
-        return keys
+        # Convert PathKey to the expected format
+        result = [
+            (key.columns, key.expected_rows) for key in keys if key.expected_rows > 0
+        ]
+        return result
 
 
 logger.info("FDW class defined successfully")

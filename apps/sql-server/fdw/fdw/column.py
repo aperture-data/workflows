@@ -1,7 +1,7 @@
-from .common import Curry, TYPE_MAP
+from .common import Curry, TYPE_MAP, PathKey
 import logging
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional, Literal, Tuple, Generator
+from typing import List, Dict, Any, Optional, Literal, Tuple, Iterator
 from multicorn import ColumnDefinition
 import json
 
@@ -68,18 +68,18 @@ class ColumnOptions(BaseModel):
         """
         return {"column_options": json.dumps(self.dict(), default=str)}
 
-    def path_keys(self, name: str) -> Generator[Tuple[List[str], int], None, None]:
+    def path_keys(self, name: str) -> Iterator[PathKey]:
         """
         Return the path keys for this column.
         This is used to extract the path keys from the column definition.
         """
         if self.indexed or self.type == "uniqueid":
             expected_rows = 1 if name == "_uniqueid" else 1000  # See FDW.get_path_keys
-            yield ([name], expected_rows)
+            yield PathKey(columns=[name], expected_rows=expected_rows)
             if name == "_src":
-                yield (["_src", "_dst"], 1)
+                yield PathKey(columns=["_src", "_dst"], expected_rows=1)
             elif name == "_dst":
-                yield (["_dst", "_src"], 1)
+                yield PathKey(columns=["_dst", "_src"], expected_rows=1)
 
     # Reject any extra fields that are not defined in the model.
     model_config = {
@@ -196,11 +196,11 @@ def uniqueid_column(count: int = 0) -> ColumnDefinition:
         ).to_string())
 
 
-def get_path_keys(columns: List[ColumnDefinition]) -> List[Tuple[List[str], int]]:
+def get_path_keys(columns: List[ColumnDefinition]) -> List[PathKey]:
     """
     Extract the path keys from the column definitions.
     """
-    path_keys = []
+    path_keys: List[PathKey] = []
     for col in columns:
         options = ColumnOptions.from_string(col.options)
         path_keys.extend(options.path_keys(col.column_name))

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, Any
 from pydoc import locate
 from pydantic import BaseModel, GetCoreSchemaHandler, GetJsonSchemaHandler, TypeAdapter
@@ -237,3 +238,12 @@ def get_command_body(command: dict) -> dict:
     This is used to get the command body for modify_query hooks.
     """
     return next(iter(command.values()))
+
+
+@dataclass
+class PathKey:
+    """
+    Represents a path key for a foreign table column.
+    """
+    columns: List[str]  # The path keys for the column
+    expected_rows: int  # The expected number of rows for this path key

@@ -38,5 +38,12 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
 
 # Should the test script be building sql-server?
 $COMMAND build test-base sql-server
+
+(
+  sleep 5
+  $COMMAND logs -f >$TEST_DIR/test.log 2>&1 
+) &
+LOG_PID=$!
   
 $COMMAND up --no-build --exit-code-from tests tests
+kill $LOG_PID || true

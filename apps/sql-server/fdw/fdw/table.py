@@ -1,4 +1,4 @@
-from .common import Curry, get_classes, get_command_body
+from .common import Curry, get_classes, get_command_body, PathKey
 import logging
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional, Tuple, Callable, Literal, Iterable
@@ -19,7 +19,7 @@ class TableOptions(BaseModel):
     # field to look for in the response, e.g. "entities", "connections"
     result_field: str = "entities"
     # path keys for the table; see https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L215
-    path_keys: List[Tuple[List[str], int]] = []
+    path_keys: List[PathKey] = []
 
     # This hook is used to modify the command body before executing it.
     # It is passed the command body as `command_body`.
