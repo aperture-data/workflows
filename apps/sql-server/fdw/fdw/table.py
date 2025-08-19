@@ -74,7 +74,7 @@ def literal(parameters: Dict[str, Any],
 
 
 def connection(class_name: Optional[str],
-               src_class: Optional[str], dst_class: Optional[str],
+               src_class: str, dst_class: str,
                query: List[dict]) -> Optional[Callable]:
     """
     A TableOptions modify_query hook.
