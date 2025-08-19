@@ -1,4 +1,5 @@
-from .common import Curry, get_classes, get_command_body, PathKey
+from .common import Curry, get_command_body, PathKey
+from .aperturedb import get_classes
 import logging
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional, Tuple, Callable, Literal, Iterable

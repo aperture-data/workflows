@@ -9,7 +9,7 @@
 
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
-from .common import get_classes, import_from_app, Curry
+from .common import Curry
 from .column import property_columns, ColumnOptions, blob_columns, get_path_keys
 from .aperturedb import get_classes
 from .table import TableOptions, literal
@@ -62,6 +62,7 @@ def descriptor_schema() -> List[TableDefinition]:
                 type_name="JSONB",
                 options=ColumnOptions(
                     listable=False,
+                    type="json",
                     modify_command_body=Curry(
                         find_similar_modify_command_body),
                     query_blobs=Curry(find_similar_query_blobs,
@@ -165,11 +166,7 @@ def find_similar_modify_command_body(
     Side Effects:
         Modifies the command body in place to include the find similar parameters.
     """
-    try:
-        find_similar = json.loads(value)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Invalid JSON for _find_similar: {value}") from e
+    find_similar = value
 
     logger.debug(f"find_similar: {find_similar}")
 
@@ -197,11 +194,7 @@ def find_similar_query_blobs(
     Returns:
         blobs: list of length one containing the vector data as bytes
     """
-    try:
-        find_similar = json.loads(value)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Invalid JSON for _find_similar: {value}") from e
+    find_similar = value
 
     logger.debug(f"find_similar: {find_similar}")
 
