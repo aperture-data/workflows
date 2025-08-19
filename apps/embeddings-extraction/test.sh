@@ -1,53 +1,40 @@
 #!/bin/bash
+
 set -e
 
-# Get the directory this script is in
-BIN_DIR=$(dirname "$(readlink -f "$0")")
-cd "$BIN_DIR"
+# Get the directory of this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEST_DIR="$SCRIPT_DIR/test"
 
-bash ../build.sh
-RUNNER_NAME="$(whoami)"
-EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"
-EE_DB_NAME="${RUNNER_NAME}_aperturedb"
-EE_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
+echo "=== Embeddings Extraction Test Suite ==="
+echo "Test directory: $TEST_DIR"
 
-docker stop ${EE_DB_NAME}  || true
-docker rm ${EE_DB_NAME} || true
-docker network rm ${EE_NW_NAME} || true
+# Function to cleanup on exit
+cleanup() {
+    echo "Cleaning up..."
+    cd "$TEST_DIR"
+    docker-compose down --volumes --remove-orphans
+}
 
-docker network create ${EE_NW_NAME}
+# Set up cleanup trap
+trap cleanup EXIT
 
-# Start empty aperturedb instance
-docker run -d \
-           --name ${EE_DB_NAME} \
-           --network ${EE_NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+# Build the test image
+echo "Building test image..."
+cd "$TEST_DIR"
+docker-compose build test-base
 
-sleep 20
+# Run the tests
+echo "Running tests..."
+docker-compose up --abort-on-container-exit
 
-# Add images to the db
-docker run --name ${EE_IMAGE_ADDER_NAME} \
-           --network ${EE_NW_NAME} \
-           -e TOTAL_IMAGES=100 \
-           -e DB_HOST=${EE_DB_NAME} \
-           -v ./input:/app/data \
-           --rm \
-           aperturedata/wf-add-image
+# Check if tests passed
+TEST_EXIT_CODE=$(docker-compose ps -q tests | xargs docker inspect -f '{{.State.ExitCode}}')
 
-# Run the object detection workflow
-docker run \
-           --network ${EE_NW_NAME} \
-           -e DB_HOST=${EE_DB_NAME} \
-           -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-           -e RUN_ONCE=true \
-           -e MODEL_NAME="ViT-B/16" \
-           --rm \
-           aperturedata/workflows-embeddings-extraction
-
-# if CLEANUP is set to true, stop the aperturedb instance and remove the network
-if [ "$CLEANUP" = "true" ]; then
-    docker stop ${EE_DB_NAME}
-    docker network rm ${EE_NW_NAME}
+if [ "$TEST_EXIT_CODE" = "0" ]; then
+    echo "✅ All tests passed!"
+    exit 0
+else
+    echo "❌ Tests failed with exit code: $TEST_EXIT_CODE"
+    exit 1
 fi
