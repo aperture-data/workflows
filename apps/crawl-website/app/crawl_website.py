@@ -422,11 +422,6 @@ def delete_crawl(db, spec_id):
             }
         },
         {
-            "DeleteEntity": {
-                "ref": 2,
-            }
-        },
-        {
             "FindEntity": {
                 "with_class": "CrawlRun",
                 "constraints": {
@@ -447,6 +442,11 @@ def delete_crawl(db, spec_id):
         {
             "DeleteEntity": {
                 "ref": 3,
+            }
+        },
+        {
+            "DeleteEntity": {
+                "ref": 2,
             }
         },
         {
