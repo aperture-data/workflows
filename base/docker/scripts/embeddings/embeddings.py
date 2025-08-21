@@ -195,7 +195,7 @@ class Embedder():
     def from_properties(cls,
                         properties: dict,
                         descriptor_set: str,
-                        device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder"
+                        device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
     """Create an Embedder instance from properties."""
     provider = properties.get("embeddings_provider")
      model_name = properties.get("embeddings_model")
