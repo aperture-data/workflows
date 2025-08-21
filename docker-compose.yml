@@ -21,7 +21,7 @@ x-definitions:
 services:
     # not a workflow, but provided for convenience; used in tests
     aperturedb:
-        image: aperturedata/aperturedb:latest
+        image: aperturedata/aperturedb-community:latest
         ports:
             - "55555:55555"
         environment:

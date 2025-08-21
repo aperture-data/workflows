@@ -66,14 +66,16 @@ def run_query(db_connection):
 
     assert status == 0, f"Query failed: {response}"
 
+    return response
+
 
 def test_all_images_have_text(run_query):
     """Test that all images have extracted text."""
     response = run_query
-    images = {e['_unique_id']: e['name']
+    images = {e['_uniqueid']: e['name']
               for e in response[0]['FindImage'].get('entities', []) or []}
-    text_groups = set(
-        response[1]['FindEntity'].get('entities', {}) or {}).keys()
+
+    text_groups = set(response[1]['FindEntity'].get('entities', {}) or {})
 
     if text_groups != set(images.keys()):
         missing = {images[mid]
@@ -84,14 +86,14 @@ def test_all_images_have_text(run_query):
 def test_all_texts_have_descriptors(run_query):
     """Test that all texts have descriptors."""
     response = run_query
-    images = {e['_unique_id']: e['name']
+    images = {e['_uniqueid']: e['name']
               for e in (response[0]['FindImage'].get('entities', []) or [])}
     
     text_ids = dict(itertools.chain.from_iterable(
         [(e['_uniqueid'], e['text']) 
             for e in (response[1]['FindEntity'].get('entities', {}) or {}).values()]))
 
-    descriptor_ids = set(response[2]['FindDescriptor'].get('entities', {}) or {}).keys()
+    descriptor_ids = set(response[2]['FindDescriptor'].get('entities', {}) or {})
 
     if text_ids != descriptor_ids:
         missing = {text_ids[mid] for mid in descriptor_ids - set(text_ids.keys())}
@@ -106,10 +108,14 @@ def calculate_bleu_scores(run_query):
     image_texts = {k: v.get(0, {}).get('text', '') 
                    for k, v in (response[1]['FindEntity'].get('entities', {}) or {}).items()}
 
+    assert images, "No images found"
+    assert image_texts, "No image texts found"
+
     df = pd.DataFrame(
         columns = ['name', 'reference', 'hypothesis'],
         data = [
             [images[e['name']], e['expected_text'], image_texts.get(e['_uniqueid'])]
+            for e in images
         ])
     df['score'] = df.apply(lambda row: compute_bleu(row['hypothesis'], row['reference']), axis=1)
     print(df)

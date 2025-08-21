@@ -63,9 +63,9 @@ def test_descriptor_count_matches(run_query):
     response = run_query
     images = {e['_uniqueid']: e['name']
               for e in response[0]['FindImage']['entities']}
-    descriptor_groups = response[1]['FindDescriptor'].get('entities', {})
-    non_unitary = [mid for mid in images.keys()
-                   if mid in descriptor_groups and
-                   len(descriptor_groups[mid]['descriptors']) != 1]
+    descriptor_groups = response[1]['FindDescriptor'].get('entities', {}) or {}
+    non_unitary = [image_id for image_id in images.keys()
+                   if image_id in descriptor_groups and
+                   len(descriptor_groups[image_id]) != 1]
 
-    assert not non_unitary, f"Expected 1 descriptor per image, got {[len(descriptor_groups[mid]['descriptors']) for mid in non_unitary]} for images {[images[mid] for mid in non_unitary]}"
+    assert not non_unitary, f"Expected 1 descriptor per image, got {[len(descriptor_groups[image_id]) for image_id in non_unitary]} for images {[images[image_id] for image_id in non_unitary]}"

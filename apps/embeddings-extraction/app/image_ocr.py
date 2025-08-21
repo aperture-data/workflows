@@ -8,9 +8,10 @@ import clip
 
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
+import pytesseract
 
 
-class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
+class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
     """
         Generates n FindImage Queries
@@ -74,13 +75,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     "batch_size": self.batch_size,
                     "batch_id": idx
                 },
-                "operations": [
-                    {
-                        "type": "resize",
-                        "width": 224,
-                        "height": 224
-                    }
-                ],
+                # Full-size images are needed for OCR.
                 "results": {
                     "list": ["_uniqueid"]
                 }
@@ -100,57 +95,41 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         desc_blobs = []
 
-        for b in r_blobs:
-            nparr = np.frombuffer(b, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = self.preprocess(Image.fromarray(
-                image)).unsqueeze(0).to(self.device)
-
-            image_features = self.model.encode_image(image)
-
-            if self.device == "cuda":
-                image_features = image_features.float()
-                desc_blobs.append(
-                    image_features.detach().cpu().numpy().tobytes())
-            else:
-                desc_blobs.append(image_features.detach().numpy().tobytes())
-
-        query = []
-        for uniqueid, i in zip(uniqueids, range(len(uniqueids))):
-
-            query.append({
-                "FindImage": {
-                    "_ref": i + 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
-
-            query.append({
-                "UpdateImage": {
-                    "ref": i + 1,
-                    "properties": {
-                        self.done_property: True
-                    },
-                }
-            })
-
-            query.append({
-                "AddDescriptor": {
-                    "set": self.descriptor_set,
-                    "connect": {
-                        "ref": i + 1
-                    },
-                    "properties": {
-                        "type": "image"
+        for uid, b in zip(uniqueids, r_blobs):
+            text = pytesseract.image_to_string(b)
+            logging.debug(f"Text: {text}")
+            ref = len(query) + 1
+            query.extend([
+                {
+                    "FindImage": {
+                        "_ref": ref,
+                        "constraints": {
+                            "_uniqueid": ["==", uid]
+                        },
                     }
-                }
-            })
+                },
+                {
+                    "UpdateImage": {
+                        "ref": ref,
+                        "properties": {
+                            self.done_property: True
+                        },
+                    }
+                },
+                {
+                    "AddEntity": {
+                        "class": "ImageExtractedText",
+                        "properties": {
+                            "text": text
+                        },
+                        "connect": {
+                            "ref": i,
+                            "class": "imageHasExtractedText",
+                        }
+                    }
+                }]
+            )
 
-        with self.pool.get_connection() as db:
-            r, _ = db.query(query, desc_blobs)
-
-            if not db.last_query_ok():
-                db.print_last_response()
+        with self.pool.get_connection() as pool:
+            status, r, _ = pool.executequery(query, desc_blobs)
+            assert status == 0, f"Query failed: {r}"

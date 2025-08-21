@@ -39,12 +39,12 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name):
+    def __init__(self, db, descriptor_set: str, model_name, done_property: str):
 
         self.pool = ConnectionPool(connection_factory=db.clone)
         self.model_name = model_name
         self.descriptor_set = descriptor_set
-
+    
         # Choose the model to be used.
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -52,7 +52,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             "FindBlob": {
                 "constraints": {
                     "document_type": ["==", "pdf"],
-                    "wf_embeddings_clip": ["!=", True]
+                    self.done_property: ["!=", True]
                 },
                 "results": {
                     "count": True
@@ -240,7 +240,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateBlob": {
                     "ref": 1,
                     "properties": {
-                        "wf_embeddings_clip": True,
+                        self.done_property: True,
                         "segments": blob_segments,
                     },
                 }

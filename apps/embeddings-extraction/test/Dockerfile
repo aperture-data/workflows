@@ -12,8 +12,8 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy test files and data
-COPY *.py /app/
 COPY photos_with_text/ /app/photos_with_text/
 COPY pdfs/ /app/pdfs/
+COPY *.py /app/
 
 CMD ["python", "app.py"]

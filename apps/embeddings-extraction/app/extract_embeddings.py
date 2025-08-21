@@ -11,11 +11,13 @@ from aperturedb import ParallelQuery
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
+from image_ocr import FindImageOCRQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
 DONE_PROPERTY = 'wf_embeddings_clip'
-
+IMAGE_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_image_extraction'
+IMAGE_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_image_extraction_done'
 
 def clean_embeddings(db):
 
@@ -30,11 +32,22 @@ def clean_embeddings(db):
             "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
+        "DeleteDescriptorSet": {
+            "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
         "UpdateImage": {
             "constraints": {
                 DONE_PROPERTY: ["!=", None]
             },
             "remove_props": [DONE_PROPERTY]
+        }
+    }, {
+        "UpdateImage": {
+            "constraints": {
+                IMAGE_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [IMAGE_EXTRACTION_DONE_PROPERTY]
         }
     }, {
         "UpdateBlob": {
@@ -82,7 +95,8 @@ def main(params):
                            properties={"type": "image"})
 
         generator = FindImageQueryGenerator(
-            db, IMAGE_DESCRIPTOR_SET, params.model_name)
+            db, IMAGE_DESCRIPTOR_SET, params.model_name,
+            done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Images Detector...")
@@ -99,7 +113,8 @@ def main(params):
                            properties={"type": "text"})
 
         generator = FindPDFQueryGenerator(
-            db, TEXT_DESCRIPTOR_SET, params.model_name)
+            db, TEXT_DESCRIPTOR_SET, params.model_name,
+            done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running PDFs Detector...")
@@ -109,6 +124,24 @@ def main(params):
                       stats=True)
 
         print("Done with PDFs.")
+
+    if params.extract_image_text:
+        add_descriptor_set(db,
+                           descriptor_set=IMAGE_EXTRACTION_DESCRIPTOR_SET,
+                           properties={"type": "image"})
+
+        generator = FindImageOCRQueryGenerator(
+            db, IMAGE_EXTRACTION_DESCRIPTOR_SET, params.model_name,
+            done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
+        querier = ParallelQuery.ParallelQuery(db)
+
+        print("Running Image Text Extraction...")
+
+        querier.query(generator, batchsize=1,
+                      numthreads=params.numthreads,
+                      stats=True)
+
+        print("Done with Image Text Extraction.")
 
     print("Done")
 
@@ -142,8 +175,8 @@ def get_args():
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
 
-    obj.add_argument('--extract-ocr', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_OCR', False))
+    obj.add_argument('--extract-image-text', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
 
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))

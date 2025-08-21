@@ -15,4 +15,7 @@ RUN pip install git+https://github.com/openai/CLIP.git
 
 RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
 
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
 COPY app /app/
