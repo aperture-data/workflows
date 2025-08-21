@@ -27,7 +27,11 @@ class LogProcessor:
                 # Extract the progress percentage from the message
                 progress = msg.split(":")[1].strip()
                 completed = progress.split("%")[0].strip()
-                need_update = True
+                try:
+                    completed = float(completed)
+                    need_update = True
+                except (ValueError, TypeError):
+                    pass
 
             # print("Progress:", line.strip(), flush=True)
             if need_update and time.time() - last_time >= 1:
