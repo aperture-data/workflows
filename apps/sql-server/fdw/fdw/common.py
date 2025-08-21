@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, Any
 from pydoc import locate
 from pydantic import BaseModel, GetCoreSchemaHandler, GetJsonSchemaHandler, TypeAdapter
@@ -122,7 +123,6 @@ class Curry:
 
     @classmethod
     def _validate(cls, value: Any) -> "Curry":
-        logger.debug(f"Validating Curry: {value}")
         if isinstance(value, cls):
             return value
         elif isinstance(value, dict):
@@ -182,6 +182,23 @@ def compact_pretty_json(data: Any, line_length=78, level=0, indent=2) -> str:
 
     else:
         return prefix + json.dumps(data, ensure_ascii=False)
+
+
+def get_command_body(command: dict) -> dict:
+    """
+    Extract the command body from a command dictionary.
+    This is used to get the command body for modify_query hooks.
+    """
+    return next(iter(command.values()))
+
+
+@dataclass
+class PathKey:
+    """
+    Represents a path key for a foreign table column.
+    """
+    columns: List[str]  # The path keys for the column
+    expected_rows: int  # The expected number of rows for this path key
 
 
 PROXY_SOCKET_PATH = "/tmp/aperturedb-proxy.sock"

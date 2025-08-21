@@ -9,9 +9,9 @@
 import logging
 from typing import List
 from .common import Curry
+from .column import property_columns, ColumnOptions, get_path_keys
+from .table import TableOptions, literal, connection as table_connection
 from .aperturedb import get_classes
-from .column import property_columns, ColumnOptions
-from .table import TableOptions, literal
 from multicorn import TableDefinition, ColumnDefinition
 
 logger = logging.getLogger(__name__)
@@ -27,11 +27,6 @@ def connection_schema() -> List[TableDefinition]:
     results = []
     classes = get_classes("connections")
     for connection, data in classes.items():
-        # We don't currently allow `with_class` to be used with internal connection classes.
-        if connection[0] == "_":
-            logger.warning(
-                f"Skipping connection {connection} as it starts with an underscore")
-            continue
         results.append(connection_table(connection, data))
     return results
 
@@ -44,18 +39,12 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
 
     table_name = connection
 
-    options = TableOptions(
-        table_name=f'connection."{table_name}"',
-        count=data.get("matched", 0),
-        command="FindConnection",
-        result_field="connections",
-        modify_command_body=Curry(literal, {"with_class": connection}),
-    )
-
     columns = []
+    is_system_class = connection[0] == "_"
 
     try:
-        columns.extend(property_columns(data))
+        if not is_system_class:
+            columns.extend(property_columns(data))
 
         # Add the _src, and _dst columns
         columns.append(ColumnDefinition(
@@ -78,6 +67,18 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
         logger.exception(
             f"Error processing properties for connection {connection}: {e}")
         raise
+
+    path_keys = get_path_keys(columns)
+
+    options = TableOptions(
+        table_name=f'connection."{table_name}"',
+        count=data.get("matched", 0),
+        command="FindConnection",
+        result_field="connections",
+        modify_query=Curry(table_connection, class_name=connection,
+                           src_class=data["src"], dst_class=data["dst"]),
+        path_keys=path_keys,
+    )
 
     logger.debug(
         f"Creating connection table for {connection} with columns: {columns} and options: {options}")

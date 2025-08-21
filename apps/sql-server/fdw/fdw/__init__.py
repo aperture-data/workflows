@@ -1,4 +1,4 @@
-from .common import get_log_level, compact_pretty_json
+from .common import get_log_level, compact_pretty_json, get_command_body, PathKey
 from .table import TableOptions
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 import sys
 from itertools import zip_longest
-from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable
+from typing import Optional, Set, Tuple, Generator, List, Dict, Any, Iterable, Callable
 
 import pydantic
 import sys
@@ -44,6 +44,17 @@ atexit.register(flush_logs)
 # Queries are processed in batches, but the client doesn't know because result rows are yielded one by one.
 BATCH_SIZE = 100
 BATCH_SIZE_WITH_BLOBS = 10
+
+# Estimated size of a column in bytes.
+TYPE_SIZE_ESTIMATE = {
+    "boolean": 1,
+    "number": 4,  # float32
+    "datetime": 8,  # int64 for timestamp
+    "string": 40,  # average string length
+    "json": 100,  # average JSON size
+    "blob": 1000,  # average blob size
+    "uniqueid": 16,  # UUID size
+}
 
 
 class FDW(ForeignDataWrapper):
@@ -106,9 +117,9 @@ class FDW(ForeignDataWrapper):
         self._columns = {
             name: ColumnOptions.from_string(col.options)
             for name, col in fdw_columns.items()}
-        logger.info("FDW initialized with options: %s", fdw_options)
+        logger.info(f"FDW {self._options.table_name} initialized")
 
-    def execute(self, quals: List[Qual], columns: Set[str]) -> Generator[dict, None, None]:
+    def execute(self, quals: List[Qual], columns: Set[str]) -> Iterable[dict]:
         """ Execute the FDW query with the given quals and columns.
 
         Args:
@@ -123,7 +134,7 @@ class FDW(ForeignDataWrapper):
 
         self._check_quals(quals, columns)
 
-        query = self._get_query(quals, columns)
+        query, get_result_objects = self._get_query(quals, columns)
 
         query_blobs = self._get_query_blobs(quals, columns)
 
@@ -134,7 +145,8 @@ class FDW(ForeignDataWrapper):
         try:
             while query:
                 n_queries += 1
-                gen = self._get_query_results(query, query_blobs)
+                gen = self._get_query_results(
+                    query, query_blobs, get_result_objects)
                 try:
                     while True:
                         row, blob = next(gen)
@@ -142,7 +154,7 @@ class FDW(ForeignDataWrapper):
                             quals, columns, row, blob)
 
                         logger.debug(
-                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()}, indent=2)} blob {len(blob) if blob else None}"
+                            f"Yielding row: {json.dumps({k: v[:10] if isinstance(v, str) else len(v) if isinstance(v, (bytes, list)) else v for k, v in row.items()})} blob {len(blob) if blob else None}"
                         )
                         n_results += 1
                         if n_results % 1000 == 0:
@@ -198,12 +210,10 @@ class FDW(ForeignDataWrapper):
 
         command_body = {}
 
-        # Apply table modification, e.g. with_class, set
-        if self._options.modify_command_body:
-            self._options.modify_command_body(command_body=command_body)
-
         # apply constraints
-        self._apply_constraints(quals, columns, command_body=command_body)
+        constraints = self._generate_constraints(quals, columns)
+        if constraints:
+            command_body["constraints"] = constraints
 
         # Apply column modifications
         for qual in quals:
@@ -237,35 +247,39 @@ class FDW(ForeignDataWrapper):
             command_body["results"] = {"list": list(listable_columns)}
 
         query = [{self._options.command: command_body}]
+
+        # Apply table modification, e.g. with_class, set
+        if self._options.modify_query:
+            get_result_objects = self._options.modify_query(query=query)
+        else:
+            get_result_objects = None
+
         logger.debug(
             f"Constructed query: {compact_pretty_json(query, indent=2)}")
 
-        return query
+        return query, get_result_objects
 
-    def _apply_constraints(self, quals: List[Qual], columns: Set[str], command_body: Dict[str, Any]) -> None:
+    def _generate_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
         """
-        Apply constraints to the command body based on the provided qualifications and columns.
+        Generate constraints for the command body based on the provided qualifications and columns.
         """
-        logger.debug(
-            f"Applying constraints for quals: {quals} and columns: {columns}")
+        constraints = {}
         listable_columns = {
             col for col in columns if self._columns[col].listable}
         for qual in quals:
             if qual.field_name in listable_columns:
-                constraint = self._apply_constraint(qual)
+                constraint = self._qual_to_constraint(qual)
                 if constraint is not None:
                     logger.debug(
-                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name}")
-                    if "constraints" not in command_body:
-                        command_body["constraints"] = {}
-                    if qual.field_name not in command_body["constraints"]:
-                        command_body["constraints"][qual.field_name] = []
-                    command_body["constraints"][qual.field_name].extend(
-                        constraint)
+                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name} in {self._options.table_name}")
+                    if qual.field_name not in constraints:
+                        constraints[qual.field_name] = []
+                    constraints[qual.field_name].extend(constraint)
+        return constraints
 
-    def _apply_constraint(self, qual: Qual) -> Optional[List[Any]]:
+    def _qual_to_constraint(self, qual: Qual) -> Optional[List[Any]]:
         """
-        Apply constraint to the command body based on the provided qualification.
+        Generate constraint for the command body based on the provided qualification.
         """
         exclude_all = ["in", []]  # Exclude all rows
 
@@ -401,23 +415,28 @@ class FDW(ForeignDataWrapper):
     def _get_query_results(self,
                            query: List[dict],
                            query_blobs: List[bytes],
+                           get_result_objects: Optional[Callable],
                            ) -> Generator[Tuple[dict, Optional[bytes]], None, List[dict]]:
-        logger.debug(f"Executing query: {query}")
-
         start_time = datetime.now()
-        _, results, response_blobs = execute_query(query, query_blobs)
+        status, results, response_blobs = execute_query(query, query_blobs)
         elapsed_time = datetime.now() - start_time
-        logger.info(
-            f"Query executed in {elapsed_time.total_seconds()} seconds. Results: {results}, Blobs: {len(response_blobs) if response_blobs else 0}")
 
-        if not results or len(results) != 1:
+        if not results or \
+            len(results) != len(query) or \
+                not isinstance(results, list) or \
+            status != 0:
             logger.warning(
-                f"No results found for entity query. {query} -> {results}")
+                f"Query Error:{query} -> {status} {results}")
             raise ValueError(
-                f"No results found for entity query: {query}. Please check the class and columns. Results: {results}")
+                f"Query Error: {query}. Please check the class and columns. Results: {status} {results}")
 
-        result_objects = results[0].get(
-            self._options.command, {}).get(self._options.result_field, [])
+        if get_result_objects:
+            # If a special function is provided, apply it to the results.
+            result_objects = get_result_objects(results)
+        else:
+            result_objects = results[-1].get(
+                self._options.command, {}).get(self._options.result_field, [])
+
         if not response_blobs:
             for row in result_objects:
                 yield row, None
@@ -491,15 +510,10 @@ class FDW(ForeignDataWrapper):
 
         So we just copy the qual constraints into the row.
         """
-        logger.debug(
-            f"Adding non-list columns to row: {row}, quals: {quals}, columns: {columns}")
         row = row.copy()  # Avoid modifying the original row
         for qual in quals:
             if not self._columns[qual.field_name].listable:
                 assert qual.field_name not in row, f"Column {qual.field_name} should not be in the row. It is a non-list column."
-                logger.debug(
-                    f"Adding non-list column {qual.field_name} with value {qual.value} to row"
-                )
                 # This double-conversion is necessary because of negative qual operators like IS NOT and <>.
                 value = self._convert_qual_value(qual)
                 value = self._convert_adb_value(value, qual.field_name)
@@ -512,27 +526,46 @@ class FDW(ForeignDataWrapper):
         Get the next query to execute based on the response from the previous query.
         This is used to handle batching.
         """
-        if not response or len(response) != 1:
+        if not response or len(response) != len(query) or not isinstance(response, list):
             logger.warning(
                 f"No results found for query: {query} -> {response}")
             return None
 
-        if "batch" not in response[0][self._options.command]:
-            # Some commands (like FindConnection) don't handle batching, so we assume all results are returned at once.
+        command_body = get_command_body(query[-1])
+        response_body = get_command_body(response[-1])
+
+        if "batch" in response_body:
+            batch_id = response_body["batch"]["batch_id"]
+            total_elements = response_body["batch"]["total_elements"]
+            end = response_body["batch"]["end"]
+
+            if end >= total_elements:  # No more batches to process
+                return None
+
+            next_query = query.copy()
+            next_command_body = get_command_body(next_query[-1])
+            next_command_body["batch"]["batch_id"] += 1
+            return next_query
+        elif "limit" in command_body:
+            # fallback mode for commands that don't support batching
+            limit = command_body["limit"]
+            returned = response_body.get("returned", 0)
+            if returned == 0:
+                logger.info(
+                    f"No results returned for query: {query} -> {response[:10]}")
+                return None
+            offset = command_body.get("offset", 0)
+
+            next_query = query.copy()
+            next_command_body = get_command_body(next_query[-1])
+            next_command_body["offset"] = offset + limit
+            return next_query
+        else:
+            # Some commands (like FindConnection) might not handle batching, so we assume all results are returned at once.
+            # https://github.com/aperture-data/athena/issues/1727
             logger.info(
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None
-
-        batch_id = response[0][self._options.command]["batch"]["batch_id"]
-        total_elements = response[0][self._options.command]["batch"]["total_elements"]
-        end = response[0][self._options.command]["batch"]["end"]
-
-        if end >= total_elements:  # No more batches to process
-            return None
-
-        next_query = query.copy()
-        next_query[0][self._options.command]["batch"]["batch_id"] += 1
-        return next_query
 
     def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
         """
@@ -549,7 +582,7 @@ class FDW(ForeignDataWrapper):
         result["quals"] = [[qual.field_name, qual.operator, qual.value]
                            for qual in quals]
         result["columns"] = list(columns)
-        result["aql"] = self._get_query(quals, columns)
+        result["aql"] = self._get_query(quals, columns)[0]
         # This part isn't verbose, but can be much slower
         if verbose:
             query_blobs = self._get_query_blobs(quals, columns)
@@ -557,7 +590,73 @@ class FDW(ForeignDataWrapper):
                 result["query_blob_lengths"] = [
                     len(blob) for blob in query_blobs]
 
-        return [compact_pretty_json(result)]
+        return [compact_pretty_json(result) if verbose else json.dumps(result)]
+
+    def get_rel_size(self, quals: List[Qual], columns: Set[str]) -> Tuple[int, int]:
+        """
+        https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L172
+        https://www.postgresql.org/docs/current/fdw-callbacks.html#FDW-CALLBACKS-SCAN
+        """
+        logger.info(
+            f"Estimating relation size for FDW {self._options.table_name} with quals: {quals} and columns: {columns}")
+        query = self._get_query(quals, columns)[0]
+        command_body = get_command_body(query[-1])
+        blobs = command_body.get("blobs", False)
+
+        n_rows = self._options.count
+        for col, constraints in command_body.get("constraints", {}).items():
+            col_type = self._columns[col].type
+            if col == "_uniqueid":
+                if constraints[0] == "==":
+                    n_rows = 1  # Unique ID means only one row can match
+                elif constraints[0] == "in":
+                    # Number of unique IDs in the list
+                    n_rows = len(constraints[1])
+                # negative constraints don't significantly affect the number of rows
+            elif col_type == "boolean":
+                n_rows //= 2  # Boolean constraints halve the number of rows
+            elif col_type in {"number", "datetime", "uniqueid", "string"}:
+                if constraints[0] in {"==", "in"}:
+                    n_rows //= 10  # Equality constraints reduce the number of rows significantly
+                elif constraints[0] in {"<", "<=", ">", ">="}:
+                    n_rows //= 2  # Range constraints halve the number of rows
+
+        n_rows = max(n_rows, 1)  # Ensure at least one row
+
+        width = sum(
+            TYPE_SIZE_ESTIMATE[self._columns[col].type] for col in columns if blobs or self._columns[col].type != "blob")
+
+        logger.info(
+            f"Estimated size for FDW {self._options.table_name}: {n_rows} rows, width {width} bytes per row")
+        inflation = 10  # inflate the size as a crude way to account for per-query overhead; see comment in get_path_keys
+        return (n_rows * inflation, width)
+
+    def get_path_keys(self) -> List[Tuple[List[str], int]]:
+        """
+        https://github.com/pgsql-io/multicorn2/blob/7ab7f0bcfe6052ebb318ed982df8dfd78ce5ee6a/python/multicorn/__init__.py#L215
+
+        This method is roughy intended to return the indexed keys for the foreign table.
+        It is used to optimize the query planning by PostgreSQL.
+        """
+        keys: List[PathKey] = self._options.path_keys
+
+        # Unfortunately, full implementation of this feature can result in Postgres doing joins one row at a time,
+        # as it does not perceive any static per-query overhead.
+        # This is not ideal, so we do not implement it fully.
+        # In the long term, we might want to extend Multicorn to support static costs for queries.
+
+        filter_uniqueids = True
+        if filter_uniqueids:
+            keys = [key for key in keys if not any(
+                self._columns[col].type == "uniqueid" for col in key.columns)]
+
+        logger.info(
+            f"Getting path keys for FDW {self._options.table_name} -> {keys}")
+        # Convert PathKey to the expected format
+        result = [
+            (key.columns, key.expected_rows) for key in keys if key.expected_rows > 0
+        ]
+        return result
 
 
 logger.info("FDW class defined successfully")

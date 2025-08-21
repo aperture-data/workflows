@@ -38,7 +38,7 @@ This workflow provides four different types of table, added to four different sc
 
 * **`system`**: Table for every system object type used in the database, e.g. `Descriptor`, `DescriptorSet`, `Image`, `BoundingBox`. In particular, there are tables for `Entity` and `Connection`, which will have any properties that are consistently-typed across all classes.
 * **`entity`**: Table for every user-defined entity class, e.g. `CrawlDocument`.
-* **`connection`**: Table for every user-defined connection class, e.g. `crawlDocumentHasBlob`. Note that in addition to the usual `_uniqueid`, connections also have columns for `_src` and `_dst`.
+* **`connection`**: Table for every connection class, e.g. `crawlDocumentHasBlob`. Note that in addition to the usual `_uniqueid`, connections also have columns for `_src` and `_dst`.
 * **`descriptor`**: Table for every descriptor set.
 
 > **Note**: Tables are published at startup, based on the ApertureDB schema at the time. If classes or properties are added later, they will not be available through this interface until the workflow is restarted. 
