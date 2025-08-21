@@ -44,6 +44,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         self.pool = ConnectionPool(connection_factory=db.clone)
         self.model_name = model_name
         self.descriptor_set = descriptor_set
+        self.done_property = done_property
     
         # Choose the model to be used.
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
