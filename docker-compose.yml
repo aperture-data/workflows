@@ -95,6 +95,9 @@ services:
             CLEAN: "${CLEAN:-true}"
             RUN_ONCE: "${RUN_ONCE:-true}"
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
+            WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
+            WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
+            WF_EXTRACT_OCR: "${WF_EXTRACT_OCR:-true}"
 
     jupyterlab:
         build: 

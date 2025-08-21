@@ -142,6 +142,9 @@ def get_args():
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
 
+    obj.add_argument('--extract-ocr', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_OCR', False))
+
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 

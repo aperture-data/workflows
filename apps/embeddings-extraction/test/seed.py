@@ -1,6 +1,7 @@
 import os
 import sys
 import csv
+import json
 from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
 
@@ -91,7 +92,6 @@ def create_test_pdfs(client):
             # Add PDF blob to database
             query.append({
                 "AddBlob": {
-                    "data": base64.b64encode(pdf_data).decode('utf-8'),
                     "properties": {
                         "document_type": "pdf",
                         "content_type": "application/pdf",
@@ -112,27 +112,37 @@ def create_test_pdfs(client):
         print(f"No PDFs were created. Status: {status}, Response: {response}")
         sys.exit(1)
 
+def print_schema(client):
+    """Print the schema of the database."""
+    print("Printing schema of the database...")
+    query = [{"GetSchema": {}}]
+    status, response, _ = execute_query(client, query)
+    assert status == 0, f"Failed to get schema: {response}"
+    print(json.dumps(response, indent=2))
 
-def main():
-    """Main seeding function."""
-    print("Starting embeddings-extraction test data seeding...")
-    
+def db_connection():
+    """Create a database connection."""
     DB_HOST = os.getenv("DB_HOST", "aperturedb")
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    print(f"{DB_HOST=}, {DB_PORT=}, {DB_USER=}, {DB_PASS}")
-    client = Connector(host=DB_HOST, user=DB_USER,
-                       port=DB_PORT, password=DB_PASS)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
+
+def main():
+    """Main seeding function."""
+    print("Starting embeddings-extraction test data seeding...")
+    client = db_connection()
 
     try:
         # Create test images from actual files
-        create_test_images(db)
+        create_test_images(client)
         
         # Create test PDFs from actual files
-        create_test_pdfs(db)
+        create_test_pdfs(client)
         
         print("Seeding completed successfully!")
+
+        print_schema(client)
         
     except Exception as e:
         print(f"Error during seeding: {e}")
