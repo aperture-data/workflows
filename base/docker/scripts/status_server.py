@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 import requests
 import time
 import threading
@@ -29,15 +29,19 @@ def get_workflow_status():
     global RESPONSE
     # print("Fetching status from the server...")
     RESPONSE["completeness"] = min(count / 10.0, 1.0)  # Simulate progress
+    response = None
     try:
         response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PROMETHEUS_PORT')}/")
+    except requests.exceptions.ConnectionError:
+        # This is not an error. The workflows might not be running yet.
+        # Or they might not have implemented the prometheus endpoint yet.
+        logger.info("Could not connect to the server. The server might not be running.")
     except Exception as e:
-        # print("Connection refused. The server might not be running.")
         RESPONSE["accessible"] = False
         RESPONSE["error_message"] = str(e)
         RESPONSE["error_code"] = "workflow_error"
         return
-    if response.ok and response.text:
+    if response and response.ok and response.text:
         print("Success!")
         for metric in text_string_to_metric_families(response.text):
 
@@ -81,10 +85,10 @@ async def lifespan(app: FastAPI):
     background_thread = threading.Thread(target=get_status_periodically)
     background_thread.daemon = True  # Allows the thread to exit when the main program exits
     #Commented since we don't want to fetch status from the server till atleast 1 workflow implements it.
-    # background_thread.start()  # Start the background thread to fetch status
+    background_thread.start()  # Start the background thread to fetch status
     yield
     running = False
-    # background_thread.join()
+    background_thread.join()
     print("Status server stopped.")
 
 # Initialize the FastAPI application
@@ -111,35 +115,41 @@ async def get_status():
     global RESPONSE
     return RESPONSE
 
+def reconfigure_workflow():
+    from reconfigure import reconfigure
+    retval = reconfigure()
+    return retval
+
 @app.post(
     "/reconfigure",
     summary="Reconfigures the application.",
     response_description="Confirmation that the application has been reconfigured."
 )
-async def reconfigure(request: Request):
+async def reconfigure(request: Request, background_tasks: BackgroundTasks):
     """
     Reconfigures the application.
     """
     logger.info(f"Reconfiguring the application with request: {request}")
-    from reconfigure import reconfigure
-    retval = reconfigure()
-    return retval
+    background_tasks.add_task(reconfigure_workflow)
+    return {"message": "Reconfiguration requested."}
 
 @app.post(
     "/response",
     summary="Set response data",
     response_description="Confirmation that the response data has been set."
 )
-async def set_response(response: dict):
+async def set_response(request: Request):
     """
     Sets the global RESPONSE dictionary with the provided data.
 
     This endpoint allows you to update the RESPONSE dictionary,
     which can be used in other parts of the application.
     """
+    req_json = await request.json()
+    print(f"{req_json=}")
     global RESPONSE
     with lock:
-        for key, value in response.items():
+        for key, value in req_json.items():
             RESPONSE[key] = value
     return {"message": "Response data set successfully"}
 
