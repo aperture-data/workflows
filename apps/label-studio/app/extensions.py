@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class extension_iface():
     ref:int
     object_ref:int
-    object_id:int
+    object_id:str
     run_ref:int = None
 
 workflow_name = os.environ.get("WORKFLOW_NAME")
