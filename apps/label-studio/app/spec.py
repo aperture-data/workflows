@@ -274,6 +274,38 @@ class WorkflowSpec:
                 print(f"Deleted {deleted} {noun} matching creator_key {creator_key}")
             else:
                 raise Exception(f"Failed bucket clean delete query for type {otype} on resource {provider}/{bucket} : {res}")
+    @classmethod
+    def delete_all_creator(cls,db,creator_name):
+        logger.info(f"Cleaning database from creator {creator_name}")
+        known_objects = [m.value for m in ObjectType]
+        for type_to_clean in known_objects:
+            otype = type_to_clean[1:] 
+            res,_ = cls.execute_query_with_db(db,[
+                {
+                    f"Find{otype}": {
+                        "_ref":1,
+                        "constraints": {
+                            "wf_creator": ["==", creator_key ]
+                        },
+                        "results": {
+                            "count":True
+                        }
+                    }
+                },{
+                    f"Delete{otype}": {
+                        "ref":1
+                    }
+                }]
+            )
+            if isinstance(res,list):
+                deleted = res[1][f"Delete{otype}"]["count"]
+                if otype == "Entity":
+                    noun = "Entities" if deleted != 1 else otype
+                else:
+                    noun = otype+"s" if deleted != 1 else otype
+                print(f"Deleted {deleted} {noun} matching creator {creator_key}")
+            else:
+                raise Exception(f"Failed createor clean  delete query for type {otype} on resource {provider}/{bucket} : {res}")
 
     def get_spec_find_query(self):
         return [{

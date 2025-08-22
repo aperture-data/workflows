@@ -2,9 +2,11 @@
 
 This workflow runs a label studio instance with integration into ApertureDB
 
-## Database details
+## Workflow details
 
 `label-studio` makes images from the database available to the Label Studio application and stores user created annotations back in the database.
+
+Label Studio is available on port 8000 of the docker container.
 
 
 ## Running in docker

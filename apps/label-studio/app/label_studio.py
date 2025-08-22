@@ -27,7 +27,7 @@ def main(args):
     elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
         # but data could have been loaded from it.
-        WorkflowSpec.delete_all_creator_key(creator_string(args.sql_host, args.sql_database)) 
+        WorkflowSpec.delete_all_creator( "label-studio" )
         sys.exit(0)
 
 

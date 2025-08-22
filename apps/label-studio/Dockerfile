@@ -5,7 +5,7 @@
 
 ARG VERSION=latest
 FROM workflows-base:${VERSION} as wf
-FROM aperture-data/ls-testing
+FROM aperturedata/label-studio
 
 USER 0
 RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
