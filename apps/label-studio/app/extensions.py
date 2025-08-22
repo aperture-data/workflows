@@ -11,7 +11,7 @@ class extension_iface():
     ref:int
     object_ref:int
     object_id:str
-    run_ref:int = None
+    run_ref:Optional[int] = None
 
 workflow_name = os.environ.get("WORKFLOW_NAME")
 spec_id = os.environ.get("WORKFLOW_SPEC_ID")
