@@ -367,9 +367,7 @@ class WorkflowSpec:
         count = res[2][f"Find{otype}"]["count"]
         logger.info(f"Linked {count} {otype}") 
 
-    def finish_run(self,run_id, extra_props = {}):
-        props = extra_props
-        props["workflow_end_date"] =  dt.datetime.now().isoformat()
+    def update_run(self,run_id, props:dict):
         res,_ = self.execute_query( self.get_spec_find_query() + 
             [{
                 "UpdateEntity": {
@@ -381,6 +379,10 @@ class WorkflowSpec:
                 }
             }]
         )
+    def finish_run(self,run_id, extra_props = {}):
+        props = extra_props
+        props["workflow_end_date"] =  dt.datetime.now().isoformat()
+        self.update_run(run_id,extra_props)
     def finish_spec(self):
         res,_ = self.execute_query( 
             [{

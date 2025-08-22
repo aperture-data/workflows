@@ -24,7 +24,7 @@ def main(args):
     elif args.delete_all:
         WorkflowSpec.delete_all( "label-studio") 
         sys.exit(0)
-    elif args.delete_from_sql_db:
+    elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
         # but data could have been loaded from it.
         WorkflowSpec.delete_all_creator_key(creator_string(args.sql_host, args.sql_database)) 
@@ -50,6 +50,11 @@ def main(args):
 
         run_id = uuid4()
         spec.add_run( run_id )
+
+        spec.update_run(str(run_id), {
+            "wf_linked_types" : ["LS_annotation", "_BoundingBox"],
+            "wf_creator": "label-studio" 
+            })
         ls_env = os.environ.copy()
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
@@ -63,11 +68,7 @@ def main(args):
 
 
 
-        spec.finish_run(str(run_id), {
-            "wf_linked_types" : ["LS_annotation", "_BoundingBox"],
-            "wf_creator": "label-studio" 
-            }
-            )
+        spec.finish_run(str(run_id))
     spec.finish_spec()
 
 def get_args():
@@ -87,13 +88,13 @@ def get_args():
 
     # cleaning options
     obj.add_argument("--clean",type=bool,default=False,
-            help="Whether the workflow should clean previous data loaded from this bucket")
+            help="Whether the workflow should clean previous data loaded from this workflow name")
     obj.add_argument("--delete",type=bool,default=False,
             help="Whether the workflow should clean data associated with provided spec_id, then stop.")
     obj.add_argument("--delete-all",type=bool,default=False,
             help="Whether the workflow should clean all data from this workflow, then stop.")
-    obj.add_argument("--delete-from-sql-db",type=bool,default=False,
-            help="Whether the workflow should clean previous data loaded from this database")
+    obj.add_argument("--delete-all-ls-data",type=bool,default=False,
+            help="Whether the workflow should clean all data created by label studio in the database") 
     obj.add_argument('--log-level', type=str,
                  default='WARNING')
 
