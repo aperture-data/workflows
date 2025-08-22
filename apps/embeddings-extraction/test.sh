@@ -43,6 +43,7 @@ docker run \
            -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
            -e RUN_ONCE=true \
            -e MODEL_NAME="ViT-B/16" \
+           -e WF_EXTRACT_IMAGES=true \
            --rm \
            aperturedata/workflows-embeddings-extraction
 
