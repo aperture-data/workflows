@@ -130,9 +130,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            bash test.sh
+            VERSION=latest bash test.sh
           else
-            bash ../build.sh
+            VERSION=latest bash ../build.sh
           fi
 
       - name: Push to docker (on main)
