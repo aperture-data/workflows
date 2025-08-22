@@ -21,11 +21,25 @@ else
   DESCRIPTION_SUFFIX=""
 fi
 
-
-# CI should provide these variables, but we need defaults for local builds
-export VERSION="${VERSION:-local}"
 GITHUB_SHA="${GITHUB_SHA:-$(git -C "$TOP" rev-parse HEAD)}"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-aperture-data/workflows}"
+
+# if VERSION is set use it, or build from githash
+if [ -n "${VERSION:-}" ]; then
+  echo "Using version: $VERSION"
+else
+  echo "Building version from git hash: $GITHUB_SHA"
+  SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-12)
+  VERSION="local-$SHORT_SHA"
+  if [ -n "${IS_DIRTY}" ]; then
+    echo "Repository is dirty, appending dirty hash to version."
+    DIRTY_HASH=$( { git diff --cached --no-ext-diff ; git diff --no-ext-diff ; } | sha1sum | cut -c1-12)
+    VERSION="${VERSION}-${DIRTY_HASH}"
+  fi
+  echo "Computed version: $VERSION"
+fi
+export VERSION
+
 
 export GITHUB_SHA_FULL="${GITHUB_SHA}${SHA_SUFFIX}"
 export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
