@@ -6,8 +6,8 @@
 
 from multicorn import TableDefinition
 from .common import Curry
+from .column import property_columns, get_path_keys
 from .aperturedb import get_classes
-from .column import property_columns
 from .table import TableOptions, literal
 from typing import List
 import logging
@@ -40,14 +40,6 @@ def entity_table(entity: str, data: dict) -> TableDefinition:
 
     table_name = entity
 
-    options = TableOptions(
-        table_name=f'entity."{table_name}"',
-        count=data.get("matched", 0),
-        command="FindEntity",
-        result_field="entities",
-        modify_command_body=Curry(literal, {"with_class": entity}),
-    )
-
     columns = []
 
     try:
@@ -56,6 +48,17 @@ def entity_table(entity: str, data: dict) -> TableDefinition:
         logger.exception(
             f"Error processing properties for entity {entity}: {e}")
         raise
+
+    path_keys = get_path_keys(columns)
+
+    options = TableOptions(
+        table_name=f'entity."{table_name}"',
+        count=data.get("matched", 0),
+        command="FindEntity",
+        result_field="entities",
+        modify_query=Curry(literal, {"with_class": entity}),
+        path_keys=path_keys,
+    )
 
     logger.debug(
         f"Creating entity table for {entity} as {table_name} with columns: {columns} and options: {options}")

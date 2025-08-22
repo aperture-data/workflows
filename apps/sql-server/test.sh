@@ -36,7 +36,7 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN -f $COMPOSE_TEST"
 
-# Should the test script be building sql-server?
+$COMMAND build base
 $COMMAND build test-base sql-server
 
 # This log file is useful for debugging test failures

@@ -10,8 +10,8 @@
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import Curry
+from .column import property_columns, ColumnOptions, blob_columns, get_path_keys
 from .aperturedb import get_classes
-from .column import property_columns, ColumnOptions, blob_columns
 from .table import TableOptions, literal
 import logging
 import struct
@@ -54,15 +54,6 @@ def descriptor_schema() -> List[TableDefinition]:
         # this is a good heuristic to avoid unnecessary complexity.
         find_similar = descriptor_set_supports_find_similar(properties)
 
-        options = TableOptions(
-            table_name=f'descriptor."{table_name}"',
-            count=properties["_count"],
-            command="FindDescriptor",
-            result_field="entities",
-            modify_command_body=Curry(
-                literal, {"set": name, "distances": True}),
-        )
-
         columns = property_columns_for_descriptors_in_set(name)
 
         if find_similar:
@@ -71,6 +62,7 @@ def descriptor_schema() -> List[TableDefinition]:
                 type_name="JSONB",
                 options=ColumnOptions(
                     listable=False,
+                    type="json",
                     modify_command_body=Curry(
                         find_similar_modify_command_body),
                     query_blobs=Curry(find_similar_query_blobs,
@@ -94,6 +86,18 @@ def descriptor_schema() -> List[TableDefinition]:
         # and does appear in the schema, so we skip it here.
 
         columns.extend(blob_columns("_vector"))
+
+        path_keys = get_path_keys(columns)
+
+        options = TableOptions(
+            table_name=f'descriptor."{table_name}"',
+            count=properties["_count"],
+            command="FindDescriptor",
+            result_field="entities",
+            modify_query=Curry(
+                literal, {"set": name, "distances": True}),
+            path_keys=path_keys,
+        )
 
         logger.debug(
             f"Creating table {table_name} with options {options.to_string()} and columns {columns}")
@@ -162,11 +166,7 @@ def find_similar_modify_command_body(
     Side Effects:
         Modifies the command body in place to include the find similar parameters.
     """
-    try:
-        find_similar = json.loads(value)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Invalid JSON for _find_similar: {value}") from e
+    find_similar = value
 
     logger.debug(f"find_similar: {find_similar}")
 
@@ -194,11 +194,7 @@ def find_similar_query_blobs(
     Returns:
         blobs: list of length one containing the vector data as bytes
     """
-    try:
-        find_similar = json.loads(value)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Invalid JSON for _find_similar: {value}") from e
+    find_similar = value
 
     logger.debug(f"find_similar: {find_similar}")
 

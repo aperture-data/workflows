@@ -555,10 +555,25 @@ class AperturedbIO:
                 }
             },
             {
+                "FindBlob": {
+                    "is_connected_to": {
+                        "ref": 5,
+                        "connection_class": "fullTextHasBlob",
+                    },
+                    "_ref": 6,
+                }
+            },
+            {
                 "DeleteEntity": {
                     "ref": 5,
                 }
             },
+            {
+                "DeleteBlob": {
+                    "ref": 6,
+                }
+            }
+
         ])
 
     def delete_all(self) -> None:
