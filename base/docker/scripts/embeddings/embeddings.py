@@ -196,12 +196,12 @@ class Embedder():
                         properties: dict,
                         descriptor_set: str,
                         device: Optional[Literal["cpu", "cuda"]] = None) -> "Embedder":
-    """Create an Embedder instance from properties."""
-    provider = properties.get("embeddings_provider")
-     model_name = properties.get("embeddings_model")
-      pretrained = properties.get("embeddings_pretrained")
+        """Create an Embedder instance from properties."""
+        provider = properties.get("embeddings_provider")
+        model_name = properties.get("embeddings_model")
+        pretrained = properties.get("embeddings_pretrained")
 
-       if not provider or not model_name or not pretrained:
+        if not provider or not model_name or not pretrained:
             raise ValueError(
                 f"Properties must contain 'embeddings_provider', 'embeddings_model', and 'embeddings_pretrained': {descriptor_set} - {properties}.")
 
