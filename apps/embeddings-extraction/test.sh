@@ -37,7 +37,8 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN -f $COMPOSE_TEST"
 
 # Should the test script be building this workflow?
-$COMMAND build base test-base embeddings-extraction
+$COMMAND build base 
+$COMMAND build test-base embeddings-extraction
 
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log

@@ -97,7 +97,7 @@ services:
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
             WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
             WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
-            WF_EXTRACT_OCR: "${WF_EXTRACT_OCR:-true}"
+            WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
 
     jupyterlab:
         build: 

@@ -9,7 +9,11 @@ import clip
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
 import pytesseract
+from PIL import Image
+from io import BytesIO
+import logging
 
+logger = logging.getLogger(__name__)
 
 class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
@@ -96,8 +100,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         desc_blobs = []
 
         for uid, b in zip(uniqueids, r_blobs):
-            text = pytesseract.image_to_string(b)
-            logging.debug(f"Text: {text}")
+            image = Image.open(BytesIO(b)).convert("RGB")
+            text = pytesseract.image_to_string(image)
+            logger.debug(f"Text: {text}")
             ref = len(query) + 1
             query.extend([
                 {
@@ -123,7 +128,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                             "text": text
                         },
                         "connect": {
-                            "ref": i,
+                            "ref": ref,
                             "class": "imageHasExtractedText",
                         }
                     }
