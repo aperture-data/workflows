@@ -6,6 +6,9 @@ from aperturedb.CommonLibrary import execute_query
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 import itertools
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 def compute_bleu(candidate: str, reference: str) -> float:
     # TODO: Consider case-folding and punctuation removal
@@ -91,7 +94,8 @@ def test_all_texts_have_descriptors(run_query):
     
     text_ids = dict(itertools.chain.from_iterable(
         [(e['_uniqueid'], e['text']) 
-            for e in (response[1]['FindEntity'].get('entities', {}) or {}).values()]))
+            for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
+            for e in ee]))
 
     descriptor_ids = set(response[2]['FindDescriptor'].get('entities', {}) or {})
 
@@ -105,7 +109,7 @@ def calculate_bleu_scores(run_query):
     """Test that the BLEU scores are above a certain threshold."""
     response = run_query
     images = (response[0]['FindImage'].get('entities', []) or [])
-    image_texts = {k: v.get(0, {}).get('text', '') 
+    image_texts = {k: v[0].get('text', '') if v else None
                    for k, v in (response[1]['FindEntity'].get('entities', {}) or {}).items()}
 
     assert images, "No images found"
@@ -114,11 +118,13 @@ def calculate_bleu_scores(run_query):
     df = pd.DataFrame(
         columns = ['name', 'reference', 'hypothesis'],
         data = [
-            [images[e['name']], e['expected_text'], image_texts.get(e['_uniqueid'])]
+            [e['name'], e['expected_text'], image_texts.get(e['_uniqueid'])]
             for e in images
         ])
     df['score'] = df.apply(lambda row: compute_bleu(row['hypothesis'], row['reference']), axis=1)
-    print(df)
+
+    # print df as JSON
+    logger.info("bleu df:\n%s", df.to_json(orient='records'))
     return df
 
 def test_minimum_bleu_score(calculate_bleu_scores):

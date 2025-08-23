@@ -44,11 +44,9 @@ services:
       DB_PASS: admin
       APERTUREDB_KEY: ""
       WF_AUTH_TOKEN: test
-      WF_LOG_LEVEL: DEBUG
-      WF_EXTRACT_IMAGES: "true"
-      WF_EXTRACT_PDFS: "true"
-      MODEL_NAME: "ViT-B/16"
-      NUMTHREADS: 2
+      # WF_EXTRACT_IMAGES: "true"
+      # WF_EXTRACT_PDFS: "true"
+      WF_EXTRACT_IMAGE_TEXT: "true"
       
   # Test runner
   tests:

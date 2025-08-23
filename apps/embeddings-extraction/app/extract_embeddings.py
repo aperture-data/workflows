@@ -190,7 +190,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs])):
+    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text])):
         raise ValueError("No extractions specified")
 
     return params

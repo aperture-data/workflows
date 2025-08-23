@@ -98,13 +98,14 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             return 0
 
         desc_blobs = []
+        query2 = []
 
         for uid, b in zip(uniqueids, r_blobs):
             image = Image.open(BytesIO(b)).convert("RGB")
             text = pytesseract.image_to_string(image)
             logger.debug(f"Text: {text}")
-            ref = len(query) + 1
-            query.extend([
+            ref = len(query2) + 1
+            query2.extend([
                 {
                     "FindImage": {
                         "_ref": ref,
@@ -135,6 +136,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 }]
             )
 
-        with self.pool.get_connection() as pool:
-            status, r, _ = pool.executequery(query, desc_blobs)
+        with self.pool.get_connection() as client:
+            from aperturedb.CommonLibrary import execute_query
+            status, r, _ = execute_query(client, query2, desc_blobs)
             assert status == 0, f"Query failed: {r}"
+
+
