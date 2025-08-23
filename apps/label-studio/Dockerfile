@@ -4,7 +4,7 @@
 # and laying our workflow data on top
 
 ARG VERSION=latest
-FROM workflows-base:${VERSION} as wf
+FROM aperturedata/workflows-base:${VERSION} as wf
 FROM aperturedata/label-studio
 
 USER 0
