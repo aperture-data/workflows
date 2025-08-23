@@ -97,6 +97,7 @@ jobs:
           ingest-from-bucket,
           ingest-from-sql,
           sql-server,
+          label-studio,
         ]
     runs-on:
       - ubuntu-latest
