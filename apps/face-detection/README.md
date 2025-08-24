@@ -33,6 +33,7 @@ docker run \
            -e RUN_NAME=my_testing_run \
            -e DB_HOST=workflowstesting.gcp.cloud.aperturedata.dev \
            -e DB_PASS="password" \
+           -e GENERATE_EMBEDDINGS=true \
            aperturedata/workflows-face-detection
 ```
 
@@ -46,5 +47,8 @@ Default is `false`.
 loop, or if it will exit upon completion, without watching for new images.
 Default is `false`.
 * **`SLEEPING_TIME`**: Delay between scans, in seconds. Default is `30`.
+* **`GENERATE_EMBEDDINGS`**: Boolean flag specifying whether the workflow will generate and
+store an embedding for each face detected. Default is `False`.
+
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
