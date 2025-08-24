@@ -2,6 +2,7 @@ import time
 from typing import List
 import requests
 import os
+import re
 import sys
 
 import datetime
@@ -19,15 +20,21 @@ class LogProcessor:
         # Continuously read from stderr
         last_time = time.time()
         completed = 100.0
-        need_update = False
         for line in iter(self.process.stderr.readline, ''):
             msg = line.strip()
+            need_update = False
 
             if msg.startswith("Progress:"):
-                # Extract the progress percentage from the message
-                progress = msg.split(":")[1].strip()
-                completed = progress.split("%")[0].strip()
-                need_update = True
+                match_percent = re.search(r"Progress:\s*(\d+(?:\.\d+)?)%", msg)
+                if match_percent:
+                    # handle normal format
+                    completed = float(match_percent.group(1))
+                    need_update = True
+                elif re.search(r"Progress:\s*\d+(?:\.\d+)?items\s*\[", msg):
+                    # zero-item format - ignore
+                    pass
+                else:
+                    raise ValueError(f"Unexpected progress format: {msg}")
 
             # print("Progress:", line.strip(), flush=True)
             if need_update and time.time() - last_time >= 1:
@@ -39,7 +46,6 @@ class LogProcessor:
 
         # Wait for the process to complete
         self.process.wait()
-
 
 
 app = Typer()
