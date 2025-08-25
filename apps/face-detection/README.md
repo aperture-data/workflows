@@ -20,6 +20,10 @@ sequenceDiagram
     loop Until done
         W->>A: FindImage
         A-->>W: images
+        W->>W: Detect faces
+        opt GENERATE_EMBEDDINGS
+            W->>W: Generate embedding
+        end
         W->>A: UpdateImage<br/>AddBoundingBox<br/>AddDescriptor
     end
 ```
