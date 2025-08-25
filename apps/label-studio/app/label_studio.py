@@ -11,6 +11,7 @@ from wf_argparse import ArgumentParser
 from spec import WorkflowSpec
 
 import subprocess
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -32,11 +33,31 @@ def main(args):
 
 
 
+    def add_path_vars( env ):
+        if args.label_studio_url_path is not None:
+            full_path = args.label_studio_url_path
+            m = re.match("http(s)?://([^/]*)(.*)",full_path)
+            if m is None:
+                raise Exception(f"Bad format for url path: {full_path}")
+
+            subpath = m.groups()[2]
+            logger.error(f"Subpath = {subpath}") 
+            # strip trailing /
+            if subpath[-1:] == '/':
+                logger.error("Switching sp")
+                subpath = sub_path[:-1]
+
+            logger.error(f"Path is {full_path} and {subpath}")
+            
+            env["LABEL_STUDIO_HOST"] = full_path
+            env["LABEL_STUDIO_STATIC_PATH"] = "{}/static".format( subpath )
+            env["LABEL_STUDIO_URL_BASE"] = "{}".format( subpath )
 
 
     logger.info("Preparing for Label Studio configuration.")
     # do config for LS
     cfg_env = os.environ.copy()
+    add_path_vars(cfg_env)
     cfg_env["LABEL_STUDIO_USERNAME"]=args.label_studio_user
     cfg_env["LABEL_STUDIO_PASSWORD"]=args.label_studio_password
     if args.label_studio_token:
@@ -56,11 +77,13 @@ def main(args):
             "wf_creator": "label-studio" 
             })
         ls_env = os.environ.copy()
+        add_path_vars(ls_env)
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
         ls_env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb gcs s3" 
         ls_env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
+        logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
         subprocess.run( "bash /app/label_studio_run.sh", shell=True,env=ls_env)
@@ -74,6 +97,9 @@ def main(args):
 def get_args():
     obj = ArgumentParser(support_legacy_envars=True)
 
+    # hosting options
+    obj.add_argument("--label-studio-url-path",type=str,default=None,
+            help="Path to host label studio on other than /. Supply full external path: eg. http://localhost:8888/labelstudio ")
     # login options
     obj.add_argument("--label-studio-token",type=str,default=None,
             help="User token for label studio") 
