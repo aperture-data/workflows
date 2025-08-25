@@ -138,6 +138,7 @@ services:
             <<: *common-env
             WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     rag:
         build: 

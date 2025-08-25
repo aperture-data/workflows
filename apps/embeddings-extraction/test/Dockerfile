@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy test files and data
-COPY photos_with_text/ /app/photos_with_text/
+COPY images/ /app/images/
 COPY pdfs/ /app/pdfs/
 COPY *.py /app/
 
