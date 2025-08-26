@@ -36,15 +36,21 @@ def main(args):
     def add_path_vars( env ):
         if args.label_studio_url_path is not None:
             full_path = args.label_studio_url_path
-            m = re.match(r"http(s)?://([^/]+)(.*)",full_path)
+            m = re.match("(https?)://([^/]*)(.*)",full_path)
             if m is None:
                 raise Exception(f"Bad format for url path: {full_path}")
 
-            subpath = m.groups()[2]
+            proto,host,subpath = m.groups()
+            if re.match(".*(farm\d+)\.[^.]*\.[^.]*\.aperturedata",host ):
+                oldhost = host
+                host = re.sub("(farm\d+)\.[^.]*\.[^.]*","\\1.cloud",host)
+                logger.error(f"Changed {oldhost} to {host}")
+                full_path = "{}://{}{}".format(proto,host,subpath)
             logger.error(f"Subpath = {subpath}") 
+
             # strip trailing /
             if subpath[-1:] == '/':
-                logger.error("Switching sp")
+                logger.error("Subpath had trailing slash, stripped.") 
                 subpath = sub_path[:-1]
 
             logger.error(f"Path is {full_path} and {subpath}")
