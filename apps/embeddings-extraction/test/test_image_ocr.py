@@ -125,7 +125,7 @@ def test_all_images_have_text(run_query):
 def test_all_texts_have_descriptors(run_query):
     """Test that all texts have descriptors."""
     response = run_query
-    text_ids = set(e['text']
+    text_ids = set(e['_uniqueid']
         for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
         for e in ee)
     print(f"text_ids: {sorted(text_ids)}")

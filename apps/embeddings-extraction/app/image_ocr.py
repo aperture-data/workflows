@@ -9,7 +9,6 @@ import clip
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
 import pytesseract
-from PIL import Image
 from io import BytesIO
 import logging
 from embeddings import Embedder
@@ -123,7 +122,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     },
                     {
                         "UpdateImage": {
-                            "ref": image_ref, # This line was causing the error - ref not defined
+                            "ref": image_ref, 
                             "properties": {
                                 self.done_property: True
                             },
