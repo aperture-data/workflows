@@ -19,7 +19,7 @@ app = FastAPI(
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
-LOG_LEVEL = os.getenv("WF_LOG_LEVEL", "WARN").upper()
+LOG_LEVEL = os.getenv("WF_LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
