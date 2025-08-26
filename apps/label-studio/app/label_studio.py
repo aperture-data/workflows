@@ -52,6 +52,8 @@ def main(args):
                 raise Exception(f"Bad format for url path: {full_path}")
 
             proto,host,subpath = m.groups()
+            # if host is farm\d+.*.*.aperturedata it's a long cloud name
+            # we want to make it farm\d+.cloud.aperturedata
             if re.match(".*(farm\d+)\.[^.]*\.[^.]*\.aperturedata",host ):
                 oldhost = host
                 host = re.sub("(farm\d+)\.[^.]*\.[^.]*","\\1.cloud",host)
