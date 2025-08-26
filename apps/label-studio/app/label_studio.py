@@ -34,13 +34,26 @@ def main(args):
 
 
     def add_path_vars( env ):
+
+        full_path = None
+        if os.environ['DB_HOST_PUBLIC']:
+            # generate path for cloud
+            full_path = "https://{}/labelstudio".format(os.environ['DB_HOST_PUBLIC'])
+            logger.error(f"Set url from DB_HOST_PUBLIC: {full_path}")
         if args.label_studio_url_path is not None:
+            if full_path is not None:
+                logger.warning("Overriding full path with explicit workflow option")
             full_path = args.label_studio_url_path
+            logger.error(f"Set url from workflow argument: {full_path}")
+
+        if full_path:
             m = re.match("(https?)://([^/]*)(.*)",full_path)
             if m is None:
                 raise Exception(f"Bad format for url path: {full_path}")
 
             proto,host,subpath = m.groups()
+            # if host is farm\d+.*.*.aperturedata it's a long cloud name
+            # we want to make it farm\d+.cloud.aperturedata
             if re.match(".*(farm\d+)\.[^.]*\.[^.]*\.aperturedata",host ):
                 oldhost = host
                 host = re.sub("(farm\d+)\.[^.]*\.[^.]*","\\1.cloud",host)
