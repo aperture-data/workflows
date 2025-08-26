@@ -97,11 +97,13 @@ COMMON_PARAMETERS="DB_HOST DB_HOST_PUBLIC DB_HOST_PRIVATE_TCP DB_HOST_PRIVATE_HT
 )&
 pipeline_pid=$!
 
+set -m
 (
     echo "Running webserver for RAG API"
 
     with_env_only rag $COMMON_PARAMETERS WF_INPUT WF_LOG_LEVEL WF_TOKEN WF_LLM_PROVIDER WF_LLM_MODEL WF_LLM_API_KEY WF_N_DOCUMENTS UVICORN_LOG_LEVEL UVICORN_WORKERS PYTHONPATH WF_ALLOWED_ORIGINS
 )&
+set +m
 server_pid=$!
 
 # Wait for pipeline to complete
@@ -113,17 +115,7 @@ set -e
 echo "Pipeline completed with status $pipeline_status"
 
 if [ $pipeline_status -ne 0 ]; then
-    echo "Pipeline failed with status $pipeline_status, shutting down server"
-    pgid="$(ps -o pgid= -p $$ | tr -d ' ')"
-    if [ -z "$pgid" ]; then
-        echo "Error: Failed to get process group ID. Cannot kill server process group." >&2
-        exit 1
-    fi
-    echo "Killing server with PGID $pgid"
-    kill -TERM "-$pgid" || true
-    sleep 1 # Give server time to shut down gracefully
-    kill -KILL "-$pgid" || true
-    exit $pipeline_status
+    kill -9 -$server_pid
 fi
 
 # Wait on server forever
