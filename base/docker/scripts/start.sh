@@ -241,6 +241,8 @@ else
 
 fi
 
-echo "Sleeping for 4 seconds to allow statuses to be reported..."
-sleep 4
+SLEEP_REPORT_TIME=6
+
+echo "Sleeping for $SLEEP_REPORT_TIME seconds to allow statuses to be reported..."
+sleep $SLEEP_REPORT_TIME
 exit "${ret_val}"
