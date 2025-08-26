@@ -36,7 +36,7 @@ def main(args):
     def add_path_vars( env ):
         if args.label_studio_url_path is not None:
             full_path = args.label_studio_url_path
-            m = re.match("http(s)?://([^/]*)(.*)",full_path)
+            m = re.match(r"http(s)?://([^/]+)(.*)",full_path)
             if m is None:
                 raise Exception(f"Bad format for url path: {full_path}")
 
