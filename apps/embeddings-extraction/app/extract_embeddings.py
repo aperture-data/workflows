@@ -7,6 +7,7 @@ import clip
 
 from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
+from embeddings import Embedder
 
 
 from images import FindImageQueryGenerator
@@ -126,13 +127,12 @@ def main(params):
         print("Done with PDFs.")
 
     if params.extract_image_text:
-        add_descriptor_set(db,
-                           descriptor_set=IMAGE_EXTRACTION_DESCRIPTOR_SET,
-                           properties={"type": "image"})
-
+        embedder = Embedder.from_new_descriptor_set(
+            db, IMAGE_EXTRACTION_DESCRIPTOR_SET,
+            provider="clip",
+            model_name=params.model_name)
         generator = FindImageOCRQueryGenerator(
-            db, IMAGE_EXTRACTION_DESCRIPTOR_SET, params.model_name,
-            done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
+            client=db, embedder=embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Image Text Extraction...")

@@ -90,6 +90,7 @@ def run_query(db_connection):
         },
         {
             "FindDescriptor": {
+                "set": "wf_embeddings_clip_image_extraction",
                 "is_connected_to": {"ref": 2},
                 "group_by_source": True,
                 "results": {
@@ -124,22 +125,18 @@ def test_all_images_have_text(run_query):
 def test_all_texts_have_descriptors(run_query):
     """Test that all texts have descriptors."""
     response = run_query
-    images = {e['_uniqueid']: e['name']
-              for e in (response[0]['FindImage'].get('entities', []) or [])}
-
-    text_ids = dict([(e['_uniqueid'], e['text'])
-            for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
-            for e in ee])
+    text_ids = set(e['text']
+        for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
+        for e in ee)
+    print(f"text_ids: {sorted(text_ids)}")
 
     descriptor_ids = set(
         response[2]['FindDescriptor'].get('entities', {}) or {})
+    print(f"descriptor_ids: {sorted(descriptor_ids)}")
 
     if text_ids != descriptor_ids:
-        missing = {text_ids[mid]
-                   for mid in descriptor_ids - set(text_ids.keys())}
-        extra = {text_ids[mid]
-                 for mid in set(text_ids.keys()) - descriptor_ids}
-        assert False, f"Text ids do not match descriptors. Missing: {missing}, Extra: {extra}"
+        missing = text_ids - descriptor_ids
+        assert False, f"Text ids do not match descriptors. Missing: {sorted(missing)}"
 
 
 @pytest.fixture(scope="module")

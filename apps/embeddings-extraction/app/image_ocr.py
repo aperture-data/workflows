@@ -13,10 +13,9 @@ from PIL import Image
 from io import BytesIO
 import logging
 from embeddings import Embedder
-# from text_segmenter import TextSegmenter
-
-MAX_TOKENS = 1024
-OVERLAP_TOKENS = 128
+from text_extraction.segmentation import TextSegmenter
+from text_extraction.schema import TextBlock, Segment
+from typing import Iterable, List
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +25,16 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name: str, done_property: str):
+    def __init__(self, client, embedder: Embedder, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=db.clone)
-        self.descriptor_set = descriptor_set
-
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.preprocess = clip.load(model_name, device=self.device)
+        self.pool = ConnectionPool(connection_factory=client.clone)
+        self.embedder = embedder
         self.done_property = done_property
-        # self.segmenter = TextSegmenter(max_tokens=MAX_TOKENS,
-        #                                overlap_tokens=OVERLAP_TOKENS)
-        # self.embedder = Embedder(model_name=model_name)
+
+        max_tokens = self.embedder.context_length
+        overlap_tokens = min(max_tokens // 10, 10)
+        self.segmenter = TextSegmenter(max_tokens=max_tokens,
+                                       overlap_tokens=overlap_tokens)
 
         query = [{
             "FindImage": {
@@ -50,7 +47,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = db.query(query)
+        _, response, _ = self.pool.execute_query(query)
 
         try:
             total_images = response[0]["FindImage"]["count"]
@@ -113,11 +110,12 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             text = pytesseract.image_to_string(image)
             if text:
                 logger.debug(f"Text: {text}")
-                ref = len(query2) + 1
+                image_ref = len(query2) + 1
+                text_ref = image_ref + 1
                 query2.extend([
                     {
                         "FindImage": {
-                            "_ref": ref,
+                            "_ref": image_ref,
                             "constraints": {
                                 "_uniqueid": ["==", uid]
                             },
@@ -125,7 +123,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     },
                     {
                         "UpdateImage": {
-                            "ref": ref, # This line was causing the error - ref not defined
+                            "ref": image_ref, # This line was causing the error - ref not defined
                             "properties": {
                                 self.done_property: True
                             },
@@ -139,19 +137,56 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                 "type": "extracted_from_image",
                             },  
                             "connect": {
-                                "ref": ref,
+                                "ref": image_ref,
                                 "class": "imageHasExtractedText",
-                            }
+                            },
+                            "_ref": text_ref,
                         }
                     }]
                 )
-                # block = TextBlock(text=text)  # This line was causing the error - TextBlock not imported
-                # segments = self.segmenter.segment([block])
-                
+                block = TextBlock(text=text)
+                segments = list(self.segmenter.segment([block]))
+                if not segments:
+                    logger.warning(f"No segments found for text: {text}")
+                    continue
+                embeddings = list(self.segments_to_embeddings(segments))
+                if len(embeddings) != len(segments):
+                    logger.warning(f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
+                    continue
+
+                for segment, embedding in zip(segments, embeddings):
+                    segment_ref = len(query2) + 1
+                    query2.extend([
+                        {
+                            "AddDescriptor": {
+                                "set": self.embedder.descriptor_set,
+                                "connect": {
+                                    "ref": text_ref,
+                                    "class": "extractedTextHasDescriptor",
+                                },
+                                "properties": {
+                                    "text": segment.text,
+                                    "type": "extracted_from_image",
+                                },
+                                "_ref": segment_ref,
+                            },
+                        },
+                        {
+                            "AddConnection": {
+                                "class": "imageHasDescriptor",
+                                "src": image_ref,
+                                "dst": segment_ref,
+                            },
+                        }
+                    ])
+                    desc_blobs.append(embedding)
 
         with self.pool.get_connection() as client:
             from aperturedb.CommonLibrary import execute_query
             status, r, _ = execute_query(client, query2, desc_blobs)
             assert status == 0, f"Query failed: {r}"
 
-
+    def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
+        texts = [segment.text for segment in segments]
+        vectors = self.embedder.embed_texts(texts)
+        return [v.tobytes() for v in vectors]
