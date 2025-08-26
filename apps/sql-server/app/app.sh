@@ -54,8 +54,6 @@ until su - postgres -c "pg_isready -h /var/run/postgresql"; do
   sleep 1
 done
 
-# Set the password for the 'aperturedb' user
-echo "Setting $SQL_USER password... to $SQL_PASS"
 # Be careful to avoid problems with special characters in the password
 su - postgres -c "psql <<'EOF'
 DO \$\$
