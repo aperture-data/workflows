@@ -144,9 +144,9 @@ class Embedder():
             self.model, self.preprocess = clip.load(
                 model_id, device=self.device)
             self.model.eval()
-            self.tokenizer = clip.tokenize
+            self.tokenizer = lambda x: clip.tokenize(x, truncate=True)
             self.context_length = inspect.signature(
-                self.tokenizer).parameters["context_length"].default
+                clip.tokenize).parameters["context_length"].default
         elif self.provider == "gpt4all":
             from gpt4all import Embed4All
             self.model = Embed4All(model_name=self.model_name)

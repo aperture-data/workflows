@@ -95,13 +95,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         desc_blobs = []
 
         for b in r_blobs:
-            nparr = np.frombuffer(b, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = Image.fromarray(image)
-            
-            # Use embedder to get image features
-            image_features = self.embedder.embed_image(image)
+            image_features = self.embedder.embed_image(b)
             desc_blobs.append(image_features.tobytes())
 
         query = []
@@ -132,7 +126,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                         "ref": i + 1
                     },
                     "properties": {
-                        "type": "image"
+                        "type": "image",
+                        "source_type": "image",
+                        "extraction_type": "image"
                     }
                 }
             })

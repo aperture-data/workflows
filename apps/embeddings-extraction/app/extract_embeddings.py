@@ -1,6 +1,6 @@
 import os
 import argparse
-from typing import Optional
+from typing import Literal
 import logging
 
 import clip
@@ -9,7 +9,7 @@ from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
 from connection_pool import ConnectionPool
-
+from ocr import OCR
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
@@ -83,6 +83,9 @@ def main(params):
 
     pool = ConnectionPool()
 
+    # Initialize OCR instance
+    ocr = OCR.create(provider=params.ocr_method)
+
     if params.clean:
         with pool.get_connection() as db:
             clean_embeddings(db)
@@ -133,9 +136,9 @@ def main(params):
                 db, IMAGE_EXTRACTION_DESCRIPTOR_SET,
                 provider="clip",
                 model_name=params.model_name,
-                properties={"type": "text", "source_type": "image"})
+                properties={"type": "text", "source_type": "image", "ocr_method": params.ocr_method})
         generator = FindImageOCRQueryGenerator(
-            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
+            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -153,9 +156,9 @@ def main(params):
                 db, PDF_EXTRACTION_DESCRIPTOR_SET,
                 provider="clip",
                 model_name=params.model_name,
-                properties={"type": "text", "source_type": "pdf"})
+                properties={"type": "text", "source_type": "pdf", "ocr_method": params.ocr_method})
         generator = FindPDFOCRQueryGenerator(
-            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
+            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -208,6 +211,8 @@ def get_args():
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
+    obj.add_argument('--ocr-method', choices=['tesseract', 'easyocr'],
+                     default=os.environ.get('WF_OCR_METHOD', 'tesseract'))
     params = obj.parse_args()
 
     # >>> import clip

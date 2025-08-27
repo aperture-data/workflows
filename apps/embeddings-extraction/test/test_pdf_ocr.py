@@ -31,7 +31,7 @@ def run_query(db_connection):
                 "is_connected_to": {"ref": 1},
                 "group_by_source": True,
                 "results": {
-                    "list": ["_uniqueid", "text", "type", "page_number"],
+                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"],
                 },
                 "_ref": 2,
             }
@@ -90,10 +90,10 @@ def calculate_scores(run_query):
 
 
 @pytest.mark.parametrize("metric, corpus, threshold", [
-    ("char_bleu_score", "images", 0.05),
-    ("bleu_score", "images", 0.3),
-    ("levenshtein_distance", "images", 80),
-    ("jaccard_distance", "images", 0.3),
+    ("char_bleu_score", "images", 0.9),
+    ("bleu_score", "images", 0.8),
+    ("levenshtein_distance", "images", 40),
+    ("jaccard_distance", "images", 0.1),
 ])
 def test_mean_score(calculate_scores, metric, corpus, threshold):
     """Test that the mean score is above/below a certain threshold."""
@@ -121,8 +121,9 @@ def test_text_pdfs_are_skipped(db_connection):
                 "set": "wf_embeddings_clip_pdf_extraction",
                 "is_connected_to": {"ref": 1},
                 "results": {
-                    "list": ["_uniqueid", "text", "type", "page_number"]
+                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"]
                 },
+                "group_by_source": True,
             }
         }
     ]
@@ -130,10 +131,8 @@ def test_text_pdfs_are_skipped(db_connection):
     status, response, _ = execute_query(db_connection, query)
     assert status == 0, f"Query failed: {response}"
 
-    pdfs = response[0]['FindBlob'].get('entities', [])
-    assert not pdfs, "Text PDFs were found"
+    descriptors = response[1]['FindDescriptor'].get('entities', {})
+    assert not descriptors, "Descriptors were found for text PDFs"
 
-    descriptor_groups = set(
-        response[1]['FindDescriptor'].get('entities', {}).keys())
-    
-    assert not descriptor_groups, "Descriptors were found for text PDFs"
+    pdfs = response[0]['FindBlob'].get('entities', [])
+    assert pdfs, "Text PDFs were not found"

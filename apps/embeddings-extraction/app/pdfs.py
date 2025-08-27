@@ -184,8 +184,10 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     if segment.text:
                         properties["text"] = segment.text
                     properties["type"] = "text"
+                    properties["source_type"] = "pdf"
                     properties["total_tokens"] = segment.total_tokens
                     properties["segment_number"] = number
+                    properties["extraction_type"] = "text"
 
                     page_number = segment.page_number()
                     if page_number is not None:

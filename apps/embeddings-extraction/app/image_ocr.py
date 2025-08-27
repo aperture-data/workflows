@@ -24,11 +24,12 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
+        self.ocr = ocr
 
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
@@ -106,7 +107,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
         for uid, b in zip(uniqueids, r_blobs):
             image = Image.open(BytesIO(b)).convert("RGB")
-            text = pytesseract.image_to_string(image)
+            text = self.ocr.image_to_text(image)
             if text:
                 logger.debug(f"Text: {text}")
                 image_ref = len(query2) + 1
@@ -134,6 +135,8 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                             "properties": {
                                 "text": text,
                                 "type": "extracted_from_image",
+                                "ocr_method": self.ocr.method,
+                                "source_type": "image",
                             },  
                             "connect": {
                                 "ref": image_ref,
@@ -165,7 +168,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                 },
                                 "properties": {
                                     "text": segment.text,
-                                    "type": "extracted_from_image",
+                                    "type": "text",
+                                    "extraction_type": "ocr",
+                                    "ocr_method": self.ocr.method,
                                 },
                                 "_ref": segment_ref,
                             },

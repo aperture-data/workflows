@@ -4,15 +4,11 @@ import numpy as np
 from aperturedb.Connector import Connector
 from aperturedb.CommonLibrary import execute_query
 
+import pytest
+import json
+from aperturedb import Connector
+from common import db_connection
 
-@pytest.fixture(scope="session")
-def db_connection():
-    """Create a database connection."""
-    DB_HOST = os.getenv("DB_HOST", "aperturedb")
-    DB_PORT = int(os.getenv("DB_PORT", "55555"))
-    DB_USER = os.getenv("DB_USER", "admin")
-    DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
 
 @pytest.fixture(scope="module")
 def run_query(db_connection):
@@ -56,7 +52,7 @@ def test_descriptors_for_each_image(run_query):
         missing = {images[mid]
                    for mid in set(images.keys()) - descriptor_groups}
         extra = descriptor_groups - set(images.keys())
-        assert False, f"Descriptor groups do not match images. Missing: {missing}, Extra: {extra}"
+        assert False, f"Descriptor groups do not match images. Missing {len(missing)} out of {len(images)} - {missing}"
 
 
 def test_descriptor_count_matches(run_query):

@@ -1,3 +1,4 @@
 pytesseract
 pillow
 PyMuPDF
+easyocr

@@ -42,11 +42,12 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries for PDFs that need OCR processing
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
+        self.ocr = ocr
 
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
@@ -154,16 +155,6 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             logger.error(f"Error converting PDF to images: {e}")
             return []
 
-    def extract_text_from_image(self, image: Image.Image) -> str:
-        """
-        Extract text from a single image using OCR.
-        """
-        try:
-            text = pytesseract.image_to_string(image)
-            return text.strip()
-        except Exception as e:
-            logger.error(f"Error extracting text from image: {e}")
-            return ""
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         """
@@ -194,7 +185,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         # Extract text from each image
         all_text_blocks = []
         for page_num, image in enumerate(images, start=1):
-            text = self.extract_text_from_image(image)
+            text = self.ocr.image_to_text(image)
             if text:
                 # Create text block with page number
                 block = TextBlock(text=text, page_number=page_num)
@@ -263,25 +254,48 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             for segment_batch in batch(segments_and_embeddings, 100):
                 query = []
                 vectors = []
+                blob_ref = 1
+                text_ref = 2
+
                 query.append({
                     "FindBlob": {
-                        "_ref": 1,
+                        "_ref": blob_ref,
                         "constraints": {
                             "_uniqueid": ["==", uniqueid]
                         },
                     }
                 })
 
+                query.append({
+                    "AddEntity": {
+                        "class": "PDFExtractedText",
+                        "properties": {
+                            "text": "test",
+                            "ocr_method": self.ocr.method,
+                            "source_type": "pdf",
+                        },
+                        "connect": {
+                            "ref": blob_ref,
+                            "class": "pdfHasExtractedText",
+                        },
+                        "_ref": text_ref,
+                    }
+                })
+
                 for segment, embedding, number in segment_batch:
                     blob_segments += 1
+                    descriptor_ref = len(query) + 1
                     properties = {}
                     if segment.title:
                         properties["title"] = segment.title
                     if segment.text:
                         properties["text"] = segment.text
                     properties["type"] = "text"
+                    properties["source_type"] = "pdf"
                     properties["total_tokens"] = segment.total_tokens
                     properties["segment_number"] = number
+                    properties["extraction_type"] = "ocr"
+                    properties["ocr_method"] = self.ocr.method
 
                     page_number = segment.page_number()
                     if page_number is not None:
@@ -295,9 +309,18 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         "AddDescriptor": {
                             "set": self.embedder.descriptor_set,
                             "connect": {
-                                "ref": 1
+                                "ref": text_ref,
+                                "class": "extractedTextHasDescriptor",
                             },
                             "properties": properties,
+                            "_ref": descriptor_ref,
+                        }
+                    })
+                    query.append({
+                        "AddConnection": {
+                            "class": "pdfHasDescriptor",
+                            "src": blob_ref,                            
+                            "dst": descriptor_ref,
                         }
                     })
                     vectors.append(embedding)

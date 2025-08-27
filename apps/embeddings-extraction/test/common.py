@@ -5,16 +5,18 @@ from aperturedb.Connector import Connector
 from aperturedb.CommonLibrary import execute_query
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.metrics.distance import edit_distance, jaccard_distance
+from typing import Optional
 import pandas as pd
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 
-def compute_bleu(candidate: str, reference: str) -> float:
+def compute_bleu(candidate: str, reference: str) -> Optional[float]:
     """Compute BLEU score between candidate and reference text."""
     if candidate is None or reference is None:
-        return 0.0
+        return None
     
     # case-fold and extract alphanumeric tokens
     candidate = candidate.lower()
@@ -28,13 +30,16 @@ def compute_bleu(candidate: str, reference: str) -> float:
 
     # Apply smoothing to avoid zero scores
     smoothie = SmoothingFunction().method4
-    return sentence_bleu(reference_tokens, candidate_tokens, smoothing_function=smoothie)
+    try:
+        return sentence_bleu(reference_tokens, candidate_tokens, smoothing_function=smoothie)
+    except ValueError:
+        return None
 
 
-def compute_character_level_bleu(candidate: str, reference: str) -> float:
+def compute_character_level_bleu(candidate: str, reference: str) -> Optional[float]:
     """Compute character-level BLEU score between candidate and reference text."""
     if candidate is None or reference is None:
-        return 0.0
+        return None
     
     # case-fold
     candidate = candidate.lower()
@@ -47,25 +52,31 @@ def compute_character_level_bleu(candidate: str, reference: str) -> float:
 
     # Apply smoothing to avoid zero scores
     smoothie = SmoothingFunction().method4
-    return sentence_bleu(reference_tokens, candidate_tokens, smoothing_function=smoothie)
+    try:
+        return sentence_bleu(reference_tokens, candidate_tokens, smoothing_function=smoothie)
+    except ValueError:
+        return None
 
 
-def compute_levenshtein_distance(s1: str, s2: str) -> int:
+def compute_levenshtein_distance(s1: str, s2: str) -> Optional[int]:
     """Compute the Levenshtein distance between two strings."""
     if s1 is None or s2 is None:
-        return 0.0
+        return None
     
     return edit_distance(s1, s2)
 
 
-def compute_jaccard_distance(s1: str, s2: str) -> float:
+def compute_jaccard_distance(s1: str, s2: str) -> Optional[float]:
     """Compute the Jaccard distance between two strings."""
     if s1 is None or s2 is None:
-        return 0.0
+        return None
     
     set1 = set(s1)
     set2 = set(s2)
-    return jaccard_distance(set1, set2)
+    try:
+        return jaccard_distance(set1, set2)
+    except ValueError:
+        return None
 
 
 @pytest.fixture(scope="session")
@@ -76,6 +87,15 @@ def db_connection():
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
     return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def print_schema(db_connection):
+    print("Printing schema of the database...")
+    query = [{"GetSchema": {}}]
+    status, response, _ = execute_query(db_connection, query)
+    assert status == 0, f"Failed to get schema: {response}"
+    print(json.dumps(response, indent=2))
 
 
 def calculate_text_scores(df: pd.DataFrame, corpus_field="corpus") -> pd.DataFrame:
@@ -122,19 +142,16 @@ def create_text_comparison_dataframe(entities, descriptor_groups):
             for e in entities
         ])
 
+
     return df
 
 
 def assert_score_threshold(df: pd.DataFrame, metric: str, corpus: str, threshold: float):
     """Assert that the mean score meets the threshold."""
     assert metric is not None, f"Metric parameter is None"
-    print(f"DEBUG: metric={metric}, corpus={corpus}, threshold={threshold}")
-    print(f"DEBUG: df columns={df.columns.tolist()}")
-    print(f"DEBUG: df shape={df.shape}")
     df_filtered = df[df["corpus"] == corpus]
-    print(f"DEBUG: filtered df shape={df_filtered.shape}")
     assert not df_filtered.empty, f"No data for corpus {corpus}"
-    mean = df_filtered[metric].mean()
+    mean = df_filtered[metric].mean() # excluding nulls
 
     higher_is_better = "distance" not in metric
 

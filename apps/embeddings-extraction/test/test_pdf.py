@@ -17,7 +17,7 @@ def run_query(db_connection):
     query = [
         {
             "FindBlob": {
-                "constraints": {"document_type": ["==", "pdf"]},
+                "constraints": {"document_type": ["==", "pdf"], "corpus": ["==", "text"]},
                 "results": {
                     "list": ["filename", "_uniqueid", "expected_text", "corpus"]
                 },
@@ -29,7 +29,7 @@ def run_query(db_connection):
                 "is_connected_to": {"ref": 1},
                 "group_by_source": True,
                 "results": {
-                    "list": ["_uniqueid", "text", "type"]
+                    "list": ["_uniqueid", "text", "type", "source_type"]
                 },
                 "_ref": 2,
             }
@@ -65,18 +65,18 @@ def calculate_scores(run_query):
     pdfs = (response[0]['FindBlob'].get('entities', []) or [])
     descriptor_groups = response[1]['FindDescriptor'].get('entities', {}) or {}
 
-    assert pdfs, "No PDFs found"
-    assert descriptor_groups, "No PDF texts found"
+    assert pdfs, f"No PDFs found: {response}"
+    assert descriptor_groups, f"No PDF texts found: {response}"
 
     df = create_text_comparison_dataframe(pdfs, descriptor_groups)
     return calculate_text_scores(df)
 
 
 @pytest.mark.parametrize("metric, corpus, threshold", [
-    ("char_bleu_score", "text", 0.05),
-    ("bleu_score", "text", 0.4),
-    ("levenshtein_distance", "text", 60),
-    ("jaccard_distance", "text", 0.2),
+    ("char_bleu_score", "text", 0.95),
+    ("bleu_score", "text", 0.95),
+    ("levenshtein_distance", "text", 5),
+    ("jaccard_distance", "text", 0.1),
 ])
 def test_mean_score(calculate_scores, metric, corpus, threshold):
     """Test that the mean score is above/below a certain threshold."""
