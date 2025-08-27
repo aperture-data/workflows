@@ -1,25 +1,12 @@
 import os
 import pytest
 import numpy as np
-from aperturedb import Connector
 from aperturedb.CommonLibrary import execute_query
+from common import db_connection
 
 # Constants from the main extraction module
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 DONE_PROPERTY = 'wf_embeddings_clip'
-
-@pytest.fixture(scope="session")
-def db_connection():
-    """Create a database connection for testing."""
-    DB_HOST = os.getenv("DB_HOST", "aperturedb")
-    DB_PORT = int(os.getenv("DB_PORT", "55555"))
-    DB_USER = os.getenv("DB_USER", "admin")
-    DB_PASS = os.getenv("DB_PASS", "admin")
-    print(f"{DB_HOST=}, {DB_PORT=}, {DB_USER=}, {DB_PASS}")
-    db = Connector(host=DB_HOST, user=DB_USER,
-                       port=DB_PORT, password=DB_PASS)
-    yield db
-    db.close()
 
 def test_descriptor_set_exists(db_connection):
     """Test that the image descriptor set was created."""
@@ -29,7 +16,7 @@ def test_descriptor_set_exists(db_connection):
         }
     }]
     
-    status, response, _execute_query(db_connection, query)
+    status, response, _ = execute_query(db_connection, query)
     
     assert status == 0, f"Query failed: {response}"
     assert len(response['results']) > 0, f"Descriptor set {IMAGE_DESCRIPTOR_SET} not found"
@@ -48,8 +35,7 @@ def test_images_have_embeddings(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     assert response['status'] == 0, f"Query failed: {response}"
     assert len(response['results']) > 0, f"No images with embeddings found"
@@ -73,8 +59,7 @@ def test_embedding_dimensions(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     assert response['status'] == 0, f"Query failed: {response}"
     assert len(response['results']) > 0, f"No descriptors found in {IMAGE_DESCRIPTOR_SET}"
@@ -97,8 +82,7 @@ def test_embedding_similarity(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     if len(response['results']) < 2:
         pytest.skip("Need at least 2 descriptors for similarity test")
@@ -129,8 +113,7 @@ def test_embedding_query(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     if len(response['results']) == 0:
         pytest.skip("No descriptors found for similarity query")
@@ -152,8 +135,7 @@ def test_embedding_query(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     assert response['status'] == 0, f"Similarity query failed: {response}"
     assert len(response['results']) > 0, "No similar descriptors found"
@@ -176,8 +158,7 @@ def test_expected_text_loaded(db_connection):
         }
     }]
     
-    execute_query(db_connection, query)
-    response = db_connection.get_last_response()
+    _, response, _ = execute_query(db_connection, query)
     
     assert response['status'] == 0, f"Query failed: {response}"
     assert len(response['results']) > 0, f"No test images found"
@@ -202,8 +183,7 @@ def test_all_test_images_processed(db_connection):
         }
     }]
     
-    execute_query(db_connection, total_query)
-    total_response = db_connection.get_last_response()
+    _, total_response, _ = execute_query(db_connection, total_query)
     total_images = len(total_response['results'])
     
     # Count processed images
@@ -219,8 +199,7 @@ def test_all_test_images_processed(db_connection):
         }
     }]
     
-    execute_query(db_connection, processed_query)
-    processed_response = db_connection.get_last_response()
+    _, processed_response, _ = execute_query(db_connection, processed_query)
     processed_images = len(processed_response['results'])
     
     # All test images should be processed

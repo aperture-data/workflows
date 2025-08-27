@@ -279,7 +279,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         properties["title"] = segment.title
                     if segment.text:
                         properties["text"] = segment.text
-                    properties["type"] = "extracted_from_pdf_image"
+                    properties["type"] = "text"
                     properties["total_tokens"] = segment.total_tokens
                     properties["segment_number"] = number
 

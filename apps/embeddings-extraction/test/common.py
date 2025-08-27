@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 def compute_bleu(candidate: str, reference: str) -> float:
     """Compute BLEU score between candidate and reference text."""
+    if candidate is None or reference is None:
+        return 0.0
+    
     # case-fold and extract alphanumeric tokens
     candidate = candidate.lower()
     reference = reference.lower()
@@ -30,6 +33,9 @@ def compute_bleu(candidate: str, reference: str) -> float:
 
 def compute_character_level_bleu(candidate: str, reference: str) -> float:
     """Compute character-level BLEU score between candidate and reference text."""
+    if candidate is None or reference is None:
+        return 0.0
+    
     # case-fold
     candidate = candidate.lower()
     reference = reference.lower()
@@ -46,11 +52,17 @@ def compute_character_level_bleu(candidate: str, reference: str) -> float:
 
 def compute_levenshtein_distance(s1: str, s2: str) -> int:
     """Compute the Levenshtein distance between two strings."""
+    if s1 is None or s2 is None:
+        return 0.0
+    
     return edit_distance(s1, s2)
 
 
 def compute_jaccard_distance(s1: str, s2: str) -> float:
     """Compute the Jaccard distance between two strings."""
+    if s1 is None or s2 is None:
+        return 0.0
+    
     set1 = set(s1)
     set2 = set(s2)
     return jaccard_distance(set1, set2)
@@ -115,7 +127,12 @@ def create_text_comparison_dataframe(entities, descriptor_groups):
 
 def assert_score_threshold(df: pd.DataFrame, metric: str, corpus: str, threshold: float):
     """Assert that the mean score meets the threshold."""
+    assert metric is not None, f"Metric parameter is None"
+    print(f"DEBUG: metric={metric}, corpus={corpus}, threshold={threshold}")
+    print(f"DEBUG: df columns={df.columns.tolist()}")
+    print(f"DEBUG: df shape={df.shape}")
     df_filtered = df[df["corpus"] == corpus]
+    print(f"DEBUG: filtered df shape={df_filtered.shape}")
     assert not df_filtered.empty, f"No data for corpus {corpus}"
     mean = df_filtered[metric].mean()
 
