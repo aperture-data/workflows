@@ -16,7 +16,7 @@ def run_query(db_connection):
         {
             "FindImage": {
                 "results": {
-                    "list": ["_uniqueid", "name", "expected_text", "corpus"]
+                    "list": ["_uniqueid", "filename", "expected_text", "corpus"]
                 },
                 "_ref": 1,
             }
@@ -54,7 +54,7 @@ def run_query(db_connection):
 def test_all_images_have_text(run_query):
     """Test that all images have extracted text."""
     response = run_query
-    images = {e['_uniqueid']: e['name']
+    images = {e['_uniqueid']: e['filename']
               for e in response[0]['FindImage'].get('entities', []) or []}
 
     text_groups = set(response[1]['FindEntity'].get('entities', {}) or {})

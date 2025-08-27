@@ -98,6 +98,7 @@ services:
             WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
             WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
             WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
+            WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     jupyterlab:

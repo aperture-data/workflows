@@ -106,7 +106,7 @@ def create_text_comparison_dataframe(entities, descriptor_groups):
     df = pd.DataFrame(
         columns=["corpus", "filename", "reference", "hypothesis"],
         data=[
-            [e.get["corpus"], e["filename"], e.get("expected_text", ""), entity_texts.get(e["_uniqueid"])]
+            [e.get("corpus"), e["filename"], e.get("expected_text", ""), entity_texts.get(e["_uniqueid"])]
             for e in entities
         ])
 
@@ -119,7 +119,7 @@ def assert_score_threshold(df: pd.DataFrame, metric: str, corpus: str, threshold
     assert not df_filtered.empty, f"No data for corpus {corpus}"
     mean = df_filtered[metric].mean()
 
-    higher_is_better = "distance" not in metric.lower()
+    higher_is_better = "distance" not in metric
 
     if higher_is_better:
         assert mean > threshold, f"Mean {metric} for {corpus} is below {threshold}: {mean}"

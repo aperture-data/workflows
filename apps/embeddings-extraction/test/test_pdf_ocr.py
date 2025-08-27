@@ -17,7 +17,7 @@ def run_query(db_connection):
             "FindBlob": {
                 "constraints": {
                     "document_type": ["==", "pdf"],
-                    "corpus": ["==", "image"]
+                    "corpus": ["==", "images"]
                 },
                 "results": {
                     "list": ["filename", "_uniqueid", "expected_text", "corpus"]
@@ -49,7 +49,7 @@ def test_image_pdfs_have_descriptors(run_query):
     """Test that image PDFs have descriptors."""
     response = run_query
     pdfs = {e['_uniqueid']: e['filename']
-            for e in response[0]['FindBlob']['entities']}
+            for e in (response[0]['FindBlob'].get('entities', []) or [])}
 
     descriptor_groups = set(
         response[1]['FindDescriptor'].get('entities', {}).keys())
@@ -69,8 +69,10 @@ def test_descriptors_have_correct_type(run_query):
         descriptors.extend(group)
 
     for descriptor in descriptors:
-        assert descriptor.get('type') == 'extracted_from_pdf_image', \
+        assert descriptor.get('type') == 'text', \
             f"Descriptor {descriptor['_uniqueid']} has incorrect type: {descriptor.get('type')}"
+        assert descriptor.get('source_type') == 'pdf', \
+            f"Descriptor {descriptor['_uniqueid']} has incorrect source_type: {descriptor.get('source_type')}"
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +85,7 @@ def calculate_scores(run_query):
     assert pdfs, "No image PDFs found"
     assert descriptor_groups, "No PDF texts found"
 
-    df = create_text_comparison_dataframe(pdfs, descriptor_groups, "corpus")
+    df = create_text_comparison_dataframe(pdfs, descriptor_groups)
     return calculate_text_scores(df)
 
 
@@ -115,14 +117,12 @@ def test_text_pdfs_are_skipped(db_connection):
             },
         },
         {
-            {
-                "FindDescriptor": {
-                    "set": "wf_embeddings_clip_pdf_extraction",
-                    "is_connected_to": {"ref": 1},
-                    "results": {
-                        "list": ["_uniqueid", "text", "type", "page_number"]
-                    },
-                }
+            "FindDescriptor": {
+                "set": "wf_embeddings_clip_pdf_extraction",
+                "is_connected_to": {"ref": 1},
+                "results": {
+                    "list": ["_uniqueid", "text", "type", "page_number"]
+                },
             }
         }
     ]

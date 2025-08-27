@@ -34,6 +34,7 @@ services:
     command: ["python", "/app/seed.py"]
 
   embeddings-extraction:
+    image: aperturedata/workflows-embeddings-extraction:${VERSION:-latest}
     depends_on:
       seed:
         condition: service_completed_successfully
@@ -47,6 +48,7 @@ services:
       WF_EXTRACT_IMAGES: "true"
       WF_EXTRACT_PDFS: "true"
       WF_EXTRACT_IMAGE_TEXT: "true"
+      WF_EXTRACT_PDF_TEXT: "true"
       
   # Test runner
   tests:

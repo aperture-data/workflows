@@ -68,7 +68,7 @@ def calculate_scores(run_query):
     assert pdfs, "No PDFs found"
     assert descriptor_groups, "No PDF texts found"
 
-    df = create_text_comparison_dataframe(pdfs, descriptor_groups, "corpus")
+    df = create_text_comparison_dataframe(pdfs, descriptor_groups)
     return calculate_text_scores(df)
 
 

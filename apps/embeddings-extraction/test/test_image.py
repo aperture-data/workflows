@@ -21,7 +21,7 @@ def run_query(db_connection):
         {
             "FindImage": {
                 "results": {
-                    "list": ["_uniqueid", "name"]
+                    "list": ["_uniqueid", "filename"]
                 },
                 "_ref": 1,
             }
@@ -47,7 +47,7 @@ def run_query(db_connection):
 def test_descriptors_for_each_image(run_query):
     """Test that there are descriptors for each image."""
     response = run_query
-    images = {e['_uniqueid']: e['name']
+    images = {e['_uniqueid']: e['filename']
               for e in response[0]['FindImage']['entities']}
     descriptor_groups = set(
         response[1]['FindDescriptor'].get('entities', {}).keys())
@@ -62,7 +62,7 @@ def test_descriptors_for_each_image(run_query):
 def test_descriptor_count_matches(run_query):
     """Test that there are descriptors for each image."""
     response = run_query
-    images = {e['_uniqueid']: e['name']
+    images = {e['_uniqueid']: e['filename']
               for e in response[0]['FindImage']['entities']}
     descriptor_groups = response[1]['FindDescriptor'].get('entities', {}) or {}
     non_unitary = [image_id for image_id in images.keys()
