@@ -24,9 +24,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, client, embedder: Embedder, done_property: str):
+    def __init__(self, pool, embedder: Embedder, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=client.clone)
+        self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
 

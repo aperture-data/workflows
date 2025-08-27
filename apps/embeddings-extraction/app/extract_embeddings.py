@@ -8,6 +8,7 @@ import clip
 from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
+from connection_pool import ConnectionPool
 
 
 from images import FindImageQueryGenerator
@@ -99,7 +100,7 @@ def main(params):
 
     logging.basicConfig(level=params.log_level.upper())
 
-    db = CommonLibrary.create_connector()
+    pool = ConnectionPool()
 
     if params.clean:
         clean_embeddings(db)
@@ -110,7 +111,7 @@ def main(params):
                            properties={"type": "image"})
 
         generator = FindImageQueryGenerator(
-            db, IMAGE_DESCRIPTOR_SET, params.model_name,
+            pool, IMAGE_DESCRIPTOR_SET, params.model_name,
             done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
@@ -128,7 +129,7 @@ def main(params):
                            properties={"type": "text"})
 
         generator = FindPDFQueryGenerator(
-            db, TEXT_DESCRIPTOR_SET, params.model_name,
+            pool, TEXT_DESCRIPTOR_SET, params.model_name,
             done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
@@ -146,7 +147,7 @@ def main(params):
             provider="clip",
             model_name=params.model_name)
         generator = FindImageOCRQueryGenerator(
-            client=db, embedder=embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
+            pool=pool, embedder=embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Image Text Extraction...")
@@ -163,7 +164,7 @@ def main(params):
             provider="clip",
             model_name=params.model_name)
         generator = FindPDFOCRQueryGenerator(
-            client=db, embedder=embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
+            pool=pool, embedder=embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running PDF OCR Extraction...")

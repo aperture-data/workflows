@@ -51,7 +51,7 @@ def create_test_images(client, image_dir):
             query.append({
                 "AddImage": {
                     "properties": {
-                        "name": image_file,
+                        "filename": image_file,
                         "expected_text": expected_text,
                         "corpus": basename,
                     }

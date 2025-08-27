@@ -16,9 +16,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name: str, done_property: str):
+    def __init__(self, pool, descriptor_set: str, model_name: str, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=db.clone)
+        self.pool = pool
         self.descriptor_set = descriptor_set
 
         # Choose the model to be used.
@@ -37,7 +37,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = db.query(query)
+        _, response, _ = self.pool.execute_query(query)
 
         try:
             total_images = response[0]["FindImage"]["count"]

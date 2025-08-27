@@ -39,9 +39,9 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name, done_property: str):
+    def __init__(self, pool, descriptor_set: str, model_name, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=db.clone)
+        self.pool = pool
         self.model_name = model_name
         self.descriptor_set = descriptor_set
         self.done_property = done_property
