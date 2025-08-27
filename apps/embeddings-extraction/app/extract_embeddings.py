@@ -110,9 +110,12 @@ def main(params):
                            descriptor_set=IMAGE_DESCRIPTOR_SET,
                            properties={"type": "image"})
 
+        embedder = Embedder.from_new_descriptor_set(
+            db, IMAGE_DESCRIPTOR_SET,
+            provider="clip",
+            model_name=params.model_name)
         generator = FindImageQueryGenerator(
-            pool, IMAGE_DESCRIPTOR_SET, params.model_name,
-            done_property=DONE_PROPERTY)
+            pool, embedder, done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Images Detector...")
@@ -128,9 +131,12 @@ def main(params):
                            descriptor_set=TEXT_DESCRIPTOR_SET,
                            properties={"type": "text"})
 
+        embedder = Embedder.from_new_descriptor_set(
+            db, TEXT_DESCRIPTOR_SET,
+            provider="clip",
+            model_name=params.model_name)
         generator = FindPDFQueryGenerator(
-            pool, TEXT_DESCRIPTOR_SET, params.model_name,
-            done_property=DONE_PROPERTY)
+            pool, embedder, done_property=DONE_PROPERTY)
         querier = ParallelQuery.ParallelQuery(db)
 
         print("Running PDFs Detector...")

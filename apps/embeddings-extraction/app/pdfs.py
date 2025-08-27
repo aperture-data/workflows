@@ -39,15 +39,11 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries
     """
 
-    def __init__(self, pool, descriptor_set: str, model_name, done_property: str):
+    def __init__(self, pool, embedder, done_property: str):
 
         self.pool = pool
-        self.model_name = model_name
-        self.descriptor_set = descriptor_set
+        self.embedder = embedder
         self.done_property = done_property
-    
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         query = [{
             "FindBlob": {
@@ -85,11 +81,6 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         self.segmenter = TextSegmenter(max_tokens=MAX_TOKENS,
                                        overlap_tokens=OVERLAP_TOKENS)
 
-        self.model, self.preprocess = clip.load(
-            model_name, device=self.device)
-        self.model.eval()
-        self.tokenizer = clip.tokenize
-
     def __len__(self):
         return self.len
 
@@ -119,21 +110,14 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         """
-        Convert segments to embeddings using the CLIP model.
+        Convert segments to embeddings using the embedder.
         """
         texts = [segment.text for segment in segments]
-        # Specifying truncate=True means that overlong texts will be silently truncated, which is better than failing.
-        logger.info(
-            f"Tokenizing {len(texts)} segments for embedding generation.")
-        tokens = self.tokenizer(texts, truncate=True).to(self.device)
-
-        with torch.no_grad():
-            logger.info("Generating embeddings for segments.")
-            vectors = self.model.encode_text(tokens)
-            logger.info("Converting embeddings to byte format.")
-            vectors = [
-                vector.float().detach().cpu().numpy().tobytes()
-                for vector in vectors]
+        logger.info(f"Generating embeddings for {len(texts)} segments.")
+        
+        vectors = self.embedder.embed_texts(texts)
+        logger.info("Converting embeddings to byte format.")
+        vectors = [vector.tobytes() for vector in vectors]
 
         return vectors
 
@@ -216,7 +200,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
                     query.append({
                         "AddDescriptor": {
-                            "set": self.descriptor_set,
+                            "set": self.embedder.descriptor_set,
                             "connect": {
                                 "ref": 1
                             },

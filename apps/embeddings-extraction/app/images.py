@@ -16,14 +16,10 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, descriptor_set: str, model_name: str, done_property: str):
+    def __init__(self, pool, embedder, done_property: str):
 
         self.pool = pool
-        self.descriptor_set = descriptor_set
-
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.preprocess = clip.load(model_name, device=self.device)
+        self.embedder = embedder
         self.done_property = done_property
 
         query = [{
@@ -104,17 +100,11 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             nparr = np.frombuffer(b, np.uint8)
             image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = self.preprocess(Image.fromarray(
-                image)).unsqueeze(0).to(self.device)
-
-            image_features = self.model.encode_image(image)
-
-            if self.device == "cuda":
-                image_features = image_features.float()
-                desc_blobs.append(
-                    image_features.detach().cpu().numpy().tobytes())
-            else:
-                desc_blobs.append(image_features.detach().numpy().tobytes())
+            image = Image.fromarray(image)
+            
+            # Use embedder to get image features
+            image_features = self.embedder.embed_image(image)
+            desc_blobs.append(image_features.tobytes())
 
         query = []
         for uniqueid, i in zip(uniqueids, range(len(uniqueids))):
@@ -139,7 +129,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
             query.append({
                 "AddDescriptor": {
-                    "set": self.descriptor_set,
+                    "set": self.embedder.descriptor_set,
                     "connect": {
                         "ref": i + 1
                     },
