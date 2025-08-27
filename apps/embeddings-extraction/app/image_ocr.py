@@ -148,7 +148,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     }]
                 )
                 block = TextBlock(text=text)
-                segments = list(self.segmenter.segment([block]))
+                segments = list(self.segmenter.segment([block], clean_only=False))
                 if not segments:
                     logger.warning(f"No segments found for text: {text}")
                     continue

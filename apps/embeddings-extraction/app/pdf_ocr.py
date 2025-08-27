@@ -200,7 +200,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         logger.info(f"Extracted {len(all_text_blocks)} text blocks from PDF")
 
         # Segment the text blocks
-        segments = self.segmenter.segment(all_text_blocks)
+        segments = self.segmenter.segment(all_text_blocks, clean_only=False)
 
         segment_number = 0
         for segment_batch in batch(segments, 100):
