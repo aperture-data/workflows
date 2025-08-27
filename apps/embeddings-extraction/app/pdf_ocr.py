@@ -52,7 +52,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,
-                                       overlap_tokens=overlap_tokens)
+                                       overlap_tokens=overlap_tokens, 
+                                       min_tokens=None)
 
         query = [{
             "FindBlob": {
