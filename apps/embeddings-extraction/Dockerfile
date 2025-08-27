@@ -12,12 +12,20 @@ RUN apt-get update && apt-get install -y \
     libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*
 #Install CPU version of torch
-RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN pip install git+https://github.com/openai/CLIP.git
 
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+
+# Install dependencies for text extraction
 RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
 
+# Install dependencies for the app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Warm up EasyOCR
+COPY app/warm_easyocr.py /app/warm_easyocr.py
+RUN python /app/warm_easyocr.py
 
 COPY app /app/

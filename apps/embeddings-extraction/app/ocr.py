@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Optional
 from PIL import Image
 from io import BytesIO
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,12 @@ class TesseractOCR(OCR):
 
 
 class EasyOCR(OCR):
-    """EasyOCR provider implementation."""
+    """EasyOCR provider implementation.
+    
+    Note that EasyOCR is very memory greedy, so its use may be the source of OOM (137) errors.
+    """
     method = "easyocr"
+    max_image_size = 1024
     
     def __init__(self):
         try:
@@ -79,20 +84,58 @@ class EasyOCR(OCR):
         except ImportError:
             raise ImportError("easyocr is required for EasyOCRProvider. Install with: pip install easyocr")
         
-        # Initialize EasyOCR reader
+        # Log memory usage before initialization
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_before = process.memory_info().rss / 1024 / 1024  # MB
+            logger.info(f"Memory usage before EasyOCR initialization: {memory_before:.2f} MB")
+        except ImportError:
+            logger.warning("psutil not available for memory monitoring")
+        
+        # Initialize EasyOCR reader with memory-efficient settings
         self.languages = ['en']
         self.gpu = False
-        self.reader = self.easyocr.Reader(self.languages, gpu=self.gpu)
+        
+        # Add model download caching and memory optimization
+        logger.info("Initializing EasyOCR reader...")
+        self.reader = self.easyocr.Reader(
+            self.languages, 
+            gpu=self.gpu,
+            # Use quantized models for ~4x lower memory usage
+            quantize=True,
+        )
+        
+        # Log memory usage after initialization
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_after = process.memory_info().rss / 1024 / 1024  # MB
+            memory_increase = memory_after - memory_before
+            logger.info(f"Memory usage after EasyOCR initialization: {memory_after:.2f} MB (increase: {memory_increase:.2f} MB)")
+        except ImportError:
+            pass
         
     def image_to_text(self, image: Image.Image) -> Optional[str]:
         """Extract text from a PIL Image using EasyOCR."""
         try:
+            # Resize image to 1024x1024 if it's larger; retain aspect ratio
+            if image.width > self.max_image_size or image.height > self.max_image_size:
+                aspect_ratio = image.width / image.height
+                if image.width > image.height:
+                    new_width = self.max_image_size
+                    new_height = int(new_width / aspect_ratio)
+                else:
+                    new_height = self.max_image_size
+                    new_width = int(new_height * aspect_ratio)
+                image = image.resize((new_width, new_height))
+
             # Convert PIL Image to numpy array for EasyOCR
-            import numpy as np
             image_array = np.array(image)
-            
+            logger.debug(f"Image array shape: {image_array.shape}")
+
             # Perform OCR
-            results = self.reader.readtext(image_array)
+            results = self.reader.readtext(image_array) 
             
             # Extract text from results
             text_parts = []
