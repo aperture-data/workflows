@@ -221,7 +221,8 @@ class Embedder():
                                 engine: str = "HNSW",
                                 device: Optional[Literal["cpu",
                                                          "cuda"]] = None,
-                                clean: bool = False
+                                clean: bool = False,
+                                properties: Optional[dict] = None
                                 ) -> "Embedder":
         """Find or create a descriptor set for the embedder.
 
@@ -238,7 +239,6 @@ class Embedder():
             f"Creating Embedder for descriptor set '{descriptor_set}' with provider '{provider}', model '{model_name}', pretrained '{pretrained}', engine '{engine}', device '{device}, clean={clean}'")
 
         from .aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
-        properties = None
 
         if clean:
             delete_descriptor_set(client, descriptor_set)
@@ -268,19 +268,18 @@ class Embedder():
                    descriptor_set=descriptor_set,
                    device=device)
 
-        if not properties:
-            # Create the descriptor set in the database
-            properties = self.get_properties()
-            add_descriptor_set(
-                client=client,
-                descriptor_set=descriptor_set,
-                metric=self.metric,
-                dimensions=self.dimensions,
-                engine=engine,
-                properties=properties
-            )
-            logger.info(
-                f"Created new descriptor set: {descriptor_set} with properties: {properties}")
+        properties = properties or {}
+        properties.update(self.get_properties())
+        add_descriptor_set(
+            client=client,
+            descriptor_set=descriptor_set,
+            metric=self.metric,
+            dimensions=self.dimensions,
+            engine=engine,
+            properties=properties
+        )
+        logger.info(
+            f"Created new descriptor set: {descriptor_set} with properties: {properties}")
 
         return self
 

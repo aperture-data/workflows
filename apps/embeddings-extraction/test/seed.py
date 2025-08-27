@@ -94,7 +94,7 @@ def load_pdf_text_mapping(csv_path: str):
 
 def create_test_pdfs(client, pdf_dir):
     """Create test PDFs with expected text from the specified directory."""
-    print(f"Creating {pdf_type} PDFs from {pdf_dir}...")
+    print(f"Creating PDFs from {pdf_dir}...")
 
     query = []
     blobs = []
@@ -133,7 +133,7 @@ def create_test_pdfs(client, pdf_dir):
 
     if query:
         status, response, _ = execute_query(client, query, blobs)
-        print(f"Created {len(pdf_files)} {pdf_type} PDFs successfully.")
+        print(f"Created {len(pdf_files)} {basename} PDFs successfully.")
     else:
         print(f"No PDFs were created from {pdf_dir}")
 

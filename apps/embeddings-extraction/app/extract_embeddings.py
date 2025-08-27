@@ -77,25 +77,6 @@ def clean_embeddings(db):
     db.print_last_response()
 
 
-def add_descriptor_set(db,
-                       descriptor_set: str,
-                       properties: Optional[dict] = None):
-
-    print("Adding Descriptor Set...")
-
-    db.query([{
-        "AddDescriptorSet": {
-            "name": descriptor_set,
-            "engine": "HNSW",
-            "metric": "CS",
-            "dimensions": 512,
-            **({"properties": properties} if properties else {})
-        }
-    }])
-
-    db.print_last_response()
-
-
 def main(params):
 
     logging.basicConfig(level=params.log_level.upper())
@@ -103,20 +84,20 @@ def main(params):
     pool = ConnectionPool()
 
     if params.clean:
-        clean_embeddings(db)
+        with pool.get_connection() as db:
+            clean_embeddings(db)
 
     if params.extract_images:
-        add_descriptor_set(db,
-                           descriptor_set=IMAGE_DESCRIPTOR_SET,
-                           properties={"type": "image"})
-
-        embedder = Embedder.from_new_descriptor_set(
-            db, IMAGE_DESCRIPTOR_SET,
-            provider="clip",
-            model_name=params.model_name)
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, IMAGE_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "image"})
         generator = FindImageQueryGenerator(
             pool, embedder, done_property=DONE_PROPERTY)
-        querier = ParallelQuery.ParallelQuery(db)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Images Detector...")
 
@@ -127,17 +108,16 @@ def main(params):
         print("Done with Images.")
 
     if params.extract_pdfs:
-        add_descriptor_set(db,
-                           descriptor_set=TEXT_DESCRIPTOR_SET,
-                           properties={"type": "text"})
-
-        embedder = Embedder.from_new_descriptor_set(
-            db, TEXT_DESCRIPTOR_SET,
-            provider="clip",
-            model_name=params.model_name)
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, TEXT_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "text", "source_type": "pdf"})
         generator = FindPDFQueryGenerator(
             pool, embedder, done_property=DONE_PROPERTY)
-        querier = ParallelQuery.ParallelQuery(db)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
 
         print("Running PDFs Detector...")
 
@@ -148,13 +128,16 @@ def main(params):
         print("Done with PDFs.")
 
     if params.extract_image_text:
-        embedder = Embedder.from_new_descriptor_set(
-            db, IMAGE_EXTRACTION_DESCRIPTOR_SET,
-            provider="clip",
-            model_name=params.model_name)
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, IMAGE_EXTRACTION_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "text", "source_type": "image"})
         generator = FindImageOCRQueryGenerator(
-            pool=pool, embedder=embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
-        querier = ParallelQuery.ParallelQuery(db)
+            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
 
         print("Running Image Text Extraction...")
 
@@ -165,13 +148,16 @@ def main(params):
         print("Done with Image Text Extraction.")
 
     if params.extract_pdf_text:
-        embedder = Embedder.from_new_descriptor_set(
-            db, PDF_EXTRACTION_DESCRIPTOR_SET,
-            provider="clip",
-            model_name=params.model_name)
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, PDF_EXTRACTION_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "text", "source_type": "pdf"})
         generator = FindPDFOCRQueryGenerator(
-            pool=pool, embedder=embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
-        querier = ParallelQuery.ParallelQuery(db)
+            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
 
         print("Running PDF OCR Extraction...")
 
@@ -231,7 +217,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_ocr])):
+    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_text])):
         raise ValueError("No extractions specified")
 
     return params

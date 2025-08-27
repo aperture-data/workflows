@@ -90,7 +90,7 @@ def calculate_text_scores(df: pd.DataFrame, corpus_field="corpus") -> pd.DataFra
     return df
 
 
-def create_text_comparison_dataframe(entities, descriptor_groups, corpus_field="corpus", filename_field="filename"):
+def create_text_comparison_dataframe(entities, descriptor_groups):
     """Create a dataframe for text comparison from entities (PDFs, images, etc.) and their descriptors."""
     # Group descriptors by entity and concatenate text
     entity_texts = {}
@@ -104,9 +104,9 @@ def create_text_comparison_dataframe(entities, descriptor_groups, corpus_field="
     assert entity_texts, "No entity texts found"
 
     df = pd.DataFrame(
-        columns=[corpus_field, filename_field, 'reference', 'hypothesis'],
+        columns=["corpus", "filename", "reference", "hypothesis"],
         data=[
-            [e.get(corpus_field, 'unknown'), e[filename_field], e.get('expected_text', ''), entity_texts.get(e['_uniqueid'])]
+            [e.get["corpus"], e["filename"], e.get("expected_text", ""), entity_texts.get(e["_uniqueid"])]
             for e in entities
         ])
 

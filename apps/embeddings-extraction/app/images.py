@@ -1,10 +1,8 @@
 import math
 
-import torch
 import cv2
 import numpy as np
 from PIL import Image
-import clip
 
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool

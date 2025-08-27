@@ -17,7 +17,7 @@ def run_query(db_connection):
             "FindBlob": {
                 "constraints": {
                     "document_type": ["==", "pdf"],
-                    "pdf_type": ["==", "image"]
+                    "corpus": ["==", "image"]
                 },
                 "results": {
                     "list": ["filename", "_uniqueid", "expected_text", "corpus"]
@@ -113,6 +113,8 @@ def test_text_pdfs_are_skipped(db_connection):
                 },
                 "_ref": 1,
             },
+        },
+        {
             {
                 "FindDescriptor": {
                     "set": "wf_embeddings_clip_pdf_extraction",

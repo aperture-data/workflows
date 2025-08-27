@@ -6,9 +6,6 @@ import math
 import logging
 from itertools import islice
 
-import torch
-import numpy as np
-import clip
 from typing import Iterable, Tuple, List
 
 from aperturedb import QueryGenerator

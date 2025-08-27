@@ -118,16 +118,14 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Returns True if text can be extracted, False if it's image-only.
         """
         try:
-            with fitz.open(stream=pdf_data, filetype="pdf") as doc:
-                has_text = False
-                
+            has_text = False
+            with fitz.open(stream=pdf_data, filetype="pdf") as doc:                
                 for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                text = page.get_text().strip()
-                if text:
-                    has_text = True
-                    break
-            
+                    page = doc.load_page(page_num)
+                    text = page.get_text().strip()
+                    if text:
+                        has_text = True
+                        break           
             return has_text
         except Exception as e:
             logger.warning(f"Error checking PDF text content: {e}")
@@ -139,18 +137,17 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         """
         try:
             images = []
-            with fitz.open(stream=pdf_data, filetype="pdf") as doc:
-                
+            with fitz.open(stream=pdf_data, filetype="pdf") as doc:                
                 for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                # Render page to image with higher resolution for better OCR
-                mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
-                pix = page.get_pixmap(matrix=mat)
-                
-                # Convert to PIL Image
-                img_data = pix.tobytes("png")
-                img = Image.open(BytesIO(img_data)).convert("RGB")
-                images.append(img)
+                    page = doc.load_page(page_num)
+                    # Render page to image with higher resolution for better OCR
+                    mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
+                    pix = page.get_pixmap(matrix=mat)
+                    
+                    # Convert to PIL Image
+                    img_data = pix.tobytes("png")
+                    img = Image.open(BytesIO(img_data)).convert("RGB")
+                    images.append(img)
             
             return images
         except Exception as e:
