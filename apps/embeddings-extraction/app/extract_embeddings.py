@@ -13,12 +13,15 @@ from embeddings import Embedder
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
 from image_ocr import FindImageOCRQueryGenerator
+from pdf_ocr import FindPDFOCRQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
 DONE_PROPERTY = 'wf_embeddings_clip'
 IMAGE_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_image_extraction'
 IMAGE_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_image_extraction_done'
+PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_pdf_extraction'
+PDF_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_pdf_extraction_done'
 
 def clean_embeddings(db):
 
@@ -35,6 +38,10 @@ def clean_embeddings(db):
     }, {
         "DeleteDescriptorSet": {
             "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": PDF_EXTRACTION_DESCRIPTOR_SET
         }
     }, {
         "UpdateImage": {
@@ -56,6 +63,13 @@ def clean_embeddings(db):
                 DONE_PROPERTY: ["!=", None]
             },
             "remove_props": [DONE_PROPERTY]
+        }
+    }, {
+        "UpdateBlob": {
+            "constraints": {
+                PDF_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [PDF_EXTRACTION_DONE_PROPERTY]
         }
     }])
 
@@ -143,6 +157,23 @@ def main(params):
 
         print("Done with Image Text Extraction.")
 
+    if params.extract_pdf_text:
+        embedder = Embedder.from_new_descriptor_set(
+            db, PDF_EXTRACTION_DESCRIPTOR_SET,
+            provider="clip",
+            model_name=params.model_name)
+        generator = FindPDFOCRQueryGenerator(
+            client=db, embedder=embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY)
+        querier = ParallelQuery.ParallelQuery(db)
+
+        print("Running PDF OCR Extraction...")
+
+        querier.query(generator, batchsize=1,
+                      numthreads=params.numthreads,
+                      stats=True)
+
+        print("Done with PDF OCR Extraction.")
+
     print("Done")
 
 
@@ -178,6 +209,9 @@ def get_args():
     obj.add_argument('--extract-image-text', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
 
+    obj.add_argument('--extract-pdf-text', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_PDF_TEXT', False))
+
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
@@ -190,7 +224,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text])):
+    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_ocr])):
         raise ValueError("No extractions specified")
 
     return params

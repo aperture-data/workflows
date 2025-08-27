@@ -3,8 +3,9 @@ import pytest
 import numpy as np
 from aperturedb.Connector import Connector
 from aperturedb.CommonLibrary import execute_query
-    from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from nltk.metrics.distance import edit_distance, jaccard_distance
+import itertools
 import pandas as pd
 import logging
 
@@ -63,13 +64,17 @@ def db_connection():
     DB_PASS = os.getenv("DB_PASS", "admin")
     return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
 
+
 @pytest.fixture(scope="module")
 def run_query(db_connection):
     """Get the results of the query."""
     query = [
         {
             "FindBlob": {
-                "constraints": {"document_type": ["==", "pdf"]},
+                "constraints": {
+                    "document_type": ["==", "pdf"],
+                    "pdf_type": ["==", "image"]
+                },
                 "results": {
                     "list": ["filename", "_uniqueid", "expected_text", "corpus"]
                 },
@@ -78,10 +83,11 @@ def run_query(db_connection):
         },
         {
             "FindDescriptor": {
+                "set": "wf_embeddings_clip_pdf_extraction",
                 "is_connected_to": {"ref": 1},
                 "group_by_source": True,
                 "results": {
-                    "list": ["_uniqueid", "text", "type"]
+                    "list": ["_uniqueid", "text", "type", "page_number"],
                 },
                 "_ref": 2,
             }
@@ -91,15 +97,16 @@ def run_query(db_connection):
     status, response, _ = execute_query(db_connection, query)
 
     assert status == 0, f"Query failed: {response}"
+
     return response
 
 
-def test_descriptors_for_each_pdf(run_query):
-    """Test that there are descriptors for each PDF."""
+def test_image_pdfs_have_descriptors(run_query):
+    """Test that image PDFs have descriptors."""
     response = run_query
-
     pdfs = {e['_uniqueid']: e['filename']
             for e in response[0]['FindBlob']['entities']}
+
     descriptor_groups = set(
         response[1]['FindDescriptor'].get('entities', {}).keys())
 
@@ -107,7 +114,19 @@ def test_descriptors_for_each_pdf(run_query):
         missing = {pdfs[mid]
                    for mid in set(pdfs.keys()) - descriptor_groups}
         extra = descriptor_groups - set(pdfs.keys())
-        assert False, f"Descriptor groups do not match PDFs. Missing: {missing}, Extra: {extra}"
+        assert False, f"Descriptor groups do not match image PDFs. Missing: {missing}, Extra: {extra}"
+
+
+def test_descriptors_have_correct_type(run_query):
+    """Test that descriptors have the correct type property."""
+    response = run_query
+    descriptors = []
+    for group in response[1]['FindDescriptor'].get('entities', {}).values():
+        descriptors.extend(group)
+
+    for descriptor in descriptors:
+        assert descriptor.get('type') == 'extracted_from_pdf_image', \
+            f"Descriptor {descriptor['_uniqueid']} has incorrect type: {descriptor.get('type')}"
 
 
 @pytest.fixture(scope="module")
@@ -124,13 +143,13 @@ def calculate_scores(run_query):
             all_text = ' '.join([d.get('text', '') for d in descriptors])
             pdf_texts[pdf_id] = all_text
 
-    assert pdfs, "No PDFs found"
+    assert pdfs, "No image PDFs found"
     assert pdf_texts, "No PDF texts found"
 
     df = pd.DataFrame(
         columns=['pdf_type', 'filename', 'reference', 'hypothesis'],
         data=[
-            [e.get('pdf_type', 'unknown'), e['filename'], e.get('expected_text', ''), pdf_texts.get(e['_uniqueid'])]
+            [e['pdf_type'], e['filename'], e['expected_text'], pdf_texts.get(e['_uniqueid'])]
             for e in pdfs
         ])
 
@@ -154,10 +173,10 @@ def calculate_scores(run_query):
 
 
 @pytest.mark.parametrize("metric, pdf_type, threshold", [
-    ("char_bleu_score", "text", 0.05),
-    ("bleu_score", "text", 0.4),
-    ("levenshtein_distance", "text", 60),
-    ("jaccard_distance", "text", 0.2),
+    ("char_bleu_score", "image", 0.05),
+    ("bleu_score", "image", 0.3),
+    ("levenshtein_distance", "image", 80),
+    ("jaccard_distance", "image", 0.3),
 ])
 def test_mean_score(calculate_scores, metric, pdf_type, threshold):
     """Test that the mean score is above/below a certain threshold."""
@@ -169,3 +188,41 @@ def test_mean_score(calculate_scores, metric, pdf_type, threshold):
         assert mean < threshold, f"Mean {metric} for {pdf_type} is above {threshold}: {mean}"
     else: # higher is better for other metrics
         assert mean > threshold, f"Mean {metric} for {pdf_type} is below {threshold}: {mean}"
+
+
+def test_text_pdfs_are_skipped(db_connection):
+    """Test that text PDFs are skipped (not processed by OCR)."""
+    query = [
+        {
+            "FindBlob": {
+                "constraints": {
+                    "document_type": ["==", "pdf"],
+                    "corpus": ["==", "text"]
+                },
+                "results": {
+                    "list": ["filename", "_uniqueid"]
+                },
+                "_ref": 1,
+            },
+            {
+                "FindDescriptor": {
+                    "set": "wf_embeddings_clip_pdf_extraction",
+                    "is_connected_to": {"ref": 1},
+                    "results": {
+                        "list": ["_uniqueid", "text", "type", "page_number"]
+                    },
+                }
+            }
+        }
+    ]
+
+    status, response, _ = execute_query(db_connection, query)
+    assert status == 0, f"Query failed: {response}"
+
+    pdfs = response[0]['FindBlob'].get('entities', [])
+    assert not pdfs, "Text PDFs were found"
+
+    descriptor_groups = set(
+        response[1]['FindDescriptor'].get('entities', {}).keys())
+    
+    assert not descriptor_groups, "Descriptors were found for text PDFs"

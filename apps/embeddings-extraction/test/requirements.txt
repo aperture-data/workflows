@@ -1,3 +1,4 @@
 aperturedb
 nltk
 pytest
+pandas

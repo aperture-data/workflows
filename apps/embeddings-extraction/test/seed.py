@@ -6,7 +6,7 @@ from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
 
 
-def load_image_text_mapping(csv_path: str):
+def load_text_mapping(csv_path: str):
     """Load the mapping of image filenames to expected text from index.csv."""
     mapping = {}
 
@@ -28,7 +28,7 @@ def create_test_images(client, image_dir):
 
     assert os.path.exists(image_dir), f"Directory {image_dir} does not exist"
     basename = os.path.basename(image_dir)
-    image_text_mapping = load_image_text_mapping(os.path.join(image_dir, "index.csv"))
+    image_text_mapping = load_text_mapping(os.path.join(image_dir, "index.csv"))
 
     query = []
     blobs = []
@@ -73,15 +73,34 @@ def create_test_images(client, image_dir):
         sys.exit(1)
 
 
-def create_test_pdfs(client, pdf_dir):
-    """Create test PDFs from the pdfs directory."""
-    print("Creating test PDFs from pdfs directory...")
+def load_pdf_text_mapping(csv_path: str):
+    """Load the mapping of PDF filenames to expected text from index.csv."""
+    mapping = {}
 
-    assert os.path.exists(pdf_dir), f"PDF directory {pdf_dir} does not exist"
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                mapping[row['Filename']] = row['Text']
+    else:
+        print(f"CSV file {csv_path} not found, using empty mapping")
+
+    print(f"Loaded {len(mapping)} PDF text mappings: {mapping}")
+    return mapping
+
+
+
+
+
+def create_test_pdfs(client, pdf_dir):
+    """Create test PDFs with expected text from the specified directory."""
+    print(f"Creating {pdf_type} PDFs from {pdf_dir}...")
 
     query = []
     blobs = []
     pdf_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')]
+    basename = os.path.basename(pdf_dir)
+    text_mapping = load_pdf_text_mapping(os.path.join(pdf_dir, "index.csv"))
 
     for pdf_file in pdf_files:
         pdf_path = os.path.join(pdf_dir, pdf_file)
@@ -91,13 +110,18 @@ def create_test_pdfs(client, pdf_dir):
             with open(pdf_path, 'rb') as f:
                 pdf_data = f.read()
 
-            # Add PDF blob to database
+            # Get expected text for this PDF
+            expected_text = text_mapping.get(pdf_file, "")
+
+            # Add PDF blob to database with expected text
             query.append({
                 "AddBlob": {
                     "properties": {
                         "document_type": "pdf",
                         "content_type": "application/pdf",
                         "filename": pdf_file,
+                        "expected_text": expected_text,
+                        "corpus": basename,
                     }
                 }
             })
@@ -109,10 +133,9 @@ def create_test_pdfs(client, pdf_dir):
 
     if query:
         status, response, _ = execute_query(client, query, blobs)
-        print(f"Created {len(pdf_files)} test PDFs successfully.")
+        print(f"Created {len(pdf_files)} {pdf_type} PDFs successfully.")
     else:
-        print(f"No PDFs were created. Status: {status}, Response: {response}")
-        sys.exit(1)
+        print(f"No PDFs were created from {pdf_dir}")
 
 
 def print_schema(client):
@@ -144,7 +167,8 @@ def main():
         create_test_images(client, "/app/images/documents")
 
         # Create test PDFs from actual files
-        create_test_pdfs(client, "/app/pdfs")
+        create_test_pdfs(client, "/app/pdfs/text")
+        create_test_pdfs(client, "/app/pdfs/images")
 
         print("Seeding completed successfully!")
 
