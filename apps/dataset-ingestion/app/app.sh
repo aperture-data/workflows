@@ -28,12 +28,7 @@ if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
 fi
 
 # gcloud uses it's bundled python. Do not inject our sitecustomize.
-OLD_PYTHONPATH=$PYTHONPATH
-export PYTHONPATH=''
-gcloud config set auth/disable_credentials True
-
-export PYTHONPATH=$OLD_PYTHONPATH
-
+PYTHONPATH='' gcloud config set auth/disable_credentials True
 
 build_coco() {
     APP="Dataset ingest (coco)"
