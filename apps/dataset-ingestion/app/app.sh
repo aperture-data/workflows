@@ -27,7 +27,12 @@ if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     exit 1
 fi
 
+# gcloud uses it's bundled python. Do not inject our sitecustomize.
+OLD_PYTHONPATH=$PYTHONPATH
+export PYTHONPATH=''
 gcloud config set auth/disable_credentials True
+
+export PYTHONPATH=$OLD_PYTHONPATH
 
 
 build_coco() {
