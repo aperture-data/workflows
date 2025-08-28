@@ -16,17 +16,36 @@ count_queries = [
                 }
             }
         }],
-        [{
+        [{ "FindImage": {
+            "_ref": 1,
+            "constraints": {
+                "Bald": ["!=", None]
+            },
+            "blobs": False
+        }},
+            {
             "FindDescriptor":{
                 "set": "ViT-B/16",
+                "is_connected_to":{
+                    "ref": 1
+                },
                 "results": {
                     "count": True
                 }
             }
         }],
-        [{
+        [{ "FindImage": {
+            "_ref": 1,
+            "constraints": {
+                "Bald": ["!=", None]
+            },
+            "blobs": False
+        }},{
             "FindDescriptor":{
                 "set": "ViT-B/16",
+                "is_connected_to":{
+                    "ref": 1
+                },
                 "results": {
                     "count": True
                 }
@@ -104,7 +123,7 @@ for in_csv, cquery in zip(in_csvs, count_queries):
     r, resp, b = execute_batch(q=cquery, blobs=[], db=db)
     print(f"Executing query {cquery} for {in_csv}")
     exp_num = len(df)
-    actual_num = resp[0][list(resp[0].keys())[0]]['count']
+    actual_num = resp[-1][list(resp[-1].keys())[0]]['count']
     print(f"Expected count [{in_csv}]: {exp_num}, Actual count: {actual_num}")
     results.append(exp_num == actual_num)
 
