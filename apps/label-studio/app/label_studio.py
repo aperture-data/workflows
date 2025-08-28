@@ -69,7 +69,7 @@ def main(args):
             logger.error(f"Path is {full_path} and {subpath}")
             
             env["LABEL_STUDIO_HOST"] = full_path
-            env["LABEL_STUDIO_STATIC_PATH"] = "{}/static".format( subpath )
+            env["LABEL_STUDIO_STATIC_PATH"] = "{}/static/".format( subpath )
             env["LABEL_STUDIO_URL_BASE"] = "{}".format( subpath )
 
 
