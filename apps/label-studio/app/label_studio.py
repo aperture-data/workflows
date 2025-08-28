@@ -33,8 +33,10 @@ def main(args):
 
 
 
-    def add_path_vars( env ):
+    def add_common_vars( env ):
 
+        env["LABEL_STUDIO_DEBUG"]="FALSE" 
+        env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if os.environ['DB_HOST_PUBLIC']:
             # generate path for cloud
@@ -76,9 +78,11 @@ def main(args):
     logger.info("Preparing for Label Studio configuration.")
     # do config for LS
     cfg_env = os.environ.copy()
-    add_path_vars(cfg_env)
+    add_common_vars(cfg_env)
     cfg_env["LABEL_STUDIO_USERNAME"]=args.label_studio_user
     cfg_env["LABEL_STUDIO_PASSWORD"]=args.label_studio_password
+    cfg_env["LABEL_STUDIO_CREATE_PROJ_TITLE"]="ApertureDB Labeling" 
+    cfg_env["LABEL_STUDIO_DEFAULT_CLOUD_STORAGE"]="aperturedb" 
     if args.label_studio_token:
         cfg_env["LABEL_STUDIO_USER_TOKEN"]=args.label_studio_token
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
@@ -96,7 +100,7 @@ def main(args):
             "wf_creator": "label-studio" 
             })
         ls_env = os.environ.copy()
-        add_path_vars(ls_env)
+        add_common_vars(ls_env)
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)

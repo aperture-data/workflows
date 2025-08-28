@@ -1,0 +1,6 @@
+version: 1
+
+loggers:
+  io_storages.aperturedb.models:
+    level: INFO
+~                   
