@@ -43,7 +43,7 @@ RUN git clone --single-branch --branch main https://github.com/pgsql-io/multicor
  && make PYTHON=/usr/bin/python3 \
  && make install
 
-RUN pip install --no-cache-dir numpy pydantic dotenv
+RUN pip install --no-cache-dir numpy pydantic dotenv typer
 
 # Copy and install our FDW into system Python
 COPY fdw /fdw

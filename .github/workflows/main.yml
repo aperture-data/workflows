@@ -97,6 +97,7 @@ jobs:
           ingest-from-bucket,
           ingest-from-sql,
           sql-server,
+          label-studio,
         ]
     runs-on:
       - ubuntu-latest
@@ -129,7 +130,11 @@ jobs:
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
           cd apps/${{ matrix.app }}
-          bash test.sh || bash ../build.sh
+          if [ -f "test.sh" ]; then
+            VERSION=latest bash test.sh
+          else
+            VERSION=latest bash ../build.sh
+          fi
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main

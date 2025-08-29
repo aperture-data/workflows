@@ -27,8 +27,8 @@ if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     exit 1
 fi
 
-gcloud config set auth/disable_credentials True
-
+# gcloud uses it's bundled python. Do not inject our sitecustomize.
+PYTHONPATH='' gcloud config set auth/disable_credentials True
 
 build_coco() {
     APP="Dataset ingest (coco)"

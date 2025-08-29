@@ -24,7 +24,7 @@ if [ $# -gt 0 ]; then
         DIR=$(realpath "$APP")
     else
         # Relative path
-        DIR=$(realpath "${BIN_DIR}/../${APP}")
+        DIR=$(realpath "${BIN_DIR}/../apps/${APP}")
     fi
 else
     # No argument provided, use the current directory
