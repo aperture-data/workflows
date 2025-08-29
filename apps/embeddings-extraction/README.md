@@ -32,7 +32,7 @@ sequenceDiagram
     loop Until done
         W->>A: FindImage
         A-->>W: images
-        W->>A: UpdateImage<br/>AddEntity<</br/>AddDescriptor<br/>AddConnection
+        W->>A: UpdateImage<br/>AddEntity</br/>AddDescriptor<br/>AddConnection
     end
 
     W->>A: AddDescriptorSet
