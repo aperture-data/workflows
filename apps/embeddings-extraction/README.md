@@ -50,7 +50,7 @@ sequenceDiagram
     loop Until done
         W->>A: FindBlob
         A-->>W: PDFs
-        W->>A: UpdateBlob</br/>AddEntity<br/>AddDescriptor<br/>AddConection
+        W->>A: UpdateBlob<br/>AddEntity<br/>AddDescriptor<br/>AddConection
     end
 ```
 
