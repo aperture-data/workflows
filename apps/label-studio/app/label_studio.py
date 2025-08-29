@@ -12,6 +12,7 @@ from spec import WorkflowSpec
 
 import subprocess
 import re
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -85,15 +86,27 @@ def main(args):
     cfg_env["LABEL_STUDIO_DEFAULT_CLOUD_STORAGE"]="aperturedb" 
     if args.label_studio_token:
         cfg_env["LABEL_STUDIO_USER_TOKEN"]=args.label_studio_token
+    if args.label_studio_default_project_name != '':
+        cfg_env["LABEL_STUDIO_CREATE_PROJ_TITLE"] = args.label_studio_default_project_name
+    if args.label_studio_default_storage_name != '':
+        cfg_env["LABEL_STUDIO_DEFAULT_CLOUD_STORAGE"]="aperturedb"
+        with open( "/app/cloud.json" ,"w") as fp:
+            storage_config = {
+                    'title': args.label_studio_default_storage_name
+                    }
+            json.dump(storage_config,fp)
+        cfg_env["LABEL_STUDIO_CLOUD_STORAGE_JSON_PATH"]="/app/cloud.json"
+    spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
+
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
+    run_id = uuid4()
+    spec.add_run( run_id )
+
     if ret.returncode != 0:
         logger.error("Label Studio configuration failed.")
     else:
         logger.info("Label Studio configuration suceeded.")
-        spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
 
-        run_id = uuid4()
-        spec.add_run( run_id )
 
         spec.update_run(str(run_id), {
             "wf_linked_types" : ["LS_annotation", "_BoundingBox"],
@@ -120,6 +133,11 @@ def main(args):
 def get_args():
     obj = ArgumentParser(support_legacy_envars=True)
 
+    # configuration options
+    obj.add_argument("--label-studio-default-project-name",type=str,default="ApertureDB Labeling",
+            help="Name of a project to be created automatically (set to '' to disable")
+    obj.add_argument("--label-studio-default-storage-name",type=str,default="ApertureDB",
+            help="Name of the aperturedb storage to be created automatically (set to '' to disable")
     # hosting options
     obj.add_argument("--label-studio-url-path",type=str,default=None,
             help="Path to host label studio on other than /. Supply full external path: eg. http://localhost:8888/labelstudio ")
@@ -154,6 +172,10 @@ def get_args():
 
     sanitized_params = {k: v if v is None or k not in to_sanitize else "**HIDDEN**" for k,v in params.__dict__.items()}
     logger.info(f"Parsed arguments: {sanitized_params}")
+
+    if params.label_studio_default_storage_name != "" and \
+    params.label_studio_default_project_name ==  "": 
+        raise ArgumentError("Default storage cannot be set when default project is unset.")
 
     params.spec_id_created = params.spec_id is None
     if params.spec_id_created:
