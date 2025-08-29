@@ -123,7 +123,6 @@ def main(args):
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
         ls_env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb gcs s3" 
-        ls_env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
         logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
