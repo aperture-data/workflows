@@ -21,10 +21,10 @@ def main(args):
     db = create_connector()
 
     if args.delete:
-        WorkflowSpec.delete( "label-studio", args.spec_id )
+        WorkflowSpec.delete_spec(db, "label-studio", args.spec_id )
         sys.exit(0)
     elif args.delete_all:
-        WorkflowSpec.delete_all( "label-studio") 
+        WorkflowSpec.delete_all_data( db, "label-studio") 
         sys.exit(0)
     elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
@@ -37,9 +37,10 @@ def main(args):
     def add_common_vars( env ):
 
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
+        env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
-        if os.environ['DB_HOST_PUBLIC']:
+        if "DB_HOST_PUBLIC" in os.environ:
             # generate path for cloud
             full_path = "https://{}/labelstudio".format(os.environ['DB_HOST_PUBLIC'])
             logger.error(f"Set url from DB_HOST_PUBLIC: {full_path}")
@@ -74,6 +75,10 @@ def main(args):
             env["LABEL_STUDIO_HOST"] = full_path
             env["LABEL_STUDIO_STATIC_PATH"] = "{}/static/".format( subpath )
             env["LABEL_STUDIO_URL_BASE"] = "{}".format( subpath )
+        if args.label_studio_default_storage_limit is not None:
+            env["LABEL_STUDIO_APERTUREDB_DEFAULT_LIMIT"] = str(args.label_studio_default_storage_limit)
+        env["LABEL_STUDIO_APERTUREDB_RO_PREDS"] = str(args.label_studio_storage_annotations_ro)
+        env["LABEL_STUDIO_APERTUREDB_DEFAULT_LOAD_PREDS"] = str(args.label_studio_default_import_annotations)
 
 
     logger.info("Preparing for Label Studio configuration.")
@@ -138,16 +143,19 @@ def get_args():
             help="Name of a project to be created automatically (set to '' to disable")
     obj.add_argument("--label-studio-default-storage-name",type=str,default="ApertureDB",
             help="Name of the aperturedb storage to be created automatically (set to '' to disable")
+    obj.add_argument("--label-studio-default-storage-limit",type=int,default=None,
+            help="Value to be set as the default of images to be ingested on a sync in LS.") 
+    obj.add_argument("--label-studio-default-import-annotations",type=bool,default=True,
+            help="Whether to by default import Bboxes as annotations") 
+    obj.add_argument("--label-studio-storage-annotations-ro",type=bool,default=False,
+            help="If bbox annotations imported in LS are readonly ( default False )") 
     # hosting options
     obj.add_argument("--label-studio-url-path",type=str,default=None,
             help="Path to host label studio on other than /. Supply full external path: eg. http://localhost:8888/labelstudio ")
     # login options
-    obj.add_argument("--label-studio-token",type=str,default=None,
-            help="User token for label studio") 
-    obj.add_argument("--label-studio-user",type=str,default=None,required=True,
-            help="User for label studio") 
-    obj.add_argument("--label-studio-password",type=str,default=None,required=True,
-            help="User password for label studio") 
+    obj.add_argument("--label-studio-token",type=str,default=None, help="User token for label studio") 
+    obj.add_argument("--label-studio-user",type=str,default=None, help="User for label studio") 
+    obj.add_argument("--label-studio-password",type=str,default=None, help="User password for label studio") 
 
     # workflow options
     obj.add_argument("--spec-id",type=str,default=None,
@@ -172,6 +180,12 @@ def get_args():
 
     sanitized_params = {k: v if v is None or k not in to_sanitize else "**HIDDEN**" for k,v in params.__dict__.items()}
     logger.info(f"Parsed arguments: {sanitized_params}")
+
+    if not(params.delete or params.delete_all or params.delete_all_ls_data) and \
+            (params.label_studio_user is None or params.label_studio_password is None):
+        logger.error("configuration for label studio user and password are "\
+                    "required for modes other than delete, delete-all and delete-all-ls-data.")
+        raise ValueError("--label-studio-user and/or --label-studio-password missing")
 
     if params.label_studio_default_storage_name != "" and \
     params.label_studio_default_project_name ==  "": 
