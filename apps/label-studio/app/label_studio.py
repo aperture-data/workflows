@@ -87,8 +87,6 @@ def main(args):
     add_common_vars(cfg_env)
     cfg_env["LABEL_STUDIO_USERNAME"]=args.label_studio_user
     cfg_env["LABEL_STUDIO_PASSWORD"]=args.label_studio_password
-    cfg_env["LABEL_STUDIO_CREATE_PROJ_TITLE"]="ApertureDB Labeling" 
-    cfg_env["LABEL_STUDIO_DEFAULT_CLOUD_STORAGE"]="aperturedb" 
     if args.label_studio_token:
         cfg_env["LABEL_STUDIO_USER_TOKEN"]=args.label_studio_token
     if args.label_studio_default_project_name != '':
