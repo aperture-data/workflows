@@ -1,54 +1,56 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+
+WORKFLOW="embeddings-extraction"
 
 # Get the directory this script is in
-BIN_DIR=$(dirname "$(readlink -f "$0")")
-cd "$BIN_DIR"
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
+export TEST_DIR=$BIN_DIR/test
 
-bash ../build.sh
-RUNNER_NAME="$(whoami)"
-EE_NW_NAME="${RUNNER_NAME}_embeddings-extraction"
-EE_DB_NAME="${RUNNER_NAME}_aperturedb"
-EE_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
+echo "BIN_DIR: $BIN_DIR"
+echo "ROOT_DIR: $ROOT_DIR"
+echo "TEST_DIR: $TEST_DIR"
 
-docker stop ${EE_DB_NAME}  || true
-docker rm ${EE_DB_NAME} || true
-docker network rm ${EE_NW_NAME} || true
+cd $BIN_DIR
 
-docker network create ${EE_NW_NAME}
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_TEST="$TEST_DIR/docker-compose.yml"
+COMPOSE_PROJECT_NAME="${WORKFLOW}-tests"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
-# Start empty aperturedb instance
-docker run -d \
-           --name ${EE_DB_NAME} \
-           --network ${EE_NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+export DB_HOST DB_PASS
+DB_HOST="${DB_HOST:-aperturedb}"
+DB_PASS="${DB_PASS:-admin}"
 
-sleep 20
+# ---- cleanup on exit ----
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" -f "$COMPOSE_TEST" down -v --remove-orphans || true
+}
+trap cleanup EXIT
 
-# Add images to the db
-docker run --name ${EE_IMAGE_ADDER_NAME} \
-           --network ${EE_NW_NAME} \
-           -e TOTAL_IMAGES=100 \
-           -e DB_HOST=${EE_DB_NAME} \
-           -v ./input:/app/data \
-           --rm \
-           aperturedata/wf-add-image
+# ---- run tests ----
+echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
-# Run the object detection workflow
-docker run \
-           --network ${EE_NW_NAME} \
-           -e DB_HOST=${EE_DB_NAME} \
-           -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-           -e RUN_ONCE=true \
-           -e MODEL_NAME="ViT-B/16" \
-           -e WF_EXTRACT_IMAGES=true \
-           --rm \
-           aperturedata/workflows-embeddings-extraction
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN -f $COMPOSE_TEST"
 
-# if CLEANUP is set to true, stop the aperturedb instance and remove the network
-if [ "$CLEANUP" = "true" ]; then
-    docker stop ${EE_DB_NAME}
-    docker network rm ${EE_NW_NAME}
-fi
+# Should the test script be building this workflow?
+$COMMAND build base 
+$COMMAND build test-base embeddings-extraction
+
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
+(
+  sleep 5
+  $COMMAND logs -f > $TEST_LOG
+) &
+LOG_PID=$!
+
+$COMMAND up --no-build --exit-code-from tests tests
+# $COMMAND up --no-build seed
+
+# Wait for logs to finish
+kill $LOG_PID || true

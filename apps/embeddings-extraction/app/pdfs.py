@@ -6,9 +6,6 @@ import math
 import logging
 from itertools import islice
 
-import torch
-import numpy as np
-import clip
 from typing import Iterable, Tuple, List
 
 from aperturedb import QueryGenerator
@@ -39,20 +36,17 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name):
+    def __init__(self, pool, embedder, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=db.clone)
-        self.model_name = model_name
-        self.descriptor_set = descriptor_set
-
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.pool = pool
+        self.embedder = embedder
+        self.done_property = done_property
 
         query = [{
             "FindBlob": {
                 "constraints": {
                     "document_type": ["==", "pdf"],
-                    "wf_embeddings_clip": ["!=", True]
+                    self.done_property: ["!=", True]
                 },
                 "results": {
                     "count": True
@@ -84,11 +78,6 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         self.segmenter = TextSegmenter(max_tokens=MAX_TOKENS,
                                        overlap_tokens=OVERLAP_TOKENS)
 
-        self.model, self.preprocess = clip.load(
-            model_name, device=self.device)
-        self.model.eval()
-        self.tokenizer = clip.tokenize
-
     def __len__(self):
         return self.len
 
@@ -118,21 +107,14 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         """
-        Convert segments to embeddings using the CLIP model.
+        Convert segments to embeddings using the embedder.
         """
         texts = [segment.text for segment in segments]
-        # Specifying truncate=True means that overlong texts will be silently truncated, which is better than failing.
-        logger.info(
-            f"Tokenizing {len(texts)} segments for embedding generation.")
-        tokens = self.tokenizer(texts, truncate=True).to(self.device)
-
-        with torch.no_grad():
-            logger.info("Generating embeddings for segments.")
-            vectors = self.model.encode_text(tokens)
-            logger.info("Converting embeddings to byte format.")
-            vectors = [
-                vector.float().detach().cpu().numpy().tobytes()
-                for vector in vectors]
+        logger.info(f"Generating embeddings for {len(texts)} segments.")
+        
+        vectors = self.embedder.embed_texts(texts)
+        logger.info("Converting embeddings to byte format.")
+        vectors = [vector.tobytes() for vector in vectors]
 
         return vectors
 
@@ -202,8 +184,10 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                     if segment.text:
                         properties["text"] = segment.text
                     properties["type"] = "text"
+                    properties["source_type"] = "pdf"
                     properties["total_tokens"] = segment.total_tokens
                     properties["segment_number"] = number
+                    properties["extraction_type"] = "text"
 
                     page_number = segment.page_number()
                     if page_number is not None:
@@ -215,7 +199,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
                     query.append({
                         "AddDescriptor": {
-                            "set": self.descriptor_set,
+                            "set": self.embedder.descriptor_set,
                             "connect": {
                                 "ref": 1
                             },
@@ -240,7 +224,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateBlob": {
                     "ref": 1,
                     "properties": {
-                        "wf_embeddings_clip": True,
+                        self.done_property: True,
                         "segments": blob_segments,
                     },
                 }

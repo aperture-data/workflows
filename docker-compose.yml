@@ -21,7 +21,7 @@ x-definitions:
 services:
     # not a workflow, but provided for convenience; used in tests
     aperturedb:
-        image: aperturedata/aperturedb:latest
+        image: aperturedata/aperturedb-community:latest
         ports:
             - "55555:55555"
         environment:
@@ -95,6 +95,12 @@ services:
             CLEAN: "${CLEAN:-true}"
             RUN_ONCE: "${RUN_ONCE:-true}"
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
+            WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
+            WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
+            WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
+            WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
+            WF_OCR_METHOD: "${WF_OCR_METHOD:-tesseract}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     jupyterlab:
         build: 
@@ -134,6 +140,7 @@ services:
             <<: *common-env
             WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     rag:
         build: 

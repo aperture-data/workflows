@@ -1,0 +1,68 @@
+import os
+import pytest
+import numpy as np
+from aperturedb.Connector import Connector
+from aperturedb.CommonLibrary import execute_query
+
+import pytest
+import json
+from aperturedb import Connector
+from common import db_connection
+
+
+@pytest.fixture(scope="module")
+def run_query(db_connection):
+    """Get the results of the query."""
+    query = [
+        {
+            "FindImage": {
+                "results": {
+                    "list": ["_uniqueid", "filename"]
+                },
+                "_ref": 1,
+            }
+        },
+        {
+            "FindDescriptor": {
+                "set": "wf_embeddings_clip",
+                "is_connected_to": {"ref": 1},
+                "group_by_source": True,
+                "results": {
+                    "list": ["_uniqueid"]
+                }
+            }
+        }
+    ]
+
+    status, response, _ = execute_query(db_connection, query)
+
+    assert status == 0, f"Query failed: {response}"
+    return response
+
+
+def test_descriptors_for_each_image(run_query):
+    """Test that there are descriptors for each image."""
+    response = run_query
+    images = {e['_uniqueid']: e['filename']
+              for e in response[0]['FindImage']['entities']}
+    descriptor_groups = set(
+        response[1]['FindDescriptor'].get('entities', {}).keys())
+
+    if descriptor_groups != set(images.keys()):
+        missing = {images[mid]
+                   for mid in set(images.keys()) - descriptor_groups}
+        extra = descriptor_groups - set(images.keys())
+        assert False, f"Descriptor groups do not match images. Missing {len(missing)} out of {len(images)} - {missing}"
+
+
+def test_descriptor_count_matches(run_query):
+    """Test that there are descriptors for each image."""
+    response = run_query
+    images = {e['_uniqueid']: e['filename']
+              for e in response[0]['FindImage']['entities']}
+    descriptor_groups = response[1]['FindDescriptor'].get('entities', {}) or {}
+    non_unitary = [image_id for image_id in images.keys()
+                   if image_id in descriptor_groups and
+                   len(descriptor_groups[image_id]) != 1]
+
+    assert not non_unitary, f"Expected 1 descriptor per image, got {[len(descriptor_groups[image_id]) for image_id in non_unitary]} for images {[images[image_id] for image_id in non_unitary]}"

@@ -14,8 +14,9 @@ sequenceDiagram
     participant W as Extract Embeddings
     participant A as ApertureDB instance
     opt CLEAN
-        W->>A: DeleteDescriptorSet<br/>UpdateImage
+        W->>A: DeleteDescriptorSet<br/>UpdateImage<br/>UpdateBlob
     end
+
     W->>A: AddDescriptorSet
     W->>A: FindImage
     A-->>W: count
@@ -23,6 +24,33 @@ sequenceDiagram
         W->>A: FindImage
         A-->>W: images
         W->>A: UpdateImage<br/>AddDescriptor
+    end
+
+    W->>A: AddDescriptorSet
+    W->>A: FindImage
+    A-->>W: count
+    loop Until done
+        W->>A: FindImage
+        A-->>W: images
+        W->>A: UpdateImage<br/>AddEntity<br/>AddDescriptor<br/>AddConnection
+    end
+
+    W->>A: AddDescriptorSet
+    W->>A: FindBlob
+    A-->>W: count
+    loop Until done
+        W->>A: FindBlob
+        A-->>W: PDFs
+        W->>A: UpdateBlob<br/>AddDescriptor
+    end
+
+    W->>A: AddDescriptorSet
+    W->>A: FindBlob
+    A-->>W: count
+    loop Until done
+        W->>A: FindBlob
+        A-->>W: PDFs
+        W->>A: UpdateBlob<br/>AddEntity<br/>AddDescriptor<br/>AddConection
     end
 ```
 
@@ -57,7 +85,9 @@ Default is `false`.
 * **`SLEEPING_TIME`**: Delay between scans, in seconds. Default is `30`.
 * **`WF_EXTRACT_IMAGES`**: Extract embeddings for images. Default is `False`.
 * **`WF_EXTRACT_PDFS`**: Extract embeddings for PDFs. Defailt is `False`.
-* **`WF_LOG_LEVEL`**: Set log level for workflow code. Defaults is WARNING.
+* **`WF_EXTRACT_IMAGE_OCR
+* **`WF_LOG_LEVEL`**: Set log level for workflow code. Default is WARNING.
+* **`WF_OCR_METHOD`**: Choose method for OCR extraction. Default is `tesseract`. Provided for future extension. No other methods are currently provided.
 
 > Either WF_EXTRACT_IMAGES or WF_EXTRACT_PDFS must be set to true, or the workflow does not do anything. This is checked and will cause the workflow to error out.
 
@@ -73,11 +103,44 @@ q = [{
             "with_name": "wf_embeddings_clip"
         }
     }, {
+        "DeleteDescriptorSet": {
+            "with_name": "wf_embeddings_clip_text"
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": "wf_embeddings_clip_image_extraction"
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": "wf_embeddings_clip_pdf_extraction"
+        }
+    }, {
         "UpdateImage": {
             "constraints": {
                 "wf_embeddings_clip": ["!=", null]
             },
             "remove_props": ["wf_embeddings_clip"]
+        }
+    }, {
+        "UpdateImage": {
+            "constraints": {
+                "wf_embeddings_clip_image_extraction_done": ["!=", null]
+            },
+            "remove_props": ["wf_embeddings_clip_image_extraction_done"]
+        }
+    }, {
+        "UpdateBlob": {
+            "constraints": {
+                "wf_embeddings_clip_text": ["!=", null]
+            },
+            "remove_props": ["wf_embeddings_clip_text"]
+        }
+    }, {
+        "UpdateBlob": {
+            "constraints": {
+                "wf_embeddings_clip_pdf_extraction_done": ["!=", null]
+            },
+            "remove_props": ["wf_embeddings_clip_pdf_extraction_done"]
         }
     }]
 ```

@@ -1,10 +1,8 @@
 import math
 
-import torch
 import cv2
 import numpy as np
 from PIL import Image
-import clip
 
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
@@ -16,19 +14,16 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, db, descriptor_set: str, model_name: str):
+    def __init__(self, pool, embedder, done_property: str):
 
-        self.pool = ConnectionPool(connection_factory=db.clone)
-        self.descriptor_set = descriptor_set
-
-        # Choose the model to be used.
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.preprocess = clip.load(model_name, device=self.device)
+        self.pool = pool
+        self.embedder = embedder
+        self.done_property = done_property
 
         query = [{
             "FindImage": {
                 "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
+                    self.done_property: ["!=", True]
                 },
                 "results": {
                     "count": True
@@ -36,7 +31,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        response, _ = db.query(query)
+        _, response, _ = self.pool.execute_query(query)
 
         try:
             total_images = response[0]["FindImage"]["count"]
@@ -67,7 +62,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "wf_embeddings_clip": ["!=", True]
+                    self.done_property: ["!=", True]
                 },
                 "batch": {
                     "batch_size": self.batch_size,
@@ -100,20 +95,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         desc_blobs = []
 
         for b in r_blobs:
-            nparr = np.frombuffer(b, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = self.preprocess(Image.fromarray(
-                image)).unsqueeze(0).to(self.device)
-
-            image_features = self.model.encode_image(image)
-
-            if self.device == "cuda":
-                image_features = image_features.float()
-                desc_blobs.append(
-                    image_features.detach().cpu().numpy().tobytes())
-            else:
-                desc_blobs.append(image_features.detach().numpy().tobytes())
+            image_features = self.embedder.embed_image(b)
+            desc_blobs.append(image_features.tobytes())
 
         query = []
         for uniqueid, i in zip(uniqueids, range(len(uniqueids))):
@@ -131,19 +114,21 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": i + 1,
                     "properties": {
-                        "wf_embeddings_clip": True
+                        self.done_property: True
                     },
                 }
             })
 
             query.append({
                 "AddDescriptor": {
-                    "set": self.descriptor_set,
+                    "set": self.embedder.descriptor_set,
                     "connect": {
                         "ref": i + 1
                     },
                     "properties": {
-                        "type": "image"
+                        "type": "image",
+                        "source_type": "image",
+                        "extraction_type": "image"
                     }
                 }
             })
