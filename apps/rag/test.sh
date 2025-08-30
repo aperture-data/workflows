@@ -56,7 +56,7 @@ function setup() {
 
     docker build -t get_summary -f- . <<EOD
 FROM aperturedata/workflows-base
-RUN echo "/usr/local/bin/adb utils execute summary" > /app/app.sh
+RUN echo "/opt/venv/bin/adb utils execute summary" > /app/app.sh
 EOD
 }
 

@@ -32,8 +32,8 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
 def get_log_level() -> int:
     """Get the log level from the environment variable."""
     load_aperturedb_env()
-    log_level = os.getenv("WF_LOG_LEVEL", "WARN").upper()
-    return getattr(logging, log_level, logging.WARN)
+    log_level = os.getenv("WF_LOG_LEVEL", "WARNING").upper()
+    return getattr(logging, log_level, logging.WARNING)
 
 
 # Mapping from ApertureDB types to PostgreSQL types.

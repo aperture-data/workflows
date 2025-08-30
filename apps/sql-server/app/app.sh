@@ -4,7 +4,7 @@ set -e
 # Dump log file on error
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
 
-WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARN}
+WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARNING}
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
 
 # Start proxy server
@@ -49,15 +49,13 @@ fi
 echo "Starting PostgreSQL..."
 /etc/init.d/postgresql start
 
-until pg_isready -U postgres -h /var/run/postgresql ; do
+until su - postgres -c "pg_isready -h /var/run/postgresql"; do
   echo "Waiting for postgres..."
   sleep 1
 done
 
-# Set the password for the 'aperturedb' user
-echo "Setting $SQL_USER password... to $SQL_PASS"
 # Be careful to avoid problems with special characters in the password
-su - postgres -c "psql" <<EOF
+su - postgres -c "psql <<'EOF'
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${SQL_USER}') THEN
@@ -68,7 +66,7 @@ BEGIN
   END IF;
 END;
 \$\$;
-EOF
+EOF"
 su - postgres -c "set -e ; createdb ${SQL_NAME}"
 
 

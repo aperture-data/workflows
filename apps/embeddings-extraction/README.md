@@ -54,7 +54,7 @@ docker run \
            aperturedata/workflows-embeddings-extraction
 ```
 
-Parameters: 
+Parameters:
 * **`MODEL_NAME`**: Specifies the model to be used.
 Available options are: ['RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px']. Default is `ViT-B/16`.
 * **`NUMTHREADS`**: Specifies the number of threads that will be running simultaneously,
@@ -68,8 +68,9 @@ Default is `false`.
 * **`SLEEPING_TIME`**: Delay between scans, in seconds. Default is `30`.
 * **`WF_EXTRACT_IMAGES`**: Extract embeddings for images. Default is `False`.
 * **`WF_EXTRACT_PDFS`**: Extract embeddings for PDFs. Defailt is `False`.
-* **`WF_EXTRACT_IMAGE_OCR
 * **`WF_LOG_LEVEL`**: Set log level for workflow code. Default is WARNING.
+
+> Either WF_EXTRACT_IMAGES or WF_EXTRACT_PDFS must be set to true, or the workflow does not do anything. This is checked and will cause the workflow to error out.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
