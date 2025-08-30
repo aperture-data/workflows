@@ -1,0 +1,4 @@
+pytesseract
+pillow
+PyMuPDF
+easyocr

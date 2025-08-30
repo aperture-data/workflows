@@ -1,10 +1,6 @@
 import math
 
-import torch
-import cv2
-import numpy as np
 from PIL import Image
-import clip
 
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
@@ -107,8 +103,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         query2 = []
 
         for uid, b in zip(uniqueids, r_blobs):
-            image = Image.open(BytesIO(b)).convert("RGB")
-            text = self.ocr.image_to_text(image)
+            text = self.ocr.bytes_to_text(b)
             if text:
                 logger.debug(f"Text: {text}")
                 image_ref = len(query2) + 1
@@ -132,7 +127,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     },
                     {
                         "AddEntity": {
-                            "class": "ImageExtractedText",
+                            "class": "ExtractedText",
                             "properties": {
                                 "text": text,
                                 "type": "extracted_from_image",
@@ -186,10 +181,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     ])
                     desc_blobs.append(embedding)
 
-        with self.pool.get_connection() as client:
-            from aperturedb.CommonLibrary import execute_query
-            status, r, _ = execute_query(client, query2, desc_blobs)
-            assert status == 0, f"Query failed: {r}"
+                status, r, _ = self.pool.execute_query(query2, desc_blobs)
+                assert status == 0, f"Query failed: {r}"
+                logger.debug(f"Added {len(segments)} segments")
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         texts = [segment.text for segment in segments]

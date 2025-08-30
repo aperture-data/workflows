@@ -27,15 +27,6 @@ sequenceDiagram
     end
 
     W->>A: AddDescriptorSet
-    W->>A: FindImage
-    A-->>W: count
-    loop Until done
-        W->>A: FindImage
-        A-->>W: images
-        W->>A: UpdateImage<br/>AddEntity<</br/>AddDescriptor<br/>AddConnection
-    end
-
-    W->>A: AddDescriptorSet
     W->>A: FindBlob
     A-->>W: count
     loop Until done
@@ -44,14 +35,6 @@ sequenceDiagram
         W->>A: UpdateBlob<br/>AddDescriptor
     end
 
-    W->>A: AddDescriptorSet
-    W->>A: FindBlob
-    A-->>W: count
-    loop Until done
-        W->>A: FindBlob
-        A-->>W: PDFs
-        W->>A: UpdateBlob</br/>AddEntity<br/>AddDescriptor<br/>AddConection
-    end
 ```
 
 Each image is updated with a flag (`wf_embeddings_clip`) to indicate the
@@ -87,7 +70,6 @@ Default is `false`.
 * **`WF_EXTRACT_PDFS`**: Extract embeddings for PDFs. Defailt is `False`.
 * **`WF_EXTRACT_IMAGE_OCR
 * **`WF_LOG_LEVEL`**: Set log level for workflow code. Default is WARNING.
-* **`WF_OCR_METHOD`**: Choose method for OCR extraction. Default is `tesseract`. Provided for future extension. No other methods are currently provided.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
@@ -105,26 +87,11 @@ q = [{
             "with_name": "wf_embeddings_clip_text"
         }
     }, {
-        "DeleteDescriptorSet": {
-            "with_name": "wf_embeddings_clip_image_extraction"
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": "wf_embeddings_clip_pdf_extraction"
-        }
-    }, {
         "UpdateImage": {
             "constraints": {
                 "wf_embeddings_clip": ["!=", null]
             },
             "remove_props": ["wf_embeddings_clip"]
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                "wf_embeddings_clip_image_extraction_done": ["!=", null]
-            },
-            "remove_props": ["wf_embeddings_clip_image_extraction_done"]
         }
     }, {
         "UpdateBlob": {
@@ -133,12 +100,7 @@ q = [{
             },
             "remove_props": ["wf_embeddings_clip_text"]
         }
-    }, {
-        "UpdateBlob": {
-            "constraints": {
-                "wf_embeddings_clip_pdf_extraction_done": ["!=", null]
-            },
-            "remove_props": ["wf_embeddings_clip_pdf_extraction_done"]
-        }
     }]
 ```
+
+or use the `CLEAN` option above.

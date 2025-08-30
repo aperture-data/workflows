@@ -5,10 +5,7 @@ from typing import Iterable, Tuple, List, Optional
 
 import torch
 import numpy as np
-import clip
-import cv2
 from PIL import Image
-import pytesseract
 from io import BytesIO
 import fitz  # PyMuPDF
 
@@ -133,7 +130,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             logger.warning(f"Error checking PDF text content: {e}")
             return False
 
-    def pdf_to_images(self, pdf_data: bytes) -> List[Image.Image]:
+    def pdf_to_images(self, pdf_data: bytes) -> List[bytes]:
         """
         Convert PDF pages to PIL Image objects.
         """
@@ -148,8 +145,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     
                     # Convert to PIL Image
                     img_data = pix.tobytes("png")
-                    img = Image.open(BytesIO(img_data)).convert("RGB")
-                    images.append(img)
+                    images.append(img_data)
             
             return images
         except Exception as e:
@@ -186,7 +182,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         # Extract text from each image
         all_text_blocks = []
         for page_num, image in enumerate(images, start=1):
-            text = self.ocr.image_to_text(image)
+            text = self.ocr.bytes_to_text(image)
             if text:
                 # Create text block with page number
                 block = TextBlock(text=text, page_number=page_num)
@@ -269,7 +265,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
                 query.append({
                     "AddEntity": {
-                        "class": "PDFExtractedText",
+                        "class": "ExtractedText",
                         "properties": {
                             "text": "test",
                             "ocr_method": self.ocr.method,
@@ -326,7 +322,9 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     })
                     vectors.append(embedding)
 
-                self.pool.execute_query(query, vectors)
+                status, r, _ = self.pool.execute_query(query, vectors)
+                assert status == 0, f"Query failed: {r}"
+                logger.debug(f"Added {len(segment_batch)} segments")
 
             # Finally mark the blob as processed
             query = []

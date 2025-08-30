@@ -2,8 +2,8 @@ import pytest
 from aperturedb.CommonLibrary import execute_query
 import pandas as pd
 from common import (
-    db_connection, 
-    calculate_text_scores, 
+    db_connection,
+    calculate_text_scores,
     create_text_comparison_dataframe,
     assert_score_threshold
 )
@@ -27,7 +27,7 @@ def run_query(db_connection):
         },
         {
             "FindDescriptor": {
-                "set": "wf_embeddings_clip_pdf_extraction",
+                "set": "wf_ocr_pdfs",
                 "is_connected_to": {"ref": 1},
                 "group_by_source": True,
                 "results": {
@@ -118,7 +118,7 @@ def test_text_pdfs_are_skipped(db_connection):
         },
         {
             "FindDescriptor": {
-                "set": "wf_embeddings_clip_pdf_extraction",
+                "set": "wf_ocr_pdfs",
                 "is_connected_to": {"ref": 1},
                 "results": {
                     "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"]

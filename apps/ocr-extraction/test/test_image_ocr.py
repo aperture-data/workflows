@@ -2,7 +2,7 @@ import pytest
 from aperturedb.CommonLibrary import execute_query
 import pandas as pd
 from common import (
-    db_connection, 
+    db_connection,
     calculate_text_scores,
     create_text_comparison_dataframe,
     assert_score_threshold
@@ -34,7 +34,7 @@ def run_query(db_connection):
         },
         {
             "FindDescriptor": {
-                "set": "wf_embeddings_clip_image_extraction",
+                "set": "wf_ocr_images",
                 "is_connected_to": {"ref": 2},
                 "group_by_source": True,
                 "results": {
@@ -70,8 +70,8 @@ def test_all_texts_have_descriptors(run_query):
     """Test that all texts have descriptors."""
     response = run_query
     text_ids = set(e['_uniqueid']
-        for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
-        for e in ee)
+                   for ee in (response[1]['FindEntity'].get('entities', {}) or {}).values()
+                   for e in ee)
     print(f"text_ids: {sorted(text_ids)}")
 
     descriptor_ids = set(
@@ -88,7 +88,7 @@ def calculate_scores(run_query):
     """Test that the BLEU scores are above a certain threshold."""
     response = run_query
     images = (response[0]['FindImage'].get('entities', []) or [])
-    
+
     # Convert image text entities to descriptor-like format for consistency
     descriptor_groups = {}
     for image_id, text_entities in (response[1]['FindEntity'].get('entities', {}) or {}).items():
@@ -104,6 +104,7 @@ def calculate_scores(run_query):
     # Use the same generic function as PDF tests
     df = create_text_comparison_dataframe(images, descriptor_groups)
     return calculate_text_scores(df)
+
 
 @pytest.mark.parametrize("metric, corpus, threshold", [
     ("char_bleu_score", "signs", 0.05),
