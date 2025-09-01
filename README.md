@@ -20,6 +20,17 @@ This will allow you to do various things that you can't do via the UI:
 * [Face Detection](apps/face-detection/): Find faces within images and generate bounding boxes. Optionally generate embeddings for the extracted faces.
 * [Object Detection](apps/object-detection/): Detect objects within images and add labelled bounding boxes.
 * [Jupyter Lab](apps/jupyterlab/): Run a Jupyter Notebook server that has access to your ApertureDB instance.
+* [Crawl to RAG](apps/crawl-to-rag/): Retrieve data from a website and runs a chatbot which can use RAG to intelligently reference data from the website.
+* [Crawl Website](apps/crawl-website/): Retrieve data from a website and store it in ApertureDB.
+* [Ingest Croissant](apps/ingest-croissant/): Ingests data using a Crossiant file.
+* [Ingest From Bucket](apps/ingest-from-bucket/): Ingests data from a GCP or S3 bucket.
+* [Ingest From SQL](apps/ingest-from-sql/): Ingests data from a PostgreSQL server.
+* [Label Studio](apps/ingest-croissant/): Hosts a Label Studio instance with automatic configuration for ApertureDB.
+* [MCP Server](apps/ingest-croissant/): Hosts a MCP server which exposes ApertureDB as a resource for LLMs.
+* [RAG](apps/ingest-croissant/): Host a Chatbot using pre-embedded text documents in ApertureDB.
+* [SQL Server](apps/sql-server/): Host a SQL server which retreives information from ApertureDB.
+* [Text Embeddings](apps/text-embedding/): Creates text embeddings from text segments.
+* [Text Extraction](apps/text-extraction/): Creates text segments from raw documents.
 
 ## Docker
 
