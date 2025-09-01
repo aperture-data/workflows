@@ -46,3 +46,38 @@ Both **`WF_LABEL_STUDIO_USER`** and **`WF_LABEL_STUDIO_PASSWORD`** must be suppl
 Annotations are stored as Entities with the class `LS_annotation`. With a properly configured export storage, these can be synced back to your ApertureDB.
 
 **`WF_LABEL_STUDIO_DEFAULT_IMPORT_ANNOTATIONS`** controls importing BoundingBoxes that are attached Images and importing them into a format that label studio stores locally. This is only required for data that isn't in Label Studio format. The imported data will be stored as predictions. **`WF_LABEL_STUDIO_STORAGE_ANNOTATIONS_RO`**: controls if those imported predictions can be modified, or if you plan to use them as guides, and have them as read-only.
+
+
+# Data Format
+This diagram shows how the workflow stores Label Studio data inside an ApertureDB instance.
+```mermaid
+erDiagram
+    Image {
+        number width
+        number height
+    }
+
+    LS_annotation {
+        number LS_project_id
+        json LS_data "_get_serialized_data(annotation)"
+        date LS_created_at "annotation.created_at"
+        string LS_project_title "annotation.project.title"
+        number LS_project_id "annotation.project.id"
+        string LS_completed_by "annotation.completed_by.email"
+        date LS_updated_at "annotation.updated_at"
+        string LS_updated_by "annotation.updated_by.email"
+    }
+
+    BoundingBox {
+        string[] labels "annotations and predictions"
+        special rectangle "annotations and predictions"
+        string LS_id "annotations only"
+        string LS_text "annotations and modified predictions"
+        string LS_annotation "annotations and modified predictions"
+        string LS_label "annotations and modified predictions"
+    }
+
+    Image ||--o{ LS_annotation : LS_annotation_image
+    Image ||--o{ BoundingBox : BoundingBoxToImage
+    LS_annotation }o--|{ BoundingBox : LS_annotation_region
+```
