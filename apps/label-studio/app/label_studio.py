@@ -7,8 +7,13 @@ from uuid import uuid4
 
 from aperturedb.CommonLibrary import create_connector 
 from wf_argparse import ArgumentParser
+from status import Status
+from status_tools import WorkFlowError,StatusUpdater
+from enum import Enum as PyEnum
+from prometheus_client import Enum
 
 from spec import WorkflowSpec
+
 
 import subprocess
 import re
@@ -17,19 +22,40 @@ import json
 
 logger = logging.getLogger(__name__)
 
+class LabelStudioStatus(PyEnum):
+    STARTING = "starting"
+    SETTING_UP = "setting up"
+    PROCESSING = "processing"
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
+
+
 def main(args):
+    updater = StatusUpdater()
+    updater.post_update(completed=0, phase="serving", status=LabelStudioStatus.STARTING) 
+
     db = create_connector()
 
+    def set_state(state):
+        updater.post_update(status=state)
+
     if args.delete:
+        set_state(LabelStudioStatus.PROCESSING)
         WorkflowSpec.delete_spec(db, "label-studio", args.spec_id )
+        set_state(LabelStudioStatus.FINISHED)
         sys.exit(0)
     elif args.delete_all:
+        set_state(LabelStudioStatus.PROCESSING)
         WorkflowSpec.delete_all_data( db, "label-studio") 
+        set_state(LabelStudioStatus.FINISHED)
         sys.exit(0)
     elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
         # but data could have been loaded from it.
+        set_state(LabelStudioStatus.PROCESSING)
         WorkflowSpec.delete_all_creator( "label-studio" )
+        set_state(LabelStudioStatus.FINISHED)
         sys.exit(0)
 
 
@@ -43,12 +69,12 @@ def main(args):
         if "DB_HOST_PUBLIC" in os.environ:
             # generate path for cloud
             full_path = "https://{}/labelstudio".format(os.environ['DB_HOST_PUBLIC'])
-            logger.error(f"Set url from DB_HOST_PUBLIC: {full_path}")
+            logger.info(f"Set url from DB_HOST_PUBLIC: {full_path}")
         if args.label_studio_url_path is not None:
             if full_path is not None:
                 logger.warning("Overriding full path with explicit workflow option")
             full_path = args.label_studio_url_path
-            logger.error(f"Set url from workflow argument: {full_path}")
+            logger.info(f"Set url from workflow argument: {full_path}")
 
         if full_path:
             m = re.match("(https?)://([^/]*)(.*)",full_path)
@@ -61,16 +87,16 @@ def main(args):
             if re.match(".*(farm\d+)\.[^.]*\.[^.]*\.aperturedata",host ):
                 oldhost = host
                 host = re.sub("(farm\d+)\.[^.]*\.[^.]*","\\1.cloud",host)
-                logger.error(f"Changed {oldhost} to {host}")
+                logger.debug(f"Changed {oldhost} to {host}")
                 full_path = "{}://{}{}".format(proto,host,subpath)
-            logger.error(f"Subpath = {subpath}") 
+            logger.debug(f"Subpath = {subpath}") 
 
             # strip trailing /
             if subpath[-1:] == '/':
-                logger.error("Subpath had trailing slash, stripped.") 
+                logger.debug("Subpath had trailing slash, stripped.") 
                 subpath = sub_path[:-1]
 
-            logger.error(f"Path is {full_path} and {subpath}")
+            logger.debug(f"Path is {full_path} and {subpath}")
             
             env["LABEL_STUDIO_HOST"] = full_path
             env["LABEL_STUDIO_STATIC_PATH"] = "{}/static/".format( subpath )
@@ -101,12 +127,15 @@ def main(args):
         cfg_env["LABEL_STUDIO_CLOUD_STORAGE_JSON_PATH"]="/app/cloud.json"
     spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
 
+    set_state(LabelStudioStatus.SETTING_UP)
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
     run_id = uuid4()
     spec.add_run( run_id )
 
     if ret.returncode != 0:
         logger.error("Label Studio configuration failed.")
+        set_state(LabelStudioStatus.FAILED)
+        sys.exit(2)
     else:
         logger.info("Label Studio configuration suceeded.")
 
@@ -130,6 +159,7 @@ def main(args):
 
 
         spec.finish_run(str(run_id))
+    set_state(LabelStudioStatus.FINISHED)
     spec.finish_spec()
 
 def get_args():
@@ -140,7 +170,7 @@ def get_args():
             help="Name of a project to be created automatically (set to '' to disable")
     obj.add_argument("--label-studio-default-storage-name",type=str,default="ApertureDB",
             help="Name of the aperturedb storage to be created automatically (set to '' to disable")
-    obj.add_argument("--label-studio-default-storage-limit",type=int,default=None,
+    obj.add_argument("--label-studio-default-storage-limit",type=int,default=500,
             help="Value to be set as the default of images to be ingested on a sync in LS.") 
     obj.add_argument("--label-studio-default-import-annotations",type=bool,default=True,
             help="Whether to by default import Bboxes as annotations") 
@@ -151,8 +181,8 @@ def get_args():
             help="Path to host label studio on other than /. Supply full external path: eg. http://localhost:8888/labelstudio ")
     # login options
     obj.add_argument("--label-studio-token",type=str,default=None, help="User token for label studio") 
-    obj.add_argument("--label-studio-user",type=str,default=None, help="User for label studio") 
-    obj.add_argument("--label-studio-password",type=str,default=None, help="User password for label studio") 
+    obj.add_argument("--label-studio-user",type=str,default=None,required=True, help="User for label studio") 
+    obj.add_argument("--label-studio-password",type=str,default=None,required=True, help="User password for label studio") 
 
     # workflow options
     obj.add_argument("--spec-id",type=str,default=None,
