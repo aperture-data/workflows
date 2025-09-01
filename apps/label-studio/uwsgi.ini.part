@@ -1,0 +1,3 @@
+# uwsgi.ini.part - Code injected at the end of uwsgi.ini
+
+hook-accepting1 = exec:/app/notify_url_running.sh
