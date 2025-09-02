@@ -242,22 +242,22 @@ class Embedder():
 
         if clean:
             delete_descriptor_set(client, descriptor_set)
-        elif properties := find_descriptor_set(
+        elif existing_properties := find_descriptor_set(
                 client=client,
                 descriptor_set=descriptor_set):
             logger.info(
-                f"Found existing descriptor set {descriptor_set}: {properties}")
+                f"Found existing descriptor set {descriptor_set}: {existing_properties}")
 
             # Verify that the existing descriptor set matches the requested parameters
-            if provider != properties['provider']:
+            if provider != existing_properties['embeddings_provider']:
                 raise ValueError(
-                    f"Provider mismatch: {provider} != {properties['provider']}")
-            if model_name != properties['model_name']:
+                    f"Provider mismatch: {provider} != {existing_properties['embeddings_provider']}")
+            if model_name != existing_properties['embeddings_model']:
                 raise ValueError(
-                    f"Model name mismatch: {model_name} != {properties['model_name']}")
-            if pretrained != properties['pretrained']:
+                    f"Model name mismatch: {model_name} != {existing_properties['embeddings_model']}")
+            if pretrained and pretrained != existing_properties['embeddings_pretrained']:
                 raise ValueError(
-                    f"Pretrained corpus mismatch: {pretrained} != {properties['pretrained']}")
+                    f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']}")
         else:
             logger.info(
                 f"Descriptor set {descriptor_set} not found. Will create a new one.")
@@ -267,19 +267,19 @@ class Embedder():
                    pretrained=pretrained,
                    descriptor_set=descriptor_set,
                    device=device)
-
-        properties = properties or {}
-        properties.update(self.get_properties())
-        add_descriptor_set(
-            client=client,
-            descriptor_set=descriptor_set,
-            metric=self.metric,
-            dimensions=self.dimensions,
-            engine=engine,
-            properties=properties
-        )
-        logger.info(
-            f"Created new descriptor set: {descriptor_set} with properties: {properties}")
+        if not existing_properties:
+            properties = properties or {}
+            properties.update(self.get_properties())
+            add_descriptor_set(
+                client=client,
+                descriptor_set=descriptor_set,
+                metric=self.metric,
+                dimensions=self.dimensions,
+                engine=engine,
+                properties=properties
+            )
+            logger.info(
+                f"Created new descriptor set: {descriptor_set} with properties: {properties}")
 
         return self
 
