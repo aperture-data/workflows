@@ -10,7 +10,6 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
-count = 0
 lock = threading.Lock()
 
 RESPONSE = {
@@ -24,11 +23,7 @@ RESPONSE = {
 }
 
 def get_workflow_status():
-    global count
-    count += 1
     global RESPONSE
-    # print("Fetching status from the server...")
-    RESPONSE["completeness"] = min(count / 10.0, 1.0)  # Simulate progress
     response = None
     try:
         response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PROMETHEUS_PORT')}/")
