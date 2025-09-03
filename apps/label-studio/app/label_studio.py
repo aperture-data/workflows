@@ -41,9 +41,9 @@ def main(args):
 
     def set_state(phase,completeness=None):
         if completeness is not None:
-            updater.post_update(phase=state,completed=completeness)
+            updater.post_update(phase=phase,completed=completeness)
         else:
-            updater.post_update(phase=state)
+            updater.post_update(phase=phase)
 
     if args.delete:
         set_state(LabelStudioPhase.PROCESSING,completeness=0)
@@ -131,10 +131,10 @@ def main(args):
             json.dump(storage_config,fp)
         cfg_env["LABEL_STUDIO_CLOUD_STORAGE_JSON_PATH"]="/app/cloud.json"
     spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
-    set_state(LabelStudioPhase.INITIALIZNG,completeness=25)
+    set_state(LabelStudioPhase.INITIALIZING,completeness=25)
 
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
-    set_state(LabelStudioPhase.INITIALIZNG,completeness=70)
+    set_state(LabelStudioPhase.INITIALIZING,completeness=70)
     run_id = uuid4()
     spec.add_run( run_id )
 
