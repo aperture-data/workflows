@@ -22,9 +22,9 @@ import json
 
 logger = logging.getLogger(__name__)
 
-class LabelStudioStatus(PyEnum):
+class LabelStudioPhase(PyEnum):
     STARTING = "starting"
-    SETTING_UP = "setting up"
+    INITIALIZING = "initializing" 
     PROCESSING = "processing"
     RUNNING = "running"
     FINISHED = "finished"
@@ -33,29 +33,34 @@ class LabelStudioStatus(PyEnum):
 
 def main(args):
     updater = StatusUpdater()
-    updater.post_update(completed=0, phase="serving", status=LabelStudioStatus.STARTING) 
+    updater.post_update(completed=10, phase="initializing",
+            phases=["initializing","processing","serving","finished"],
+            status=LabelStudioPhase.STARTING) 
 
     db = create_connector()
 
-    def set_state(state):
-        updater.post_update(status=state)
+    def set_state(phase,completeness=None):
+        if completeness is not None:
+            updater.post_update(phase=state,completed=completeness)
+        else:
+            updater.post_update(phase=state)
 
     if args.delete:
-        set_state(LabelStudioStatus.PROCESSING)
+        set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_spec(db, "label-studio", args.spec_id )
-        set_state(LabelStudioStatus.FINISHED)
+        set_state(LabelStudioPhase.FINISHED,completeness=100)
         sys.exit(0)
     elif args.delete_all:
-        set_state(LabelStudioStatus.PROCESSING)
+        set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_all_data( db, "label-studio") 
-        set_state(LabelStudioStatus.FINISHED)
+        set_state(LabelStudioPhase.FINISHED,completeness=100)
         sys.exit(0)
     elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
         # but data could have been loaded from it.
-        set_state(LabelStudioStatus.PROCESSING)
+        set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_all_creator( "label-studio" )
-        set_state(LabelStudioStatus.FINISHED)
+        set_state(LabelStudioPhase.FINISHED,completeness=100)
         sys.exit(0)
 
 
@@ -126,15 +131,16 @@ def main(args):
             json.dump(storage_config,fp)
         cfg_env["LABEL_STUDIO_CLOUD_STORAGE_JSON_PATH"]="/app/cloud.json"
     spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
+    set_state(LabelStudioPhase.INITIALIZNG,completeness=25)
 
-    set_state(LabelStudioStatus.SETTING_UP)
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
+    set_state(LabelStudioPhase.INITIALIZNG,completeness=70)
     run_id = uuid4()
     spec.add_run( run_id )
 
     if ret.returncode != 0:
         logger.error("Label Studio configuration failed.")
-        set_state(LabelStudioStatus.FAILED)
+        set_state(LabelStudioPhase.FAILED,completeness=100)
         sys.exit(2)
     else:
         logger.info("Label Studio configuration suceeded.")
@@ -159,7 +165,7 @@ def main(args):
 
 
         spec.finish_run(str(run_id))
-    set_state(LabelStudioStatus.FINISHED)
+    set_state(LabelStudioPhase.FINISHED,completeness=100)
     spec.finish_spec()
 
 def get_args():
