@@ -15,8 +15,13 @@ from pdfs import FindPDFQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
+VIDEO_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_video'
 DONE_PROPERTY = 'wf_embeddings_clip'
-
+IMAGE_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_image_extraction'
+IMAGE_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_image_extraction_done'
+PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_pdf_extraction'
+PDF_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_pdf_extraction_done'
+VIDEO_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_video_extraction_done'
 
 def clean_embeddings(db):
 
@@ -99,6 +104,26 @@ def main(params):
 
         print("Done with PDFs.")
 
+    if params.extract_videos:
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, VIDEO_EXTRACTION_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "video"})
+        generator = FindVideoQueryGenerator(
+            pool, embedder, done_property=VIDEO_EXTRACTION_DONE_PROPERTY)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
+
+            print("Running Video Extraction...")
+
+            querier.query(generator, batchsize=1,
+                        numthreads=params.numthreads,
+                        stats=True)
+
+            print("Done with Video Extraction.")
+
     print("Done")
 
 
@@ -140,8 +165,9 @@ def get_args():
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
-    obj.add_argument('--ocr-method', choices=['tesseract', 'easyocr'],
-                     default=os.environ.get('WF_OCR_METHOD', 'tesseract'))
+    obj.add_argument('--extract-videos', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_VIDEOS', False))
+
     params = obj.parse_args()
 
     # >>> import clip
@@ -151,7 +177,11 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_text])):
+    if not (any([
+        params.extract_images,
+        params.extract_pdfs,
+        params.extract_videos
+        ])):
         raise ValueError("No extractions specified")
 
     return params
