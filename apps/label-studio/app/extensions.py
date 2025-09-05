@@ -38,13 +38,12 @@ def modify_bbox_add_props( bbox_props:object,  ctx:extension_iface ):
 
 # return a list of aperturedb commands to add to the query when saving an annotation
 def append_to_save_annotation( ctx:extension_iface ):
-    logger.error(f"A2SA {ctx}")
+    logger.debug(f"incoming context for extension: {ctx}")
     last_ref = ctx.ref
     ref = last_ref + 1
     # this means if a different run modifies an annotation it will also link to
     # it.
     annotation_key = hash_string( f"{run_id}_ann_{ctx.object_id}" )
-    logger.error(f"A2SA NAME {workflow_name} SPEC {spec_id} RUN {run_id} key {annotation_key}")
     query = [{
                 "FindEntity": {
                     "with_class": "WorkflowSpec",
@@ -81,10 +80,11 @@ def append_to_save_annotation( ctx:extension_iface ):
             }
     }]
     ctx.run_ref = ref+1
+    ctx.ref = ref+1
     return query
 
 def append_to_save_bbox( ctx:extension_iface ):
-    logger.error(f"A2SB {ctx}")
+    logger.debug(f"incoming context to extensions: {ctx}")
     bbox_key = hash_string( f"{run_id}_bbox_{ctx.object_id}" )
     query = [{
         "AddConnection": {

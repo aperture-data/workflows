@@ -8,7 +8,7 @@ from uuid import uuid4
 from aperturedb.CommonLibrary import create_connector 
 from wf_argparse import ArgumentParser
 from status import Status
-from status_tools import WorkFlowError,StatusUpdater
+from status_tools import WorkFlowError,StatusUpdater,WorkflowStatus
 from enum import Enum as PyEnum
 from prometheus_client import Enum
 
@@ -23,48 +23,56 @@ import json
 logger = logging.getLogger(__name__)
 
 class LabelStudioPhase(PyEnum):
-    STARTING = "starting"
     INITIALIZING = "initializing" 
     PROCESSING = "processing"
-    RUNNING = "running"
-    FINISHED = "finished"
-    FAILED = "failed"
+    SETUP = "setup"
+    SERVING = "serving"
 
 
 def main(args):
     updater = StatusUpdater()
-    updater.post_update(completed=10, phase="initializing",
-            phases=["initializing","processing","serving","finished"],
-            status=LabelStudioPhase.STARTING) 
+    processing = args.delete or args.delete_all or args_delete_all_ls_data
+    if processing:
+        pass
+        updater.post_update(completed=50, phase="initializing",
+                phases=["initializing","processing"],
+                wf_status=WorkflowStatus.RUNNING) 
+    else:
+        updater.post_update(completed=50, phase="initializing",
+                phases=["initializing","setup","serving"],
+                wf_status=WorkflowStatus.RUNNING) 
 
     db = create_connector()
 
-    def set_state(phase,completeness=None):
+    def set_state(phase,completeness=None,wf_status=None):
+        opts = { "phase":phase}
         if completeness is not None:
-            updater.post_update(phase=phase,completed=completeness)
-        else:
-            updater.post_update(phase=phase)
+            opts["completed"] = completeness
+        if wf_status is not None:
+            opts["status"] = wf_status
+        updater.post_update(**opts)
 
     if args.delete:
         set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_spec(db, "label-studio", args.spec_id )
-        set_state(LabelStudioPhase.FINISHED,completeness=100)
+        set_state(LabelStudioPhase.PROCESSING,completeness=100,wf_status=WorkflowStatus.COMPLETE)
         sys.exit(0)
     elif args.delete_all:
         set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_all_data( db, "label-studio") 
-        set_state(LabelStudioPhase.FINISHED,completeness=100)
+        set_state(LabelStudioPhase.FINISHED,completeness=100,wf_status=WorkflowStatus.COMLPETE)
         sys.exit(0)
     elif args.delete_all_ls_data:
         # note we don't verify host/database - a host could not be available,
         # but data could have been loaded from it.
         set_state(LabelStudioPhase.PROCESSING,completeness=0)
         WorkflowSpec.delete_all_creator( "label-studio" )
-        set_state(LabelStudioPhase.FINISHED,completeness=100)
+        set_state(LabelStudioPhase.FINISHED,completeness=100,wf_status=WorkflowStatus.COMLPETE)
         sys.exit(0)
 
 
 
+    set_state(LabelStudioPhase.SETUP,completeness=0)
     def add_common_vars( env ):
 
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
@@ -131,16 +139,16 @@ def main(args):
             json.dump(storage_config,fp)
         cfg_env["LABEL_STUDIO_CLOUD_STORAGE_JSON_PATH"]="/app/cloud.json"
     spec = WorkflowSpec( db, "label-studio", args.spec_id, clean=args.clean )
-    set_state(LabelStudioPhase.INITIALIZING,completeness=25)
+    set_state(LabelStudioPhase.SETUP,completeness=25)
 
     ret = subprocess.run("bash /app/label_studio_init.sh", shell=True, env=cfg_env)
-    set_state(LabelStudioPhase.INITIALIZING,completeness=70)
+    set_state(LabelStudioPhase.SETUP,completeness=70)
     run_id = uuid4()
     spec.add_run( run_id )
 
     if ret.returncode != 0:
         logger.error("Label Studio configuration failed.")
-        set_state(LabelStudioPhase.FAILED,completeness=100)
+        set_state(LabelStudioPhase.SETUP,wf_status=WorkflowStatus.FAILED)
         sys.exit(2)
     else:
         logger.info("Label Studio configuration suceeded.")
@@ -159,6 +167,7 @@ def main(args):
         logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
+        set_state(LabelStudioPhase.SERVING,completeness=70)
         subprocess.run( "bash /app/label_studio_run.sh", shell=True,env=ls_env)
         logger.info("Label Studio finished")
 
