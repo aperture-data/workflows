@@ -9,20 +9,13 @@ from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
 from connection_pool import ConnectionPool
-from ocr import OCR
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
-from image_ocr import FindImageOCRQueryGenerator
-from pdf_ocr import FindPDFOCRQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
 DONE_PROPERTY = 'wf_embeddings_clip'
-IMAGE_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_image_extraction'
-IMAGE_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_image_extraction_done'
-PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_pdf_extraction'
-PDF_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_pdf_extraction_done'
 
 def clean_embeddings(db):
 
@@ -37,29 +30,7 @@ def clean_embeddings(db):
             "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
-        "DeleteDescriptorSet": {
-            "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": PDF_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
         "UpdateImage": {
-            "constraints": {
-                DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [DONE_PROPERTY]
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                IMAGE_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [IMAGE_EXTRACTION_DONE_PROPERTY]
-        }
-    }, {
-        "UpdateBlob": {
             "constraints": {
                 DONE_PROPERTY: ["!=", None]
             },
@@ -68,9 +39,9 @@ def clean_embeddings(db):
     }, {
         "UpdateBlob": {
             "constraints": {
-                PDF_EXTRACTION_DONE_PROPERTY: ["!=", None]
+                DONE_PROPERTY: ["!=", None]
             },
-            "remove_props": [PDF_EXTRACTION_DONE_PROPERTY]
+            "remove_props": [DONE_PROPERTY]
         }
     }])
 
@@ -82,9 +53,6 @@ def main(params):
     logging.basicConfig(level=params.log_level.upper())
 
     pool = ConnectionPool()
-
-    # Initialize OCR instance
-    ocr = OCR.create(provider=params.ocr_method)
 
     if params.clean:
         with pool.get_connection() as db:
@@ -130,45 +98,6 @@ def main(params):
 
         print("Done with PDFs.")
 
-    if params.extract_image_text:
-        with pool.get_connection() as db:
-            embedder = Embedder.from_new_descriptor_set(
-                db, IMAGE_EXTRACTION_DESCRIPTOR_SET,
-                provider="clip",
-                model_name=params.model_name,
-                properties={"type": "text", "source_type": "image", "ocr_method": params.ocr_method})
-        generator = FindImageOCRQueryGenerator(
-            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr)
-        with pool.get_connection() as db:
-            querier = ParallelQuery.ParallelQuery(db)
-
-        print("Running Image Text Extraction...")
-
-        querier.query(generator, batchsize=1,
-                      numthreads=params.numthreads,
-                      stats=True)
-
-        print("Done with Image Text Extraction.")
-
-    if params.extract_pdf_text:
-        with pool.get_connection() as db:
-            embedder = Embedder.from_new_descriptor_set(
-                db, PDF_EXTRACTION_DESCRIPTOR_SET,
-                provider="clip",
-                model_name=params.model_name,
-                properties={"type": "text", "source_type": "pdf", "ocr_method": params.ocr_method})
-        generator = FindPDFOCRQueryGenerator(
-            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr)
-        with pool.get_connection() as db:
-            querier = ParallelQuery.ParallelQuery(db)
-
-        print("Running PDF OCR Extraction...")
-
-        querier.query(generator, batchsize=1,
-                      numthreads=params.numthreads,
-                      stats=True)
-
-        print("Done with PDF OCR Extraction.")
 
     print("Done")
 
@@ -214,7 +143,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_text])):
+    if not (any([params.extract_images, params.extract_pdfs])):
         raise ValueError("No extractions specified")
 
     return params

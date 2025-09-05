@@ -20,7 +20,7 @@ def run_query(db_connection):
                     "corpus": ["==", "images"]
                 },
                 "results": {
-                    "list": ["filename", "_uniqueid", "expected_text", "corpus"]
+                    "list": ["filename", "_uniqueid", "expected_text", "corpus", "wf_ocr_done"]
                 },
                 "_ref": 1,
             }
@@ -43,6 +43,13 @@ def run_query(db_connection):
     assert status == 0, f"Query failed: {response}"
 
     return response
+
+
+def test_all_pdfs_done(run_query):
+    response = run_query
+    not_done = [e for e in response[0]['FindBlob'].get(
+        'entities', []) or [] if not e['wf_ocr_done']]
+    assert not not_done, f"Not all PDFs marked as done: {not_done}"
 
 
 def test_image_pdfs_have_descriptors(run_query):

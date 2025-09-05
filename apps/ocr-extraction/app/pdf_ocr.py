@@ -8,12 +8,13 @@ import numpy as np
 from PIL import Image
 from io import BytesIO
 import fitz  # PyMuPDF
-
+import uuid
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
 from embeddings import Embedder
 from text_extraction.segmentation import TextSegmenter
 from text_extraction.schema import TextBlock, Segment
+
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,
-                                       overlap_tokens=overlap_tokens, 
+                                       overlap_tokens=overlap_tokens,
                                        min_tokens=None)
 
         query = [{
@@ -118,13 +119,13 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         """
         try:
             has_text = False
-            with fitz.open(stream=pdf_data, filetype="pdf") as doc:                
+            with fitz.open(stream=pdf_data, filetype="pdf") as doc:
                 for page_num in range(len(doc)):
                     page = doc.load_page(page_num)
                     text = page.get_text().strip()
                     if text:
                         has_text = True
-                        break           
+                        break
             return has_text
         except Exception as e:
             logger.warning(f"Error checking PDF text content: {e}")
@@ -136,22 +137,21 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         """
         try:
             images = []
-            with fitz.open(stream=pdf_data, filetype="pdf") as doc:                
+            with fitz.open(stream=pdf_data, filetype="pdf") as doc:
                 for page_num in range(len(doc)):
                     page = doc.load_page(page_num)
                     # Render page to image with higher resolution for better OCR
                     mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
                     pix = page.get_pixmap(matrix=mat)
-                    
+
                     # Convert to PIL Image
                     img_data = pix.tobytes("png")
                     images.append(img_data)
-            
+
             return images
         except Exception as e:
             logger.error(f"Error converting PDF to images: {e}")
             return []
-
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         """
@@ -161,53 +161,6 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         vectors = self.embedder.embed_texts(texts)
         return [v.tobytes() for v in vectors]
 
-    def blob_to_embeddings(self, blob: bytes) -> Iterable[Tuple[Segment, bytes]]:
-        """
-        Process PDF blob: check for text, convert to images if needed, 
-        extract text via OCR, segment, and generate embeddings.
-        """
-        # First check if PDF has extractable text
-        if self.has_text_content(blob):
-            logger.info("PDF has extractable text, skipping OCR processing")
-            return
-
-        # Convert PDF to images
-        images = self.pdf_to_images(blob)
-        if not images:
-            logger.warning("No images extracted from PDF")
-            return
-
-        logger.info(f"Extracted {len(images)} pages from PDF")
-
-        # Extract text from each image
-        all_text_blocks = []
-        for page_num, image in enumerate(images, start=1):
-            text = self.ocr.bytes_to_text(image)
-            if text:
-                # Create text block with page number
-                block = TextBlock(text=text, page_number=page_num)
-                all_text_blocks.append(block)
-                logger.debug(f"Extracted text from page {page_num}: {text[:100]}...")
-
-        if not all_text_blocks:
-            logger.warning("No text extracted from PDF images")
-            return
-
-        logger.info(f"Extracted {len(all_text_blocks)} text blocks from PDF")
-
-        # Segment the text blocks
-        segments = self.segmenter.segment(all_text_blocks, clean_only=False)
-
-        segment_number = 0
-        for segment_batch in batch(segments, 100):
-            logger.info(f"Processing batch of {len(segment_batch)} segments.")
-            embeddings = self.segments_to_embeddings(segment_batch)
-            logger.info(
-                f"Generated {len(embeddings)} embeddings for segments.")
-            numbers = range(segment_number, segment_number +
-                            len(segment_batch))
-            yield from zip(segment_batch, embeddings, numbers)
-            segment_number += len(segment_batch)
 
     def response_handler(self, query, blobs, response, r_blobs):
 
@@ -222,133 +175,165 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
         total_segments = 0
         for uniqueid, url, b in zip(uniqueids, urls, r_blobs):
-            blob_segments = 0
-            segments_and_embeddings = self.blob_to_embeddings(b)
-            
-            # If no segments (PDF had text content), mark as processed and continue
-            if not segments_and_embeddings:
-                query = []
-                query.append({
-                    "FindBlob": {
-                        "_ref": 1,
-                        "constraints": {
-                            "_uniqueid": ["==", uniqueid]
-                        },
-                    }
-                })
-                query.append({
-                    "UpdateBlob": {
-                        "ref": 1,
-                        "properties": {
-                            self.done_property: True,
-                            "segments": 0,
-                        },
-                    }
-                })
-                self.pool.execute_query(query)
+            if self.has_text_content(b):
+                logger.info("PDF has extractable text, skipping OCR processing")
                 continue
-            
-            for segment_batch in batch(segments_and_embeddings, 100):
-                query = []
-                vectors = []
-                blob_ref = 1
-                text_ref = 2
 
-                query.append({
+            logger.debug(f"Processing uniqueid {uniqueid} {url=}")
+            blob_segments = 0
+            logger.info(f"Processing uniqueid {uniqueid} {url=}")
+            text_blocks = []
+            block_ids = []
+
+            pdf_ref = 1
+            block_query = []
+            block_query.append(
+                { 
                     "FindBlob": {
-                        "_ref": blob_ref,
                         "constraints": {
                             "_uniqueid": ["==", uniqueid]
                         },
+                        "_ref": pdf_ref,
                     }
-                })
+                }
+            )
 
-                query.append({
-                    "AddEntity": {
-                        "class": "ExtractedText",
-                        "properties": {
-                            "text": "test",
-                            "ocr_method": self.ocr.method,
-                            "source_type": "pdf",
-                        },
-                        "connect": {
-                            "ref": blob_ref,
-                            "class": "pdfHasExtractedText",
-                        },
-                        "_ref": text_ref,
-                    }
-                })
-
-                for segment, embedding, number in segment_batch:
-                    blob_segments += 1
-                    descriptor_ref = len(query) + 1
-                    properties = {}
-                    if segment.title:
-                        properties["title"] = segment.title
-                    if segment.text:
-                        properties["text"] = segment.text
-                    properties["type"] = "text"
-                    properties["source_type"] = "pdf"
-                    properties["total_tokens"] = segment.total_tokens
-                    properties["segment_number"] = number
-                    properties["extraction_type"] = "ocr"
-                    properties["ocr_method"] = self.ocr.method
-
-                    page_number = segment.page_number()
-                    if page_number is not None:
-                        properties["page_number"] = page_number
-
-                    if url is not None:
-                        segment_url = segment.url(url)
-                        properties["url"] = segment_url
-
-                    query.append({
-                        "AddDescriptor": {
-                            "set": self.embedder.descriptor_set,
-                            "connect": {
-                                "ref": text_ref,
-                                "class": "extractedTextHasDescriptor",
-                            },
+            for page, image in enumerate(self.pdf_to_images(b), start=1):
+                logger.info(f"Processing page {page}")
+                text = self.ocr.bytes_to_text(image)
+                if text:
+                    logger.info(f"Extracted text from page {page}: {text[:100]}...")
+                else:
+                    logger.warning(f"No text extracted from page {page}")
+                    continue
+                block_id = str(uuid.uuid4())
+                properties = {
+                    "text": text,
+                    "page_number": page,
+                    "source_type": "pdf",
+                    "ocr_method": self.ocr.method,
+                    "id": block_id,
+                }
+                block_query.append(
+                    {
+                        "AddEntity": {
+                            "class": "TextBlock",
                             "properties": properties,
-                            "_ref": descriptor_ref,
+                            "connect": {
+                                "ref": pdf_ref,
+                                "class": "pdfHasTextBlock",
+                            },
+                        }
+                    }
+                )
+                block = TextBlock(text=text, page_number=page)
+                text_blocks.append(block)
+                block_ids.append(block_id)
+
+
+            status, r, _ = self.pool.execute_query(block_query)
+            assert status == 0, f"Query failed: {r}"
+
+            for text_block, block_id in zip(text_blocks, block_ids):
+                segments = self.segmenter.segment([text_block])
+                segment_number = 1
+
+                for segment_batch in batch(segments, 100):
+                    desc_query = []
+                    desc_blobs = []
+                    blob_ref = 1
+                    text_ref = 2
+
+                    # Find the blob
+                    desc_query.append({
+                        "FindBlob": {
+                            "_ref": blob_ref,
+                            "constraints": {
+                                "_uniqueid": ["==", uniqueid]
+                            },
                         }
                     })
-                    query.append({
-                        "AddConnection": {
-                            "class": "pdfHasDescriptor",
-                            "src": blob_ref,                            
-                            "dst": descriptor_ref,
+                    # Find the text block
+                    desc_query.append({
+                        "FindEntity": {
+                            "_ref": text_ref,
+                            "constraints": {
+                                "id": ["==", block_id]
+                            },
                         }
                     })
-                    vectors.append(embedding)
 
-                status, r, _ = self.pool.execute_query(query, vectors)
-                assert status == 0, f"Query failed: {r}"
-                logger.debug(f"Added {len(segment_batch)} segments")
+                    embeddings = self.segments_to_embeddings(segment_batch)
 
-            # Finally mark the blob as processed
-            query = []
-            query.append({
-                "FindBlob": {
-                    "_ref": 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
-            query.append({
-                "UpdateBlob": {
-                    "ref": 1,
-                    "properties": {
-                        self.done_property: True,
-                        "segments": blob_segments,
-                    },
-                }
-            })
-            total_segments += blob_segments
-            self.pool.execute_query(query)
+                    for embedding, segment in zip(embeddings, segment_batch):
+                        blob_segments += 1
+                        descriptor_ref = len(desc_query) + 1
+                        properties = {}
+                        if segment.title:
+                            properties["title"] = segment.title
+                        if segment.text:
+                            properties["text"] = segment.text
+                        properties["type"] = "text"
+                        properties["source_type"] = "pdf"
+                        properties["total_tokens"] = segment.total_tokens
+                        properties["segment_number"] = segment_number
+                        segment_number += 1
+                        properties["extraction_type"] = "ocr"
+                        properties["ocr_method"] = self.ocr.method
 
+                        properties["page_number"] = page
+
+                        if url is not None:
+                            segment_url = segment.url(url)
+                            properties["url"] = segment_url
+
+                        desc_query.append({
+                            "AddDescriptor": {
+                                "set": self.embedder.descriptor_set,
+                                "connect": {
+                                    "ref": text_ref,
+                                    "class": "extractedTextHasDescriptor",
+                                },
+                                "properties": properties,
+                                "_ref": descriptor_ref,
+                            }
+                        })
+                        desc_query.append({
+                            "AddConnection": {
+                                "class": "pdfHasDescriptor",
+                                "src": blob_ref,
+                                "dst": descriptor_ref,
+                            }
+                        })
+                        desc_blobs.append(embedding)
+
+                    status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
+                    assert status == 0, f"Query failed: {r}"
+                    logger.debug(f"Added {len(segment_batch)} segments")
             logger.debug(
                 f"Processed {blob_segments} segments for uniqueid {uniqueid}.")
+
+            total_segments += blob_segments
+
+        done_query = []
+        done_query.append({
+            "FindBlob": {
+                "_ref": 1,
+                "constraints": {
+                    "_uniqueid": ["in", uniqueids]
+                },
+            }
+        })
+        done_query.append({
+            "UpdateBlob": {
+                "ref": 1,
+                "properties": {
+                    self.done_property: True,
+                },
+            }
+        })
+
+        status, r, _ = self.pool.execute_query(done_query)
+        assert status == 0, f"Query failed: {r}"
 
         logger.info(f"Total segments processed: {total_segments}")

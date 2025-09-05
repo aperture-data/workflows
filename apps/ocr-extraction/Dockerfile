@@ -7,7 +7,6 @@ ENV APP_NAME=workflows-ocr-extraction
 RUN pip install aperturedb wheel ftfy regex tqdm
 
 RUN apt-get update && apt-get install -y \
-    git \
     tesseract-ocr \
     libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*

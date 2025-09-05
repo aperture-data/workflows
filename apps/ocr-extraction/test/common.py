@@ -98,29 +98,6 @@ def print_schema(db_connection):
     print(json.dumps(response, indent=2))
 
 
-def calculate_text_scores(df: pd.DataFrame, corpus_field="corpus") -> pd.DataFrame:
-    """Calculate text quality scores for a dataframe with reference and hypothesis columns."""
-    df['bleu_score'] = df.apply(lambda row: compute_bleu(
-        row['hypothesis'], row['reference']), axis=1)
-    df['char_bleu_score'] = df.apply(lambda row: compute_character_level_bleu(
-        row['hypothesis'], row['reference']), axis=1)
-    df['levenshtein_distance'] = df.apply(lambda row: compute_levenshtein_distance(
-        row['hypothesis'], row['reference']), axis=1)
-    df['jaccard_distance'] = df.apply(lambda row: compute_jaccard_distance(
-        row['hypothesis'], row['reference']), axis=1)
-
-    # Log calculated scores
-    logger.info("calculated scores:\n%s", df.to_json(orient='records'))
-    
-    # Calculate summary statistics
-    means = df.melt(id_vars=[corpus_field],
-                    value_vars=["bleu_score", "char_bleu_score", "levenshtein_distance", 
-                "jaccard_distance"], var_name="metric", value_name="score").groupby([corpus_field, "metric"]).agg([
-        "mean", "std", "min", "max"]).reset_index()
-    logger.info("means:\n%s", means.to_string())
-    
-    return df
-
 
 def create_text_comparison_dataframe(entities, descriptor_groups):
     """Create a dataframe for text comparison from entities (PDFs, images, etc.) and their descriptors."""
@@ -144,6 +121,33 @@ def create_text_comparison_dataframe(entities, descriptor_groups):
 
 
     return df
+
+
+def calculate_text_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate text quality scores for a dataframe with reference and hypothesis columns."""
+    df['bleu_score'] = df.apply(lambda row: compute_bleu(
+        row['hypothesis'], row['reference']), axis=1)
+    df['char_bleu_score'] = df.apply(lambda row: compute_character_level_bleu(
+        row['hypothesis'], row['reference']), axis=1)
+    df['levenshtein_distance'] = df.apply(lambda row: compute_levenshtein_distance(
+        row['hypothesis'], row['reference']), axis=1)
+    df['jaccard_distance'] = df.apply(lambda row: compute_jaccard_distance(
+        row['hypothesis'], row['reference']), axis=1)
+
+    # Log calculated scores
+    logger.info("calculated scores:\n%s", df.to_json(orient='records'))
+    
+    # Calculate summary statistics
+    means = df.melt(id_vars=["corpus"],
+                    value_vars=["bleu_score", "char_bleu_score", "levenshtein_distance", 
+                "jaccard_distance"], var_name="metric", value_name="score").groupby(["corpus", "metric"]).agg([
+        "mean", "std", "min", "max"]).reset_index()
+    logger.info("means:\n%s", means.to_string())
+    
+    return df
+
+
+
 
 
 def assert_score_threshold(df: pd.DataFrame, metric: str, corpus: str, threshold: float):

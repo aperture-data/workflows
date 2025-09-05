@@ -14,6 +14,7 @@ from typing import Iterable, List
 
 logger = logging.getLogger(__name__)
 
+
 class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
     """
@@ -30,7 +31,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,
-                                       overlap_tokens=overlap_tokens, 
+                                       overlap_tokens=overlap_tokens,
                                        min_tokens=None)
 
         query = [{
@@ -100,31 +101,33 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             return 0
 
         desc_blobs = []
-        query2 = []
+        desc_query = []
 
         for uid, b in zip(uniqueids, r_blobs):
+            image_ref = len(desc_query) + 1
+            desc_query.extend([
+                {
+                    "FindImage": {
+                        "_ref": image_ref,
+                        "constraints": {
+                            "_uniqueid": ["==", uid]
+                        },
+                    }
+                },
+                {
+                    "UpdateImage": {
+                        "ref": image_ref,
+                        "properties": {
+                            self.done_property: True
+                        },
+                    }
+                }])
+
             text = self.ocr.bytes_to_text(b)
             if text:
-                logger.debug(f"Text: {text}")
-                image_ref = len(query2) + 1
                 text_ref = image_ref + 1
-                query2.extend([
-                    {
-                        "FindImage": {
-                            "_ref": image_ref,
-                            "constraints": {
-                                "_uniqueid": ["==", uid]
-                            },
-                        }
-                    },
-                    {
-                        "UpdateImage": {
-                            "ref": image_ref, 
-                            "properties": {
-                                self.done_property: True
-                            },
-                        }
-                    },
+                logger.debug(f"Text: {text}")
+                desc_query.extend([
                     {
                         "AddEntity": {
                             "class": "ExtractedText",
@@ -133,28 +136,30 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                 "type": "extracted_from_image",
                                 "ocr_method": self.ocr.method,
                                 "source_type": "image",
-                            },  
+                            },
                             "connect": {
                                 "ref": image_ref,
                                 "class": "imageHasExtractedText",
                             },
                             "_ref": text_ref,
                         }
-                    }]
-                )
+                    }])
+
                 block = TextBlock(text=text)
-                segments = list(self.segmenter.segment([block], clean_only=False))
+                segments = list(self.segmenter.segment(
+                    [block], clean_only=False))
                 if not segments:
                     logger.warning(f"No segments found for text: {text}")
                     continue
                 embeddings = list(self.segments_to_embeddings(segments))
                 if len(embeddings) != len(segments):
-                    logger.warning(f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
+                    logger.warning(
+                        f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
                     continue
 
                 for segment, embedding in zip(segments, embeddings):
-                    segment_ref = len(query2) + 1
-                    query2.extend([
+                    segment_ref = len(desc_query) + 1
+                    desc_query.extend([
                         {
                             "AddDescriptor": {
                                 "set": self.embedder.descriptor_set,
@@ -180,10 +185,12 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         }
                     ])
                     desc_blobs.append(embedding)
+                logger.debug(f"Added {len(segments)} segments for {uid}")
+            else:
+                logger.warning(f"No text found for image {uid}")
 
-                status, r, _ = self.pool.execute_query(query2, desc_blobs)
-                assert status == 0, f"Query failed: {r}"
-                logger.debug(f"Added {len(segments)} segments")
+        status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
+        assert status == 0, f"Query failed: {r}"
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
         texts = [segment.text for segment in segments]

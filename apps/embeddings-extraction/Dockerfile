@@ -6,13 +6,6 @@ ENV APP_NAME=workflows-embeddings-extraction
 
 RUN pip install aperturedb wheel ftfy regex tqdm
 
-RUN apt-get update && apt-get install -y \
-    git \
-    tesseract-ocr \
-    libtesseract-dev \
-    && rm -rf /var/lib/apt/lists/*
-#Install CPU version of torch
-
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
 RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt

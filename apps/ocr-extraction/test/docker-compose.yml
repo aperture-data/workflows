@@ -45,8 +45,6 @@ services:
       DB_PASS: admin
       APERTUREDB_KEY: ""
       WF_AUTH_TOKEN: test
-      WF_EXTRACT_IMAGES: "true"
-      WF_EXTRACT_PDFS: "true"
       WF_EXTRACT_IMAGE_TEXT: "true"
       WF_EXTRACT_PDF_TEXT: "true"
       

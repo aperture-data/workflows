@@ -97,9 +97,6 @@ services:
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
             WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
             WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
-            WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
-            WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
-            WF_OCR_METHOD: "${WF_OCR_METHOD:-tesseract}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     ocr-extraction:
@@ -119,8 +116,8 @@ services:
                     memory: 2G
         environment:
             <<: *common-env
-            WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-false}"
-            WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-false}"
+            WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
+            WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
             WF_OCR_METHOD: "${WF_OCR_METHOD:-tesseract}"
             CLEAN: "${CLEAN:-true}"
             RUN_ONCE: "${RUN_ONCE:-true}"
