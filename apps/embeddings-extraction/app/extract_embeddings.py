@@ -111,7 +111,8 @@ def main(params):
                 model_name=params.model_name,
                 properties={"type": "video"})
         generator = FindVideoQueryGenerator(
-            pool, embedder, done_property=VIDEO_EXTRACTION_DONE_PROPERTY)
+            pool, embedder, done_property=VIDEO_EXTRACTION_DONE_PROPERTY,
+            sample_rate_fps=params.sample_rate_fps)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -166,6 +167,10 @@ def get_args():
 
     obj.add_argument('--extract-videos', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_VIDEOS', False))
+
+    obj.add_argument('--sample-rate-fps', type=int,
+                     default=os.environ.get('WF_SAMPLE_RATE_FPS', 1))
+
 
     params = obj.parse_args()
 
