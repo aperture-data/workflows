@@ -36,11 +36,11 @@ def main(args):
         pass
         updater.post_update(completed=50, phase="initializing",
                 phases=["initializing","processing"],
-                wf_status=WorkflowStatus.RUNNING) 
+                status=WorkflowStatus.RUNNING) 
     else:
         updater.post_update(completed=50, phase="initializing",
                 phases=["initializing","setup","serving"],
-                wf_status=WorkflowStatus.RUNNING) 
+                status=WorkflowStatus.RUNNING) 
 
     db = create_connector()
 
