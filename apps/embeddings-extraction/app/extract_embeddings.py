@@ -12,8 +12,6 @@ from connection_pool import ConnectionPool
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
-from image_ocr import FindImageOCRQueryGenerator
-from pdf_ocr import FindPDFOCRQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
@@ -33,26 +31,11 @@ def clean_embeddings(db):
             "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
-        "DeleteDescriptorSet": {
-            "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": PDF_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
         "UpdateImage": {
             "constraints": {
                 DONE_PROPERTY: ["!=", None]
             },
             "remove_props": [DONE_PROPERTY]
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                IMAGE_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [IMAGE_EXTRACTION_DONE_PROPERTY]
         }
     }, {
         "UpdateBlob": {
