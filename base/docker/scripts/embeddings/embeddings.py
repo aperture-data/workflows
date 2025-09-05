@@ -240,6 +240,8 @@ class Embedder():
 
         from .aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
 
+        existing_properties = None
+
         if clean:
             delete_descriptor_set(client, descriptor_set)
         elif existing_properties := find_descriptor_set(
