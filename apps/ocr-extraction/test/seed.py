@@ -28,8 +28,7 @@ def create_test_images(client, image_dir):
 
     assert os.path.exists(image_dir), f"Directory {image_dir} does not exist"
     basename = os.path.basename(image_dir)
-    image_text_mapping = load_text_mapping(
-        os.path.join(image_dir, "index.csv"))
+    image_text_mapping = load_text_mapping(os.path.join(image_dir, "index.csv"))
 
     query = []
     blobs = []
@@ -156,14 +155,16 @@ def db_connection():
 
 def main():
     """Main seeding function."""
-    print("Starting embeddings-extraction test data seeding...")
+    print("Starting ocr-extraction test data seeding...")
     client = db_connection()
 
     try:
         # Create test images from actual files
         create_test_images(client, "/app/images/signs")
+        create_test_images(client, "/app/images/documents")
 
         # Create test PDFs from actual files
+        create_test_pdfs(client, "/app/pdfs/images")
         create_test_pdfs(client, "/app/pdfs/text")
 
         print("Seeding completed successfully!")

@@ -1,4 +1,2 @@
-pytesseract
 pillow
 PyMuPDF
-easyocr

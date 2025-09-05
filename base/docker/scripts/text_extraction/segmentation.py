@@ -24,11 +24,13 @@ class TextSegmenter:
         self,
         model_name: str = "gpt-3.5-turbo",  # Ensure pre-cached in Dockerfile
         max_tokens: int = 300,  # maximum number of tokens per segment
-        overlap_tokens: int = 50  # approximate number of tokens to overlap between segments
+        overlap_tokens: int = 50,  # approximate number of tokens to overlap between segments
+        min_tokens: int = 20,  # minimum number of tokens per segment
     ):
         self.model_name = model_name
         self.max_tokens = max_tokens
         self.overlap_tokens = overlap_tokens
+        self.min_tokens = min_tokens
         self.encoder = encoding_for_model(model_name)
         self.splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             chunk_size=max_tokens,
@@ -59,12 +61,16 @@ class TextSegmenter:
 
         return False
 
-    @staticmethod
-    def _is_clean(text: str) -> bool:
+    def _is_clean(self, text: str) -> bool:
         """Applies some simple filters to exclude garbage text"""
-        # Reject empty or short text
-        if not text or len(text.strip()) < 20:
-            logger.debug(f"Rejecting {text[:100]} because empty or short")
+        # Reject empty text
+        if not text:
+            logger.debug(f"Rejecting {text[:100]} because empty")
+            return False
+
+        # Reject short text
+        if self.min_tokens and len(text.strip()) < self.min_tokens:
+            logger.debug(f"Rejecting {text[:100]} because too short")
             return False
 
         # Must contain mostly alphanumeric

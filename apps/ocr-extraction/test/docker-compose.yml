@@ -1,0 +1,63 @@
+services:
+  aperturedb:
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "bash -lc 'echo > /dev/tcp/127.0.0.1/55555'"
+      interval: 2s
+      timeout: 1s
+      retries: 60
+    ports: []
+
+  # One image for both seed and tests (Python + aperturedb + pytest + CLIP)
+  # Use the same image; just change the command.
+  test-base:
+    build:
+      context: apps/ocr-extraction/test
+      dockerfile: Dockerfile
+    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    deploy:
+      replicas: 0
+
+  # Populate ApertureDB with synthetic test data
+  seed:
+    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    depends_on:
+      aperturedb:
+        condition: service_healthy
+    working_dir: /app
+    environment:
+      DB_HOST: aperturedb
+      DB_PORT: 55555
+      DB_USER: admin
+      DB_PASS: admin
+    command: ["python", "/app/seed.py"]
+
+  ocr-extraction:
+    image: aperturedata/workflows-ocr-extraction:${VERSION:-latest}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: aperturedb
+      DB_PORT: 55555
+      DB_USER: admin
+      DB_PASS: admin
+      APERTUREDB_KEY: ""
+      WF_AUTH_TOKEN: test
+      WF_EXTRACT_IMAGE_TEXT: "true"
+      WF_EXTRACT_PDF_TEXT: "true"
+      
+  # Test runner
+  tests:
+    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    depends_on:
+      ocr-extraction:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: aperturedb
+      DB_PORT: 55555
+      DB_USER: admin
+      DB_PASS: admin
+    working_dir: /app
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]

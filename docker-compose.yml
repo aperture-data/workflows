@@ -97,9 +97,31 @@ services:
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
             WF_EXTRACT_IMAGES: "${WF_EXTRACT_IMAGES:-true}"
             WF_EXTRACT_PDFS: "${WF_EXTRACT_PDFS:-true}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+
+    ocr-extraction:
+        build: 
+            context: ./apps/ocr-extraction
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ocr-extraction:${VERSION}"
+        image: aperturedata/workflows-ocr-extraction:${VERSION}
+        # Don't let this service kill your dev box
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 2G
+        environment:
+            <<: *common-env
             WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
             WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
             WF_OCR_METHOD: "${WF_OCR_METHOD:-tesseract}"
+            CLEAN: "${CLEAN:-true}"
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            SLEEPING_TIME: "${SLEEPING_TIME:-30}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     jupyterlab:
