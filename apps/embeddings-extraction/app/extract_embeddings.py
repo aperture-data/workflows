@@ -131,17 +131,9 @@ def get_args():
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
 
-    obj.add_argument('--extract-image-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
-
-    obj.add_argument('--extract-pdf-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_PDF_TEXT', False))
-
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
-    obj.add_argument('--ocr-method', choices=['tesseract', 'easyocr'],
-                     default=os.environ.get('WF_OCR_METHOD', 'tesseract'))
     params = obj.parse_args()
 
     # >>> import clip
@@ -151,7 +143,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_text])):
+    if not (any([params.extract_images, params.extract_pdfs])):
         raise ValueError("No extractions specified")
 
     return params

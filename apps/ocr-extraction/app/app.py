@@ -44,7 +44,13 @@ def clean_embeddings(db):
             },
             "remove_props": [PDF_EXTRACTION_DONE_PROPERTY]
         }
-    }])
+    },
+    {
+        "DeleteEntity": {
+            "with_class": "ExtractedText",
+        }
+    },
+    ])
 
     db.print_last_response()
 
@@ -70,7 +76,7 @@ def main(params):
                 model_name=params.model_name,
                 properties={"type": "text", "source_type": "image", "ocr_method": params.ocr_method})
         generator = FindImageOCRQueryGenerator(
-            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr)
+            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr, extract_embeddings=params.extract_embeddings)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -90,7 +96,7 @@ def main(params):
                 model_name=params.model_name,
                 properties={"type": "text", "source_type": "pdf", "ocr_method": params.ocr_method})
         generator = FindPDFOCRQueryGenerator(
-            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr)
+            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr, extract_embeddings=params.extract_embeddings)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -139,6 +145,9 @@ def get_args():
 
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
+
+    obj.add_argument('--extract-embeddings', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_EMBEDDINGS', False))
 
     params = obj.parse_args()
 
