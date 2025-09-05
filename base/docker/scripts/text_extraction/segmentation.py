@@ -63,7 +63,7 @@ class TextSegmenter:
 
     def _is_clean(self, text: str) -> bool:
         """Applies some simple filters to exclude garbage text"""
-        # Reject\ text
+        # Reject empty text
         if not text:
             logger.debug(f"Rejecting {text[:100]} because empty")
             return False
