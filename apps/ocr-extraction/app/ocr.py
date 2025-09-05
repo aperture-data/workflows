@@ -11,9 +11,6 @@ logger = logging.getLogger(__name__)
 class OCR(ABC):
     """Abstract base class for OCR providers."""
 
-    @property
-        return self.__class__.method
-
     @abstractmethod
     def image_to_text(self, image: Image.Image) -> str:
         """Extract text from a PIL Image."""

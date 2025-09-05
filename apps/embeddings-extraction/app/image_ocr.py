@@ -131,7 +131,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     },
                     {
                         "AddEntity": {
-                            "class": "ImageExtractedText",
+                            "class": "ExtractedText",
                             "properties": {
                                 "text": text,
                                 "type": "extracted_from_image",
