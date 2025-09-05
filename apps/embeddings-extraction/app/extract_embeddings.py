@@ -1,17 +1,16 @@
 import os
 import argparse
-from typing import Literal
 import logging
 
 import clip
 
-from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
 from connection_pool import ConnectionPool
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
+from videos import FindVideoQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
