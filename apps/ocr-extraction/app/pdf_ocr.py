@@ -217,7 +217,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 block_query.append(
                     {
                         "AddEntity": {
-                            "class": "TextBlock",
+                            "class": "ExtractedText",
                             "properties": properties,
                             "connect": {
                                 "ref": pdf_ref,

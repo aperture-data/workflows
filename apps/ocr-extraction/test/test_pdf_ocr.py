@@ -33,7 +33,16 @@ def run_query(db_connection):
                 "results": {
                     "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"],
                 },
-                "_ref": 2,
+            }
+        },
+        {
+            "FindEntity": {
+                "with_class": "ExtractedText",
+                "is_connected_to": {"ref": 1},
+                "group_by_source": True,
+                "results": {
+                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"],
+                },
             }
         }
     ]
@@ -87,12 +96,12 @@ def calculate_scores(run_query):
     """Test that the BLEU scores are above a certain threshold."""
     response = run_query
     pdfs = (response[0]['FindBlob'].get('entities', []) or [])
-    descriptor_groups = response[1]['FindDescriptor'].get('entities', {}) or {}
+    extracted_text_groups = response[2]['FindEntity'].get('entities', {}) or {}
 
     assert pdfs, "No image PDFs found"
-    assert descriptor_groups, "No PDF texts found"
+    assert extracted_text_groups, "No PDF texts found"
 
-    df = create_text_comparison_dataframe(pdfs, descriptor_groups)
+    df = create_text_comparison_dataframe(pdfs, extracted_text_groups)
     return calculate_text_scores(df)
 
 

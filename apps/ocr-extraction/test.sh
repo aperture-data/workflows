@@ -3,6 +3,8 @@ set -euo pipefail
 
 WORKFLOW="ocr-extraction"
 
+BUILD_ONLY=${BUILD_ONLY:-false}
+
 # Get the directory this script is in
 export BIN_DIR=$(dirname "$(readlink -f "$0")")
 export ROOT_DIR=$BIN_DIR/../..
@@ -39,6 +41,10 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
 # Should the test script be building this workflow?
 $COMMAND build base 
 $COMMAND build test-base $WORKFLOW
+
+if [ "$BUILD_ONLY" = "true" ]; then
+  exit 0
+fi
 
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log

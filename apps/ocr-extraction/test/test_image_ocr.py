@@ -96,25 +96,17 @@ def calculate_scores(run_query):
     response = run_query
     images = (response[0]['FindImage'].get('entities', []) or [])
 
-    # Convert image text entities to descriptor-like format for consistency
-    descriptor_groups = {}
-    for image_id, text_entities in (response[1]['FindEntity'].get('entities', {}) or {}).items():
-        if text_entities:
-            # Extract text from the first text entity
-            text = text_entities[0].get('text', '')
-            if text:
-                descriptor_groups[image_id] = [{'text': text}]
-
+    extracted_text_groups = response[1]['FindEntity'].get('entities', {}) or {}
     assert images, f"No images found: {response}"
-    assert descriptor_groups, f"No image texts found: {response}"
+    assert extracted_text_groups, f"No image texts found: {response}"
 
     # Use the same generic function as PDF tests
-    df = create_text_comparison_dataframe(images, descriptor_groups)
+    df = create_text_comparison_dataframe(images, extracted_text_groups)
     return calculate_text_scores(df)
 
 
 @pytest.mark.parametrize("metric, corpus, threshold", [
-    ("char_bleu_score", "signs", 0.05),
+    ("char_bleu_score", "signs", 0.1),
     ("bleu_score", "documents", 0.4),
     ("levenshtein_distance", "documents", 60),
     ("jaccard_distance", "documents", 0.2),
