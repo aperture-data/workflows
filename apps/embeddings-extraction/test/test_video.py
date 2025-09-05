@@ -26,7 +26,7 @@ def run_query(db_connection):
         },
         {
             "FindDescriptor": {
-                "set": "wf_embeddings_clip",
+                "set": "wf_embeddings_clip_video",
                 "is_connected_to": {"ref": 2},
                 "results": {
                     "list": ["_uniqueid"]
@@ -41,6 +41,7 @@ def run_query(db_connection):
     return response
 
 def test_count_items(run_query):
+    # These numbers are based on the video chosen for the test.
     assert len(run_query[0]["FindVideo"]["entities"]) == 1, f"Expected 1 video, got {len(run_query[0]['FindVideo']['entities'])}"
     assert len(run_query[1]["FindClip"]["entities"]) == 245, f"Expected 245 clips, got {len(run_query[1]['FindClip']['entities'])}"
     assert len(run_query[2]["FindDescriptor"]["entities"]) == 245, f"Expected 245 descriptors, got {len(run_query[2]['FindDescriptor']['entities'])}"
