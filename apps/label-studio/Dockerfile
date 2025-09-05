@@ -40,6 +40,8 @@ COPY --from=wf  /start.sh /
 RUN chown -R 1001 /app
 USER 1001
 COPY app/extensions.py /label-studio/label_studio/io_storages/aperturedb/
+COPY uwsgi.ini.part /app/
+RUN cat /app/uwsgi.ini.part >> /label-studio/deploy/uwsgi.ini
 
 COPY app /app/
 WORKDIR /

@@ -242,3 +242,11 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments \
             -d "$BODY"
+
+      - name: Update version on infra develop
+        run: |
+          curl -X POST \
+          -H "Authorization: token ${{ secrets.PAT_INFRA }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/aperture-data/infra/dispatches \
+          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"environment\":\"develop\", \"component\": \"workflows-public\", \"tag\": \"${VERSION}\"}}"

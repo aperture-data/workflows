@@ -12,10 +12,13 @@ from connection_pool import ConnectionPool
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
+from image_ocr import FindImageOCRQueryGenerator
+from pdf_ocr import FindPDFOCRQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
 DONE_PROPERTY = 'wf_embeddings_clip'
+
 
 def clean_embeddings(db):
 
@@ -30,11 +33,26 @@ def clean_embeddings(db):
             "with_name": TEXT_DESCRIPTOR_SET
         }
     }, {
+        "DeleteDescriptorSet": {
+            "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
+        "DeleteDescriptorSet": {
+            "with_name": PDF_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
         "UpdateImage": {
             "constraints": {
                 DONE_PROPERTY: ["!=", None]
             },
             "remove_props": [DONE_PROPERTY]
+        }
+    }, {
+        "UpdateImage": {
+            "constraints": {
+                IMAGE_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [IMAGE_EXTRACTION_DONE_PROPERTY]
         }
     }, {
         "UpdateBlob": {
@@ -98,7 +116,6 @@ def main(params):
 
         print("Done with PDFs.")
 
-
     print("Done")
 
 
@@ -131,9 +148,17 @@ def get_args():
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
 
+    obj.add_argument('--extract-image-text', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
+
+    obj.add_argument('--extract-pdf-text', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_PDF_TEXT', False))
+
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
+    obj.add_argument('--ocr-method', choices=['tesseract', 'easyocr'],
+                     default=os.environ.get('WF_OCR_METHOD', 'tesseract'))
     params = obj.parse_args()
 
     # >>> import clip
@@ -143,7 +168,7 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs])):
+    if not (any([params.extract_images, params.extract_pdfs, params.extract_image_text, params.extract_pdf_text])):
         raise ValueError("No extractions specified")
 
     return params

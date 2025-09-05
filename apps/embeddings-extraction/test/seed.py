@@ -28,7 +28,8 @@ def create_test_images(client, image_dir):
 
     assert os.path.exists(image_dir), f"Directory {image_dir} does not exist"
     basename = os.path.basename(image_dir)
-    image_text_mapping = load_text_mapping(os.path.join(image_dir, "index.csv"))
+    image_text_mapping = load_text_mapping(
+        os.path.join(image_dir, "index.csv"))
 
     query = []
     blobs = []
@@ -87,9 +88,6 @@ def load_pdf_text_mapping(csv_path: str):
 
     print(f"Loaded {len(mapping)} PDF text mappings: {mapping}")
     return mapping
-
-
-
 
 
 def create_test_pdfs(client, pdf_dir):
