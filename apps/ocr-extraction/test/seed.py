@@ -89,9 +89,6 @@ def load_pdf_text_mapping(csv_path: str):
     return mapping
 
 
-
-
-
 def create_test_pdfs(client, pdf_dir):
     """Create test PDFs with expected text from the specified directory."""
     print(f"Creating PDFs from {pdf_dir}...")
