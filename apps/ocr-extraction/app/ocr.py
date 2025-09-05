@@ -12,9 +12,7 @@ class OCR(ABC):
     """Abstract base class for OCR providers."""
 
     @property
-    def method(self) -> str:
-        """Get the name of the OCR provider."""
-        return self.method
+        return self.__class__.method
 
     @abstractmethod
     def image_to_text(self, image: Image.Image) -> str:
