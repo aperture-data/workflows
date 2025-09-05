@@ -12,5 +12,4 @@ vars+=(-e WF_LABEL_STUDIO_URL_PATH="http://localhost:9000/labelstudio")
 vars+=(-p 9000:8000 ) # export LS running on 8000.
 vars+=(-p 8080:8080 ) # export status on 8080
 vars+=(aperturedata/workflows-label-studio)
-#vars+=(aperturedata/workflows-label-studio:v2025.9.0)
 docker run "${vars[@]}"
