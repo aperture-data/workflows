@@ -40,13 +40,13 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries for PDFs that need OCR processing
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, extract_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
         self.ocr = ocr
-
+        self.extract_embeddings = extract_embeddings
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,
@@ -230,90 +230,90 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 text_blocks.append(block)
                 block_ids.append(block_id)
 
-
             status, r, _ = self.pool.execute_query(block_query)
             assert status == 0, f"Query failed: {r}"
 
-            for text_block, block_id in zip(text_blocks, block_ids):
-                segments = self.segmenter.segment([text_block])
-                segment_number = 1
+            if self.extract_embeddings:
+                for text_block, block_id in zip(text_blocks, block_ids):
+                    segments = self.segmenter.segment([text_block])
+                    segment_number = 1
 
-                for segment_batch in batch(segments, 100):
-                    desc_query = []
-                    desc_blobs = []
-                    blob_ref = 1
-                    text_ref = 2
+                    for segment_batch in batch(segments, 100):
+                        desc_query = []
+                        desc_blobs = []
+                        blob_ref = 1
+                        text_ref = 2
 
-                    # Find the blob
-                    desc_query.append({
-                        "FindBlob": {
-                            "_ref": blob_ref,
-                            "constraints": {
-                                "_uniqueid": ["==", uniqueid]
-                            },
-                        }
-                    })
-                    # Find the text block
-                    desc_query.append({
-                        "FindEntity": {
-                            "_ref": text_ref,
-                            "constraints": {
-                                "id": ["==", block_id]
-                            },
-                        }
-                    })
-
-                    embeddings = self.segments_to_embeddings(segment_batch)
-
-                    for embedding, segment in zip(embeddings, segment_batch):
-                        blob_segments += 1
-                        descriptor_ref = len(desc_query) + 1
-                        properties = {}
-                        if segment.title:
-                            properties["title"] = segment.title
-                        if segment.text:
-                            properties["text"] = segment.text
-                        properties["type"] = "text"
-                        properties["source_type"] = "pdf"
-                        properties["total_tokens"] = segment.total_tokens
-                        properties["segment_number"] = segment_number
-                        segment_number += 1
-                        properties["extraction_type"] = "ocr"
-                        properties["ocr_method"] = self.ocr.method
-
-                        properties["page_number"] = page
-
-                        if url is not None:
-                            segment_url = segment.url(url)
-                            properties["url"] = segment_url
-
+                        # Find the blob
                         desc_query.append({
-                            "AddDescriptor": {
-                                "set": self.embedder.descriptor_set,
-                                "connect": {
-                                    "ref": text_ref,
-                                    "class": "extractedTextHasDescriptor",
+                            "FindBlob": {
+                                "_ref": blob_ref,
+                                "constraints": {
+                                    "_uniqueid": ["==", uniqueid]
                                 },
-                                "properties": properties,
-                                "_ref": descriptor_ref,
                             }
                         })
+                        # Find the text block
                         desc_query.append({
-                            "AddConnection": {
-                                "class": "pdfHasDescriptor",
-                                "src": blob_ref,
-                                "dst": descriptor_ref,
+                            "FindEntity": {
+                                "_ref": text_ref,
+                                "constraints": {
+                                    "id": ["==", block_id]
+                                },
                             }
                         })
-                        desc_blobs.append(embedding)
 
-                    status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
-                    assert status == 0, f"Query failed: {r}"
-                    logger.debug(f"Added {len(segment_batch)} segments")
-            logger.debug(
-                f"Processed {blob_segments} segments for uniqueid {uniqueid}.")
+                        embeddings = self.segments_to_embeddings(segment_batch)
 
-            total_segments += blob_segments
+                        for embedding, segment in zip(embeddings, segment_batch):
+                            blob_segments += 1
+                            descriptor_ref = len(desc_query) + 1
+                            properties = {}
+                            if segment.title:
+                                properties["title"] = segment.title
+                            if segment.text:
+                                properties["text"] = segment.text
+                            properties["type"] = "text"
+                            properties["source_type"] = "pdf"
+                            properties["total_tokens"] = segment.total_tokens
+                            properties["segment_number"] = segment_number
+                            segment_number += 1
+                            properties["extraction_type"] = "ocr"
+                            properties["ocr_method"] = self.ocr.method
+
+                            properties["page_number"] = page
+
+                            if url is not None:
+                                segment_url = segment.url(url)
+                                properties["url"] = segment_url
+
+                            desc_query.append({
+                                "AddDescriptor": {
+                                    "set": self.embedder.descriptor_set,
+                                    "connect": {
+                                        "ref": text_ref,
+                                        "class": "extractedTextHasDescriptor",
+                                    },
+                                    "properties": properties,
+                                    "_ref": descriptor_ref,
+                                }
+                            })
+                            desc_query.append({
+                                "AddConnection": {
+                                    "class": "pdfHasDescriptor",
+                                    "src": blob_ref,
+                                    "dst": descriptor_ref,
+                                }
+                            })
+                            desc_blobs.append(embedding)
+
+                        status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
+                        assert status == 0, f"Query failed: {r}"
+                        logger.debug(f"Added {len(segment_batch)} segments")
+                logger.debug(
+                    f"Processed {blob_segments} segments for uniqueid {uniqueid}.")
+
+                total_segments += blob_segments
 
         done_query = []
         done_query.append({
