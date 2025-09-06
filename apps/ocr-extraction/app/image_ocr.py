@@ -21,12 +21,13 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, extract_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
         self.ocr = ocr
+        self.extract_embeddings = extract_embeddings
 
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
@@ -145,47 +146,48 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         }
                     }])
 
-                block = TextBlock(text=text)
-                segments = list(self.segmenter.segment(
-                    [block], clean_only=False))
-                if not segments:
-                    logger.warning(f"No segments found for text: {text}")
-                    continue
-                embeddings = list(self.segments_to_embeddings(segments))
-                if len(embeddings) != len(segments):
-                    logger.warning(
-                        f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
-                    continue
+                if self.extract_embeddings:
+                    block = TextBlock(text=text)
+                    segments = list(self.segmenter.segment(
+                        [block], clean_only=False))
+                    if not segments:
+                        logger.warning(f"No segments found for text: {text}")
+                        continue
+                    embeddings = list(self.segments_to_embeddings(segments))
+                    if len(embeddings) != len(segments):
+                        logger.warning(
+                            f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
+                        continue
 
-                for segment, embedding in zip(segments, embeddings):
-                    segment_ref = len(desc_query) + 1
-                    desc_query.extend([
-                        {
-                            "AddDescriptor": {
-                                "set": self.embedder.descriptor_set,
-                                "connect": {
-                                    "ref": text_ref,
-                                    "class": "extractedTextHasDescriptor",
+                    for segment, embedding in zip(segments, embeddings):
+                        segment_ref = len(desc_query) + 1
+                        desc_query.extend([
+                            {
+                                "AddDescriptor": {
+                                    "set": self.embedder.descriptor_set,
+                                    "connect": {
+                                        "ref": text_ref,
+                                        "class": "extractedTextHasDescriptor",
+                                    },
+                                    "properties": {
+                                        "text": segment.text,
+                                        "type": "text",
+                                        "extraction_type": "ocr",
+                                        "ocr_method": self.ocr.method,
+                                    },
+                                    "_ref": segment_ref,
                                 },
-                                "properties": {
-                                    "text": segment.text,
-                                    "type": "text",
-                                    "extraction_type": "ocr",
-                                    "ocr_method": self.ocr.method,
+                            },
+                            {
+                                "AddConnection": {
+                                    "class": "imageHasDescriptor",
+                                    "src": image_ref,
+                                    "dst": segment_ref,
                                 },
-                                "_ref": segment_ref,
-                            },
-                        },
-                        {
-                            "AddConnection": {
-                                "class": "imageHasDescriptor",
-                                "src": image_ref,
-                                "dst": segment_ref,
-                            },
-                        }
-                    ])
-                    desc_blobs.append(embedding)
-                logger.debug(f"Added {len(segments)} segments for {uid}")
+                            }
+                        ])
+                        desc_blobs.append(embedding)
+                    logger.debug(f"Added {len(segments)} segments for {uid}")
             else:
                 logger.warning(f"No text found for image {uid}")
 

@@ -187,7 +187,6 @@ def get_args():
     obj.add_argument('--sample-rate-fps', type=int,
                      default=os.environ.get('WF_SAMPLE_RATE_FPS', 1))
 
-
     params = obj.parse_args()
 
     # >>> import clip

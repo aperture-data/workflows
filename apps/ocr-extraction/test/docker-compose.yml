@@ -31,6 +31,7 @@ services:
       DB_PORT: 55555
       DB_USER: admin
       DB_PASS: admin
+      APERTUREDB_KEY: ""
     command: ["python", "/app/seed.py"]
 
   ocr-extraction:

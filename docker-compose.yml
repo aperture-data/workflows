@@ -119,6 +119,7 @@ services:
             <<: *common-env
             WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
             WF_EXTRACT_PDF_TEXT: "${WF_EXTRACT_PDF_TEXT:-true}"
+            WF_EXTRACT_EMBEDDINGS: "${WF_EXTRACT_EMBEDDINGS:-true}"
             WF_OCR_METHOD: "${WF_OCR_METHOD:-tesseract}"
             CLEAN: "${CLEAN:-true}"
             RUN_ONCE: "${RUN_ONCE:-true}"

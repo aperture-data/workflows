@@ -31,16 +31,16 @@ class LabelStudioPhase(PyEnum):
 
 def main(args):
     updater = StatusUpdater()
-    processing = args.delete or args.delete_all or args_delete_all_ls_data
+    processing = args.delete or args.delete_all or args.delete_all_ls_data
     if processing:
         pass
         updater.post_update(completed=50, phase="initializing",
                 phases=["initializing","processing"],
-                wf_status=WorkflowStatus.RUNNING) 
+                status=WorkflowStatus.RUNNING) 
     else:
         updater.post_update(completed=50, phase="initializing",
                 phases=["initializing","setup","serving"],
-                wf_status=WorkflowStatus.RUNNING) 
+                status=WorkflowStatus.RUNNING) 
 
     db = create_connector()
 

@@ -2,7 +2,7 @@ import os
 import sys
 import csv
 import json
-from aperturedb.CommonLibrary import execute_query
+from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 
 
@@ -146,6 +146,11 @@ def print_schema(client):
 
 def db_connection():
     """Create a database connection."""
+    # Not used in testing, but can be used to seed a different database
+    APERTUREDB_KEY = os.getenv("APERTUREDB_KEY")
+    if APERTUREDB_KEY:
+        return create_connector(key=APERTUREDB_KEY)
+
     DB_HOST = os.getenv("DB_HOST", "aperturedb")
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
