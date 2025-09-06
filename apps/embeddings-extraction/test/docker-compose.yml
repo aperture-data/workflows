@@ -49,7 +49,8 @@ services:
       WF_EXTRACT_PDFS: "true"
       WF_EXTRACT_IMAGE_TEXT: "true"
       WF_EXTRACT_PDF_TEXT: "true"
-      
+      WF_EXTRACT_VIDEOS: "true"
+
   # Test runner
   tests:
     image: aperturedata/workflows-embeddings-extraction-tests:${VERSION:-latest}

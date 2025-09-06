@@ -4,6 +4,8 @@ import csv
 import json
 from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
+from aperturedb.VideoDataCSV import VideoDataCSV
+from aperturedb.ParallelLoader import ParallelLoader
 
 
 def load_text_mapping(csv_path: str):
@@ -135,6 +137,12 @@ def create_test_pdfs(client, pdf_dir):
     else:
         print(f"No PDFs were created from {pdf_dir}")
 
+def create_test_videos(client, video_csv):
+    """Create test videos from the specified directory."""
+    print(f"Creating videos from {video_csv}...")
+    data = VideoDataCSV(filename=video_csv)
+    loader = ParallelLoader(client=client)
+    loader.ingest(data, batchsize=1, numthreads=1, stats=True)
 
 def print_schema(client):
     """Print the schema of the database."""
@@ -165,6 +173,8 @@ def main():
 
         # Create test PDFs from actual files
         create_test_pdfs(client, "/app/pdfs/text")
+
+        create_test_videos(client, "/app/videos/videos.adb.csv")
 
         print("Seeding completed successfully!")
 
