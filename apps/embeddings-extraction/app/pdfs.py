@@ -64,8 +64,8 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             exit(0)
 
         if total_pdfs == 0:
-            logger.warning("No PDFs to be processed. Bye!")
-            exit(0)
+            logger.warning("No PDFs to be processed. Continuing!")
+
 
         logger.info(f"Total PDFs to process: {total_pdfs}")
 
@@ -111,7 +111,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         """
         texts = [segment.text for segment in segments]
         logger.info(f"Generating embeddings for {len(texts)} segments.")
-        
+
         vectors = self.embedder.embed_texts(texts)
         logger.info("Converting embeddings to byte format.")
         vectors = [vector.tobytes() for vector in vectors]

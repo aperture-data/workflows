@@ -41,8 +41,7 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
             exit(0)
 
         if total_videos == 0:
-            logger.warning("No videos to be processed. Bye!")
-            exit(0)
+            logger.warning("No videos to be processed. Continuing.")
 
         logger.info(f"Total videos to process: {total_videos}")
 

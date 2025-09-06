@@ -28,6 +28,10 @@ def clean_embeddings(db):
 
     db.query([{
         "DeleteDescriptorSet": {
+            "with_name": VIDEO_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
+        "DeleteDescriptorSet": {
             "with_name": IMAGE_DESCRIPTOR_SET
         }
     }, {
@@ -48,6 +52,24 @@ def clean_embeddings(db):
             },
             "remove_props": [DONE_PROPERTY]
         }
+    }, {
+        "UpdateVideo": {
+            "constraints": {
+                VIDEO_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [VIDEO_EXTRACTION_DONE_PROPERTY]
+        }
+    },  {
+        "FindVideo": {
+            "_ref": 1,
+            "constraints": {
+                VIDEO_EXTRACTION_DONE_PROPERTY: ["==", True]
+            }
+        }
+    },  {
+            "DeleteClip": {
+                "video_ref": 1
+            }
     }])
 
     db.print_last_response()
@@ -155,12 +177,6 @@ def get_args():
 
     obj.add_argument('--extract-pdfs', type=str2bool,
                      default=os.environ.get('WF_EXTRACT_PDFS', False))
-
-    obj.add_argument('--extract-image-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
-
-    obj.add_argument('--extract-pdf-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_PDF_TEXT', False))
 
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))

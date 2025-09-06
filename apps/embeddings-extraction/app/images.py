@@ -40,8 +40,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             exit(0)
 
         if total_images == 0:
-            print("No images to be processed. Bye!")
-            exit(0)
+            print("No images to be processed. Continuing!")
 
         print(f"Total images to process: {total_images}")
 
