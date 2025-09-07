@@ -75,6 +75,9 @@ class EasyOCR(OCR):
     """
     method = "easyocr"
     max_image_size = 1024
+    quantize = True
+    languages = ['en']
+    gpu = False
 
     def __init__(self):
         try:
@@ -95,8 +98,6 @@ class EasyOCR(OCR):
             logger.warning("psutil not available for memory monitoring")
 
         # Initialize EasyOCR reader with memory-efficient settings
-        self.languages = ['en']
-        self.gpu = False
 
         # Add model download caching and memory optimization
         logger.info("Initializing EasyOCR reader...")
@@ -104,7 +105,7 @@ class EasyOCR(OCR):
             self.languages,
             gpu=self.gpu,
             # Use quantized models for ~4x lower memory usage
-            quantize=True,
+            quantize=self.quantize,
         )
 
         # Log memory usage after initialization
