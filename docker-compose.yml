@@ -113,7 +113,6 @@ services:
             resources:
                 limits:
                     cpus: '2.0'
-                    memory: 2G
         environment:
             <<: *common-env
             WF_EXTRACT_IMAGE_TEXT: "${WF_EXTRACT_IMAGE_TEXT:-true}"
@@ -124,6 +123,7 @@ services:
             RUN_ONCE: "${RUN_ONCE:-true}"
             SLEEPING_TIME: "${SLEEPING_TIME:-30}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            NUMTHREADS: "${NUMTHREADS:-4}"
 
     jupyterlab:
         build: 
