@@ -1,28 +1,36 @@
 import os
 import argparse
-from typing import Literal
 import logging
 
 import clip
 
-from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
 from connection_pool import ConnectionPool
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator
+from videos import FindVideoQueryGenerator
 
 IMAGE_DESCRIPTOR_SET = 'wf_embeddings_clip'
 TEXT_DESCRIPTOR_SET = 'wf_embeddings_clip_text'
+VIDEO_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_video'
 DONE_PROPERTY = 'wf_embeddings_clip'
-
+IMAGE_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_image_extraction'
+IMAGE_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_image_extraction_done'
+PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_pdf_extraction'
+PDF_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_pdf_extraction_done'
+VIDEO_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_video_extraction_done'
 
 def clean_embeddings(db):
 
     print("Cleaning Embeddings...")
 
     db.query([{
+        "DeleteDescriptorSet": {
+            "with_name": VIDEO_EXTRACTION_DESCRIPTOR_SET
+        }
+    }, {
         "DeleteDescriptorSet": {
             "with_name": IMAGE_DESCRIPTOR_SET
         }
@@ -44,6 +52,24 @@ def clean_embeddings(db):
             },
             "remove_props": [DONE_PROPERTY]
         }
+    }, {
+        "UpdateVideo": {
+            "constraints": {
+                VIDEO_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [VIDEO_EXTRACTION_DONE_PROPERTY]
+        }
+    },  {
+        "FindVideo": {
+            "_ref": 1,
+            "constraints": {
+                VIDEO_EXTRACTION_DONE_PROPERTY: ["==", True]
+            }
+        }
+    },  {
+            "DeleteClip": {
+                "video_ref": 1
+            }
     }])
 
     db.print_last_response()
@@ -99,6 +125,27 @@ def main(params):
 
         print("Done with PDFs.")
 
+    if params.extract_videos:
+        with pool.get_connection() as db:
+            embedder = Embedder.from_new_descriptor_set(
+                db, VIDEO_EXTRACTION_DESCRIPTOR_SET,
+                provider="clip",
+                model_name=params.model_name,
+                properties={"type": "video"})
+        generator = FindVideoQueryGenerator(
+            pool, embedder, done_property=VIDEO_EXTRACTION_DONE_PROPERTY,
+            sample_rate_fps=params.sample_rate_fps)
+        with pool.get_connection() as db:
+            querier = ParallelQuery.ParallelQuery(db)
+
+            print("Running Video Extraction...")
+
+            querier.query(generator, batchsize=1,
+                        numthreads=params.numthreads,
+                        stats=True)
+
+            print("Done with Video Extraction.")
+
     print("Done")
 
 
@@ -134,6 +181,12 @@ def get_args():
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
+    obj.add_argument('--extract-videos', type=str2bool,
+                     default=os.environ.get('WF_EXTRACT_VIDEOS', False))
+
+    obj.add_argument('--sample-rate-fps', type=int,
+                     default=os.environ.get('WF_SAMPLE_RATE_FPS', 1))
+
     params = obj.parse_args()
 
     # >>> import clip
@@ -143,7 +196,11 @@ def get_args():
         raise ValueError(
             f"Invalid model name. Options: {clip.available_models()}")
 
-    if not (any([params.extract_images, params.extract_pdfs])):
+    if not (any([
+        params.extract_images,
+        params.extract_pdfs,
+        params.extract_videos
+        ])):
         raise ValueError("No extractions specified")
 
     return params

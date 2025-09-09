@@ -29,7 +29,7 @@ services:
 
     # base image for all workflows; intended for build only
     base:
-        build: 
+        build:
             context: ./base/docker
             args:
                 <<: *build-args
@@ -37,9 +37,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-base:${VERSION}"
         image: aperturedata/workflows-base:${VERSION}
-          
+
     crawl-website:
-        build: 
+        build:
             context: ./apps/crawl-website
             args:
                 <<: *build-args
@@ -55,7 +55,7 @@ services:
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
 
     dataset-ingestion:
-        build: 
+        build:
             context: ./apps/dataset-ingestion
             args:
                 <<: *build-args
@@ -71,10 +71,10 @@ services:
             DATASET: "${DATASET:-coco}"
             INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
             LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
-            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"  
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
 
     embeddings-extraction:
-        build: 
+        build:
             context: ./apps/embeddings-extraction
             args:
                 <<: *build-args
@@ -83,11 +83,12 @@ services:
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
         image: aperturedata/workflows-embeddings-extraction:${VERSION}
         # Don't let this service kill your dev box
+        # It's OK, but lets' not over compensate for it.
         deploy:
             resources:
                 limits:
-                    cpus: '2.0'
-                    memory: 2G
+                    cpus: '4.0'
+                    memory: 4G
         environment:
             <<: *common-env
             MODEL_NAME: "${MODEL_NAME:-ViT-B/16}"
@@ -100,7 +101,7 @@ services:
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     ocr-extraction:
-        build: 
+        build:
             context: ./apps/ocr-extraction
             args:
                 <<: *build-args
@@ -126,7 +127,7 @@ services:
             NUMTHREADS: "${NUMTHREADS:-4}"
 
     jupyterlab:
-        build: 
+        build:
             context: ./apps/jupyterlab
             args:
                 <<: *build-args
@@ -149,7 +150,7 @@ services:
             - "6277:6277"
 
     mcp-server:
-        build: 
+        build:
             context: ./apps/mcp-server
             args:
                 <<: *build-args
@@ -166,7 +167,7 @@ services:
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     rag:
-        build: 
+        build:
             context: ./apps/rag
             args:
                 <<: *build-args
@@ -182,10 +183,10 @@ services:
             WF_TOKEN: "${WF_TOKEN:-test}"
             WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
             WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"           
+            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
 
     sql-server:
-        build: 
+        build:
             context: ./apps/sql-server
             args:
                 <<: *build-args
@@ -202,7 +203,7 @@ services:
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
 
     text-embeddings:
-        build: 
+        build:
             context: ./apps/text-embeddings
             args:
                 <<: *build-args
@@ -220,7 +221,7 @@ services:
             WF_CLEAN: "${WF_CLEAN:-true}"
 
     text-extraction:
-        build: 
+        build:
             context: ./apps/text-extraction
             args:
                 <<: *build-args
@@ -237,7 +238,7 @@ services:
 
     # Put this last because it depends on the others
     crawl-to-rag:
-        build: 
+        build:
             context: ./apps/crawl-to-rag
             args:
                 <<: *build-args

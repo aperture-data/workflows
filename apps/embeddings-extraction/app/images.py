@@ -1,4 +1,5 @@
 import math
+import logging
 
 import cv2
 import numpy as np
@@ -6,6 +7,8 @@ from PIL import Image
 
 from aperturedb import QueryGenerator
 from connection_pool import ConnectionPool
+
+logger = logging.getLogger(__name__)
 
 
 class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
@@ -36,14 +39,13 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             total_images = response[0]["FindImage"]["count"]
         except:
-            print("Error retrieving the number of images. No images in the db?")
+            logger.error("Error retrieving the number of images. No images in the db?")
             exit(0)
 
         if total_images == 0:
-            print("No images to be processed. Bye!")
-            exit(0)
+            logger.warning("No images to be processed. Continuing!")
 
-        print(f"Total images to process: {total_images}")
+        logger.info(f"Total images to process: {total_images}")
 
         self.batch_size = 32
         self.total_batches = int(math.ceil(total_images / self.batch_size))
@@ -89,7 +91,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             uniqueids = [i["_uniqueid"]
                          for i in response[0]["FindImage"]["entities"]]
         except:
-            print(f"error: {response}")
+            logger.exception(f"error: {response}")
             return 0
 
         desc_blobs = []
