@@ -30,31 +30,48 @@ fi
 # gcloud uses it's bundled python. Do not inject our sitecustomize.
 PYTHONPATH='' gcloud config set auth/disable_credentials True
 
+update_phases() {
+    args=(
+        "--phases" "val_downloading"
+        "--phases" "val_ingesting_images"
+        "--phases" "val_ingesting_bounding_boxes"
+        "--phases" "val_ingesting_images"
+        "--phases" "val_ingesting_connections"
+        "--phases" "val_ingesting_polygons"
+        "--phases" "val_ingesting_descriptors"
+        "--phases" "val_ingesting_connections"
+    )
+    if [[ $INCLUDE_TRAIN == true ]]; then
+        args+=("--phases" "train_downloading")
+        args+=("--phases" "train_ingesting_images")
+        args+=("--phases" "train_ingesting_bounding_boxes")
+        args+=("--phases" "train_ingesting_images")
+        args+=("--phases" "train_ingesting_connections")
+        args+=("--phases" "train_ingesting_polygons")
+        args+=("--phases" "train_ingesting_descriptors")
+        args+=("--phases" "train_ingesting_connections")
+    fi
+    python3 $STATUS_SCRIPT --completed 0 "${args[@]}"
+}
+
 build_coco() {
     APP="Dataset ingest (coco)"
-    python3 $STATUS_SCRIPT --completed 0 \
-      --phases downloading \
-      --phases ingesting_images \
-      --phases ingesting_bounding_boxes \
-      --phases ingesting_polygons \
-      --phases ingesting_images \
-      --phases ingesting_connections \
-      --phases ingesting_descriptors \
-      --phases ingesting_connections  \
-      --phase downloading
+    update_phases
 
     adb utils log --level INFO "${APP}: Start"
 
     date
     echo "Downloading val data..."
-
-    python3 $STATUS_SCRIPT --completed 0
+    python3 $STATUS_SCRIPT --phase val_downloading --completed 0
     bash download_coco.sh val
     python3 $STATUS_SCRIPT --completed 100
 
+
     if [[ $INCLUDE_TRAIN == true ]]; then
+        python3 $STATUS_SCRIPT --phase train_downloading --completed 0
         echo "Downloading train data..."
         bash download_coco.sh train
+        python3 $STATUS_SCRIPT --completed 100
     fi
 
 

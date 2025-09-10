@@ -12,6 +12,7 @@ RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/c
 RUN pip install facenet-pytorch --no-deps
 RUN pip install pycocotools
 RUN pip install git+https://github.com/openai/CLIP.git
+COPY app/get_weights.py /app/get_weights.py
+RUN python3 /app/get_weights.py
 
 COPY app /app/
-RUN python3 /app/get_weights.py

@@ -37,7 +37,8 @@ class LogProcessor:
                     raise ValueError(f"Unexpected progress format: {msg}")
 
             # print("Progress:", line.strip(), flush=True)
-            if need_update and time.time() - last_time >= 1:
+            # update status if progress is updated (rate limited 1 update/s) or if the process is completed
+            if need_update and (time.time() - last_time >= 1 or completed == 100.0):
                 print(f">>[{datetime.datetime.now().isoformat()}]", msg, flush=True)
                 self.status_updater.post_update(completed=completed)
                 last_time = time.time()

@@ -30,6 +30,10 @@ def ingest_coco(cli_args):
         "images.adb.csv_clip_pytorch_embeddings_metadata": "DESCRIPTOR",
         "images.adb.csv_clip_pytorch_embeddings_connection": "CONNECTION"
     }
+    special_plural_map = {
+        "BOUNDING_BOX": "bounding_boxes"
+    }
+
     stages = ["val"]
     if cli_args.train == "true":
         stages.append("train")
@@ -43,9 +47,10 @@ def ingest_coco(cli_args):
     updater = StatusUpdater()
     for stage in stages:
         for obj in args.keys():
+            ingestion_type_plural = f"{args[obj].lower()}s" if args[obj] not in special_plural_map else special_plural_map[args[obj]]
             updater.post_update(
                 completed=0.0,
-                phase=f"ingesting_{args[obj].lower()}s",
+                phase=f"{stage}_ingesting_{ingestion_type_plural}",
             )
             common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
