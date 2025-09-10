@@ -174,6 +174,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
         total_segments = 0
         for uniqueid, url, b in zip(uniqueids, urls, r_blobs):
+            # We choose to skip OCR processing if the PDF has extractable text.
             if self.has_text_content(b):
                 logger.info(
                     "PDF has extractable text, skipping OCR processing")
@@ -202,7 +203,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 logger.info(f"Processing page {page}")
                 text = self.ocr.bytes_to_text(image)
                 if text:
-                    logger.info(
+                    logger.debug(
                         f"Extracted text from page {page}: {text[:100]}...")
                 else:
                     logger.warning(f"No text extracted from page {page}")
