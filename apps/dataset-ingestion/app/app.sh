@@ -31,9 +31,25 @@ fi
 PYTHONPATH='' gcloud config set auth/disable_credentials True
 
 update_phases() {
-    args=("--phases" "val_downloading" "--phases" "val_ingesting_images" "--phases" "val_ingesting_bounding_boxes" "--phases" "val_ingesting_images" "--phases" "val_ingesting_connections" "--phases" "val_ingesting_polygons" "--phases" "val_ingesting_descriptors" "--phases" "val_ingesting_connections")
+    args=(
+        "--phases" "val_downloading"
+        "--phases" "val_ingesting_images"
+        "--phases" "val_ingesting_bounding_boxes"
+        "--phases" "val_ingesting_images"
+        "--phases" "val_ingesting_connections"
+        "--phases" "val_ingesting_polygons"
+        "--phases" "val_ingesting_descriptors"
+        "--phases" "val_ingesting_connections"
+    )
     if [[ $INCLUDE_TRAIN == true ]]; then
-        args+=("--phases" "train_downloading" "--phases" "train_ingesting_images" "--phases" "train_ingesting_bounding_boxes" "--phases" "train_ingesting_images" "--phases" "train_ingesting_connections" "--phases" "train_ingesting_polygons" "--phases" "train_ingesting_descriptors" "--phases" "train_ingesting_connections")
+        args+=("--phases" "train_downloading")
+        args+=("--phases" "train_ingesting_images")
+        args+=("--phases" "train_ingesting_bounding_boxes")
+        args+=("--phases" "train_ingesting_images")
+        args+=("--phases" "train_ingesting_connections")
+        args+=("--phases" "train_ingesting_polygons")
+        args+=("--phases" "train_ingesting_descriptors")
+        args+=("--phases" "train_ingesting_connections")
     fi
     python3 $STATUS_SCRIPT --completed 0 "${args[@]}"
 }
