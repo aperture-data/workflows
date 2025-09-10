@@ -46,6 +46,7 @@ docker run \
            -e DB_PASS="password" \
            -e WF_EXTRACT_IMAGE_TEXT=true \
            -e WF_EXTRACT_PDF_TEXT=true \
+           -w WF_EXTRACT_EMBEDDINGS=true \
            aperturedata/workflows-ocr-extraction
 ```
 

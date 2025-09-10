@@ -48,6 +48,7 @@ services:
       WF_AUTH_TOKEN: test
       WF_EXTRACT_IMAGE_TEXT: "true"
       WF_EXTRACT_PDF_TEXT: "true"
+      WF_EXTRACT_EMBEDDINGS: "true"
       
   # Test runner
   tests:
