@@ -21,13 +21,13 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, extract_embeddings: bool):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, generate_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
         self.ocr = ocr
-        self.extract_embeddings = extract_embeddings
+        self.generate_embeddings = generate_embeddings
 
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
@@ -146,7 +146,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         }
                     }])
 
-                if self.extract_embeddings:
+                if self.generate_embeddings:
                     block = TextBlock(text=text)
                     segments = list(self.segmenter.segment(
                         [block], clean_only=False))

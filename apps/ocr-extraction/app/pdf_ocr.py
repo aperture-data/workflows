@@ -40,13 +40,13 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries for PDFs that need OCR processing
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, extract_embeddings: bool):
+    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, generate_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
         self.ocr = ocr
-        self.extract_embeddings = extract_embeddings
+        self.generate_embeddings = generate_embeddings
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,
@@ -161,7 +161,6 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         vectors = self.embedder.embed_texts(texts)
         return [v.tobytes() for v in vectors]
 
-
     def response_handler(self, query, blobs, response, r_blobs):
 
         try:
@@ -176,7 +175,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         total_segments = 0
         for uniqueid, url, b in zip(uniqueids, urls, r_blobs):
             if self.has_text_content(b):
-                logger.info("PDF has extractable text, skipping OCR processing")
+                logger.info(
+                    "PDF has extractable text, skipping OCR processing")
                 continue
 
             logger.debug(f"Processing uniqueid {uniqueid} {url=}")
@@ -188,7 +188,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             pdf_ref = 1
             block_query = []
             block_query.append(
-                { 
+                {
                     "FindBlob": {
                         "constraints": {
                             "_uniqueid": ["==", uniqueid]
@@ -202,7 +202,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 logger.info(f"Processing page {page}")
                 text = self.ocr.bytes_to_text(image)
                 if text:
-                    logger.info(f"Extracted text from page {page}: {text[:100]}...")
+                    logger.info(
+                        f"Extracted text from page {page}: {text[:100]}...")
                 else:
                     logger.warning(f"No text extracted from page {page}")
                     continue
@@ -233,7 +234,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             status, r, _ = self.pool.execute_query(block_query)
             assert status == 0, f"Query failed: {r}"
 
-            if self.extract_embeddings:
+            if self.generate_embeddings:
                 for text_block, block_id in zip(text_blocks, block_ids):
                     segments = self.segmenter.segment([text_block])
                     segment_number = 1
@@ -307,7 +308,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                             })
                             desc_blobs.append(embedding)
 
-                        status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
+                        status, r, _ = self.pool.execute_query(
+                            desc_query, desc_blobs)
                         assert status == 0, f"Query failed: {r}"
                         logger.debug(f"Added {len(segment_batch)} segments")
                 logger.debug(
