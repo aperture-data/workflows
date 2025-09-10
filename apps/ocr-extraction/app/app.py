@@ -18,6 +18,9 @@ PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_ocr_pdfs'
 PDF_EXTRACTION_DONE_PROPERTY = 'wf_ocr_done'
 
 
+logger = logging.getLogger(__name__)
+
+
 def clean_embeddings(db):
 
     print("Cleaning Embeddings...")
@@ -44,8 +47,7 @@ def clean_embeddings(db):
             },
             "remove_props": [PDF_EXTRACTION_DONE_PROPERTY]
         }
-    },
-    {
+    }, {
         "DeleteEntity": {
             "with_class": "ExtractedText",
         }
@@ -58,6 +60,8 @@ def clean_embeddings(db):
 def main(params):
 
     logging.basicConfig(level=params.log_level.upper(), force=True)
+
+    logger.info(f"Starting OCR Extraction: {params}")
 
     pool = ConnectionPool()
 
@@ -76,7 +80,7 @@ def main(params):
                 model_name=params.model_name,
                 properties={"type": "text", "source_type": "image", "ocr_method": params.ocr_method})
         generator = FindImageOCRQueryGenerator(
-            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr, extract_embeddings=params.extract_embeddings)
+            pool, embedder, done_property=IMAGE_EXTRACTION_DONE_PROPERTY, ocr=ocr, generate_embeddings=params.generate_embeddings)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -96,7 +100,7 @@ def main(params):
                 model_name=params.model_name,
                 properties={"type": "text", "source_type": "pdf", "ocr_method": params.ocr_method})
         generator = FindPDFOCRQueryGenerator(
-            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr, extract_embeddings=params.extract_embeddings)
+            pool, embedder, done_property=PDF_EXTRACTION_DONE_PROPERTY, ocr=ocr, generate_embeddings=params.generate_embeddings)
         with pool.get_connection() as db:
             querier = ParallelQuery.ParallelQuery(db)
 
@@ -146,8 +150,8 @@ def get_args():
     obj.add_argument('--log-level', type=str,
                      default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
 
-    obj.add_argument('--extract-embeddings', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_EMBEDDINGS', False))
+    obj.add_argument('--generate-embeddings', type=str2bool,
+                     default=os.environ.get('WF_GENERATE_EMBEDDINGS', False))
 
     params = obj.parse_args()
 
