@@ -18,6 +18,9 @@ PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_ocr_pdfs'
 PDF_EXTRACTION_DONE_PROPERTY = 'wf_ocr_done'
 
 
+logger = logging.getLogger(__name__)
+
+
 def clean_embeddings(db):
 
     print("Cleaning Embeddings...")
@@ -57,6 +60,8 @@ def clean_embeddings(db):
 def main(params):
 
     logging.basicConfig(level=params.log_level.upper(), force=True)
+
+    logger.info(f"Starting OCR Extraction: {params}")
 
     pool = ConnectionPool()
 
