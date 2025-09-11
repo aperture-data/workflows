@@ -158,10 +158,11 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                     }
                 ]
                 for i, b in enumerate(embeddings):
+                    ind = i * 2 + 2
                     query2.append({
                         "AddClip": {
                             "video_ref": 1,
-                            "_ref": i + 2,
+                            "_ref": ind,
                             "frame_number_range": {
                                 "start": i * frames_per_sample,
                                 "stop": min((i + 1) * frames_per_sample, frame_count)
@@ -170,9 +171,10 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                     })
                     query2.append({
                         "AddDescriptor": {
+                            "_ref": ind + 1,
                             "set": self.embedder.descriptor_set,
                             "connect": {
-                                "ref": i + 2,
+                                "ref": ind,
                                 "class": "ClipHasDescriptor",
                             },
                         }
@@ -181,7 +183,7 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                         "AddConnection": {
                             "class": "VideoHasDescriptor",
                             "src": 1,
-                            "dst": i + 2,
+                            "dst": ind + 1,
                             "properties": {
                                 "start": i * frames_per_sample,
                                 "stop": min((i + 1) * frames_per_sample, frame_count)
