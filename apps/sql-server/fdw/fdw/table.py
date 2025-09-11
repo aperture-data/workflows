@@ -155,6 +155,7 @@ def connection(class_name: Optional[str],
 
     # cases 1, 2, 3, or 4
     if other_columns or other_constraints or not (src_command and dst_command):
+        # See https://github.com/aperture-data/athena/issues/1746
         assert not is_system_class, \
             "Cannot use FindConnection with other constraints or columns on a system class"
         command_body["constraints"] = other_constraints

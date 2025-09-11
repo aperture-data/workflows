@@ -54,6 +54,7 @@ TYPE_SIZE_ESTIMATE = {
     "json": 100,  # average JSON size
     "blob": 1000,  # average blob size
     "uniqueid": 16,  # UUID size
+    None: 10,  # default size, for columns that are not listable
 }
 
 
