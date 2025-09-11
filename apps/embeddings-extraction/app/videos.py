@@ -173,8 +173,19 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                             "set": self.embedder.descriptor_set,
                             "connect": {
                                 "ref": i + 2,
-                                "class": "videoHasDescriptor",
+                                "class": "ClipHasDescriptor",
                             },
+                        }
+                    })
+                    query2.append({
+                        "AddConnection": {
+                            "class": "VideoHasDescriptor",
+                            "src": 1,
+                            "dst": i + 2,
+                            "properties": {
+                                "start": i * frames_per_sample,
+                                "stop": min((i + 1) * frames_per_sample, frame_count)
+                            }
                         }
                     })
                 query2.append({

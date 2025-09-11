@@ -16,5 +16,6 @@ RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
 # Install dependencies for the app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN python -c "import clip; clip.load('ViT-B/16')"
 
 COPY app /app/
