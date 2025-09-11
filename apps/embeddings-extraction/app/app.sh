@@ -11,6 +11,10 @@ while true; do
     if [ "${RUN_ONCE,,}" = "true" ]; then
         break
     fi
+
     python3 status_tools.py --completed 0 --phases processing --phases sleeping --phase sleeping
-    sleep $SLEEPING_TIME
+    for ((i=1; i<=SLEEPING_TIME; i+=5)); do
+        sleep 5
+        python3 status_tools.py --completed $(( i * 100 / SLEEPING_TIME ))
+    done
 done
