@@ -52,14 +52,8 @@ def clean_embeddings(db):
             },
             "remove_props": [DONE_PROPERTY]
         }
-    }, {
-        "UpdateVideo": {
-            "constraints": {
-                VIDEO_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [VIDEO_EXTRACTION_DONE_PROPERTY]
-        }
-    },  {
+    },
+        {
         "FindVideo": {
             "_ref": 1,
             "constraints": {
@@ -67,9 +61,23 @@ def clean_embeddings(db):
             }
         }
     },  {
-            "DeleteClip": {
-                "video_ref": 1
-            }
+        "FindClip": {
+            "video_ref": 1,
+            "_ref": 2,
+        }
+    },
+        {
+        "DeleteClip": {
+            "ref": 2
+        }
+    },
+    {
+        "UpdateVideo": {
+            "constraints": {
+                VIDEO_EXTRACTION_DONE_PROPERTY: ["!=", None]
+            },
+            "remove_props": [VIDEO_EXTRACTION_DONE_PROPERTY]
+        }
     }])
 
     db.print_last_response()
