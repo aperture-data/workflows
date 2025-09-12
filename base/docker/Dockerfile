@@ -1,4 +1,5 @@
 FROM ubuntu:22.04
+ARG WORKFLOW_VERSION="UNDEFINED"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -50,5 +51,6 @@ COPY scripts/embeddings app/embeddings/
 COPY scripts/sitecustomize.py app/
 
 COPY scripts/start.sh /
+RUN echo "${WORKFLOW_VERSION}" > /app/workflow_version
 
 CMD ["/start.sh"]

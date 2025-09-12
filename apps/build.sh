@@ -13,7 +13,9 @@ set -o noclobber # prevent overwriting files with redirection
 
 # Get the directory this script is in
 BIN_DIR=$(dirname "$(readlink -f "$0")")
+WORKFLOW_VERSION=${WORKFLOW_VERSION-unset}
 
+echo "Building WORKFLOW_VERSION=$WORKFLOW_VERSION"
 # If an argument is provided, use it to find the directory,
 # otherwise use the current directory
 if [ $# -gt 0 ]; then
@@ -84,7 +86,7 @@ echo "Description: ${DESCRIPTION}"
 BASE_IMAGE_NAME="aperturedata/workflows-base"
 BASE_IMAGE_DIR="$DIR/../../base/docker"
 
-docker build -t ${BASE_IMAGE_NAME} ${BASE_IMAGE_DIR}
+docker build --build-arg WORKFLOW_VERSION="$WORKFLOW_VERSION" -t ${BASE_IMAGE_NAME} ${BASE_IMAGE_DIR}
 
 
 # Build the image
