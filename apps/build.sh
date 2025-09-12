@@ -13,7 +13,7 @@ set -o noclobber # prevent overwriting files with redirection
 
 # Get the directory this script is in
 BIN_DIR=$(dirname "$(readlink -f "$0")")
-WORKFLOW_VERSION=${WORKFLOW_VERSION-unset}
+WORKFLOW_VERSION=${WORKFLOW_VERSION:-unset}
 
 echo "Building WORKFLOW_VERSION=$WORKFLOW_VERSION"
 # If an argument is provided, use it to find the directory,
