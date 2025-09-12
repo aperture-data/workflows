@@ -11,6 +11,7 @@ OUTPUT="output"
 LOGFILE="${OUTPUT}/log.log"
 APPLOG="${OUTPUT}/app.log"
 S3LOGFILE="upload_s3.log"
+WORKFLOW_VERSION=$(cat /app/workflow_version)
 
 mkdir -p ${OUTPUT}
 
@@ -29,6 +30,8 @@ else
     rm -rf ${OUTPUT}/*
     date > $LOGFILE
 fi
+
+echo "Workflow Version: ${WORKFLOW_VERSION}"
 
 if [ -z "$RUN_NAME" ]; then
     RUN_NAME="unspecified_app_run"
