@@ -132,9 +132,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            VERSION=latest WORKFLOW_VERSION=$VERSION bash test.sh
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash test.sh
           else
-            VERSION=latest WORKFLOW_VERSION=$VERSION bash ../build.sh
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash ../build.sh
           fi
 
       - name: Push to docker (on main)
