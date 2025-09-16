@@ -94,6 +94,25 @@ def add_descriptor_set(
             f"Failed to add descriptor set {descriptor_set}: {query} {client.get_last_response_str()}")
 
 
+def update_descriptor_set(client: Connector,
+                          descriptor_set: str,
+                          properties: dict) -> None:
+    """
+    Update a descriptor set in the database.
+    """
+    query = [{
+        "UpdateDescriptorSet": {
+            "with_name": descriptor_set,
+            "properties": properties
+        }
+    }]
+    execute_query(client, query)
+    if not client.last_query_ok():
+        raise RuntimeError(
+            f"Failed to update descriptor set {descriptor_set}: {query} {client.get_last_response_str()}")
+    logger.info(f"Descriptor set {descriptor_set} updated.")
+
+
 def delete_descriptor_set(client: Connector,
                           descriptor_set: str) -> None:
     """
