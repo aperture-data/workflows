@@ -238,7 +238,7 @@ class Embedder():
         logger.info(
             f"Creating Embedder for descriptor set '{descriptor_set}' with provider '{provider}', model '{model_name}', pretrained '{pretrained}', engine '{engine}', device '{device}, clean={clean}'")
 
-        from .aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set
+        from .aperturedb_io import find_descriptor_set, add_descriptor_set, delete_descriptor_set, update_descriptor_set
 
         existing_properties = None
 
@@ -249,6 +249,8 @@ class Embedder():
                 descriptor_set=descriptor_set):
             logger.info(
                 f"Found existing descriptor set {descriptor_set}: {existing_properties}")
+            
+            update_required = False
 
             # Verify that the existing descriptor set matches the requested parameters
             # We allow None values of the existing properties to allow for re-use of descriptor sets that were created with an earlier version of the code.
@@ -258,7 +260,8 @@ class Embedder():
                         f"Provider mismatch: {provider} != {existing_properties['embeddings_provider']} in descriptor set {descriptor_set}, properties: {existing_properties}")
                 else:
                     logger.warning(
-                        f"Provider mismatch: {provider} != {existing_properties['embeddings_provider']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set.")
+                        f"Provider mismatch: {provider} != {existing_properties['embeddings_provider']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set and updating the properties.")
+                    update_required = True
 
             if model_name != existing_properties['embeddings_model']:
                 if existing_properties['embeddings_model'] is not None:
@@ -266,7 +269,8 @@ class Embedder():
                         f"Model name mismatch: {model_name} != {existing_properties['embeddings_model']} in descriptor set {descriptor_set}, properties: {existing_properties}")
                 else:
                     logger.warning(
-                        f"Model name mismatch: {model_name} != {existing_properties['embeddings_model']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set.")
+                        f"Model name mismatch: {model_name} != {existing_properties['embeddings_model']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set and updating the properties.")
+                    update_required = True
 
             if pretrained and pretrained != existing_properties['embeddings_pretrained']:
                 if existing_properties['embeddings_pretrained'] is not None:
@@ -275,6 +279,21 @@ class Embedder():
                 else:
                     logger.warning(
                         f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set.")
+                    update_required = True
+
+            if update_required: # We update the descriptor set with the new properties
+                properties = {
+                    "embeddings_provider": provider,
+                    "embeddings_model": model_name,
+                    **({"embeddings_pretrained": pretrained} if pretrained else {}),
+                }
+                logger.info(f"Updating descriptor set {descriptor_set} with properties: {properties}")
+                update_descriptor_set(
+                    client=client,
+                    descriptor_set=descriptor_set,
+                    properties=properties)
+            else:
+                logger.info(f"Descriptor set {descriptor_set} already exists and is compatible with the requested properties.")
         else:
             logger.info(
                 f"Descriptor set {descriptor_set} not found. Will create a new one.")
