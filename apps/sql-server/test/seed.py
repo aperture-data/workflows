@@ -102,6 +102,12 @@ def random_images(n=10):
         images.append(img_byte_arr.getvalue())
     return images
 
+def random_blobs(n=10):
+    """
+    Generate a list of random blobs for testing.
+    """
+    return [np.random.bytes(np.random.randint(100, 1000)) for _ in range(n)]
+
 
 def random_embedding(dimensions):
     """
@@ -208,6 +214,23 @@ def load_images_testdata(client):
     assert status == 0
 
 
+def load_blobs_testdata(client):
+    """
+    Create some test data for the blob suite.
+    """
+    query = []
+    blobs = random_blobs(10)
+
+    for blob in blobs:
+        query.append({
+            "AddBlob": {
+            }
+        })        
+
+    status, _, _ = execute_query(client, query, blobs)
+    assert status == 0
+
+
 if __name__ == "__main__":
     DB_HOST = os.getenv("DB_HOST", "aperturedb")
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
@@ -221,6 +244,7 @@ if __name__ == "__main__":
     load_constraints_testdata(client)
     load_text_descriptors_testdata(client)
     load_images_testdata(client)
+    load_blobs_testdata(client)
     print("Test data loaded successfully.")
 
     _, results, _ = execute_query(client, [{"GetSchema": {}}])

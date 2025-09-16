@@ -606,6 +606,8 @@ class FDW(ForeignDataWrapper):
 
         n_rows = self._options.count
         for col, constraints in command_body.get("constraints", {}).items():
+            if col not in self._columns:
+                continue
             col_type = self._columns[col].type
             if col == "_uniqueid":
                 if constraints[0] == "==":
