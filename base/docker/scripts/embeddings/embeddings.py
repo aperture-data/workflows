@@ -268,7 +268,7 @@ class Embedder():
                     logger.warning(
                         f"Model name mismatch: {model_name} != {existing_properties['embeddings_model']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set.")
 
-            if pretrained and pretrained != existing_properties['embeddings_pretrained'] and existing_properties['embeddings_pretrained'] is not None:
+            if pretrained and pretrained != existing_properties['embeddings_pretrained']:
                 if existing_properties['embeddings_pretrained'] is not None:
                     raise ValueError(
                         f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}")
