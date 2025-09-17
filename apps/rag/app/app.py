@@ -472,7 +472,7 @@ def get_args(argv=[]):
 
     obj.add_argument('--allowed-origins',
                      help='Comma-separated list of allowed origins for CORS',
-                     default="")
+                     default="http://localhost")
 
     obj.add_argument('--aimon-api-key',
                      help='API key for AIMON',
