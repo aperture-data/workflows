@@ -14,3 +14,5 @@ inputs = processor(images=image, text=text, return_tensors="pt")
 output = model.generate(**inputs)
 caption = processor.decode(output[0], skip_special_tokens=True)
 print(caption)
+
+assert "cat" in caption.lower(), f"{caption} does not contain 'cat'"
