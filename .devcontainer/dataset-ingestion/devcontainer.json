@@ -25,5 +25,6 @@
             "**/*.pyc": true
         }
     },
+    "initializeCommand": "./initcommand.sh",
     "postCreateCommand": "./postinstall.sh"
 }

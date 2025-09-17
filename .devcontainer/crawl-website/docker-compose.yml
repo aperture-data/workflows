@@ -16,7 +16,7 @@ services:
         condition: service_started
     image: aperturedata/lenz:latest
     ports:
-      - 55555:55551
+      - ${ADB_PORT}:55551
     restart: always
     environment:
       LNZ_HEALTH_PORT: 58085
