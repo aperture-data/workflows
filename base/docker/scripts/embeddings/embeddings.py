@@ -278,7 +278,7 @@ class Embedder():
                         f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}")
                 else:
                     logger.warning(
-                        f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set.")
+                        f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set and updating the properties.")
                     update_required = True
 
             if update_required: # We update the descriptor set with the new properties
