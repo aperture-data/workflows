@@ -1,4 +1,4 @@
-from aperturedb.CommonLibrary import execute_query
+from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 from itertools import product
 import os
@@ -231,14 +231,23 @@ def load_blobs_testdata(client):
     assert status == 0
 
 
-if __name__ == "__main__":
+def db_connection():
+    """Create a database connection."""
+    # Not used in testing, but can be used to seed a different database
+    APERTUREDB_KEY = os.getenv("APERTUREDB_KEY")
+    if APERTUREDB_KEY:
+        return create_connector(key=APERTUREDB_KEY)
+
     DB_HOST = os.getenv("DB_HOST", "aperturedb")
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    print(f"{DB_HOST=}, {DB_PORT=}, {DB_USER=}, {DB_PASS}")
-    client = Connector(host=DB_HOST, user=DB_USER,
-                       port=DB_PORT, password=DB_PASS)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
+
+
+
+if __name__ == "__main__":
+    client = db_connection()
 
     print(f"host={client.host}")
     load_constraints_testdata(client)
