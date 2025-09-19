@@ -6,7 +6,7 @@
 # SELECT * FROM "DescriptorSet" LIMIT 10;
 
 from typing import List, Literal, Set, Any, Dict
-from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough, get_path_keys
+from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough_lowercase, get_path_keys
 from .table import TableOptions, literal, connection as table_connection
 from .common import TYPE_MAP, Curry
 from .aperturedb import get_classes
@@ -98,7 +98,7 @@ def image_extra_columns() -> List[ColumnDefinition]:
             type_name="text",
             options=ColumnOptions(
                 listable=False,
-                modify_command_body=Curry(passthrough, "as_format"),
+                modify_command_body=Curry(passthrough_lowercase, "as_format"),
             ).to_string()
         ),
         operations_column({"threshold", "resize", "crop", "rotate", "flip"}),

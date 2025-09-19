@@ -113,7 +113,7 @@ def connection(class_name: Optional[str],
     dst_constraint = constraints.get("_dst")
     other_constraints = {k: v for k, v in constraints.items()
                          if k not in ["_src", "_dst"]}
-    list_columns = command_body.get("result", {}).get(
+    list_columns = command_body.get("results", {}).get(
         "list", [])  # We never use all_properties, even for "*"
     other_columns = [c for c in list_columns if c not in ["_src", "_dst"]]
 
@@ -125,28 +125,30 @@ def connection(class_name: Optional[str],
     src_command = dst_command = connection_command = None
     return_fn = None
 
-    if src_constraint:  # cases 2, 4, 5, or 6
+    if src_constraint or is_system_class:  # cases 2, 4, 5, or 6
         src_command_name = "FindEntity" if src_class[
-            0] != "_" else f"Find[{src_class[1:]}]"
+            0] != "_" else f"Find{src_class[1:]}"
         src_ref = len(result_query) + 1
         src_command = {
             src_command_name: {
                 **({"with_class": src_class} if src_class[0] != "_" else {}),
-                "constraints": {"_uniqueid": src_constraint},
+                **({"constraints": {"_uniqueid": src_constraint}} if src_constraint else {}),
+                "results": {"list": ["_uniqueid"]},
                 "_ref": src_ref
             }
         }
         src_command_body = get_command_body(src_command)
         result_query.append(src_command)
 
-    if dst_constraint:  # cases 3, 4, 5 or 6
+    if dst_constraint or is_system_class:  # cases 3, 4, 5 or 6
         dst_command_name = "FindEntity" if dst_class[
-            0] != "_" else f"Find[{dst_class[1:]}]"
+            0] != "_" else f"Find{dst_class[1:]}"
         dst_ref = len(result_query) + 1
         dst_command = {
             dst_command_name: {
                 **({"with_class": dst_class} if dst_class[0] != "_" else {}),
-                "constraints": {"_uniqueid": dst_constraint},
+                **({"constraints": {"_uniqueid": dst_constraint}} if dst_constraint else {}),
+                "results": {"list": ["_uniqueid"]},
                 "_ref": dst_ref
             }
         }
@@ -157,7 +159,7 @@ def connection(class_name: Optional[str],
     if other_columns or other_constraints or not (src_command and dst_command):
         # See https://github.com/aperture-data/athena/issues/1746
         assert not is_system_class, \
-            "Cannot use FindConnection with other constraints or columns on a system class"
+            f"Cannot use FindConnection with other constraints or columns on a system class: {other_constraints=} {other_columns=} {src_command=} {dst_command=} {is_system_class=} {list_columns=} {query=}"
         command_body["constraints"] = other_constraints
         if src_command is not None:
             command_body["src"] = src_command
