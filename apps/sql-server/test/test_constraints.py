@@ -258,29 +258,33 @@ def multicorn_plan(plan_node: dict) -> str:
     return None
 
 
-@pytest.mark.parametrize("query", [
-    "SELECT source_key FROM \"SourceNode\";",
-    "SELECT destination_key FROM \"DestinationNode\";",
-    "SELECT edge_key FROM \"edge\";",
-    "SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid;",
-    "SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid WHERE source_key = edge_key;",
-    "SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid;",
-    "SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid WHERE destination_key = edge_key;",
-    "SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid;",
-    "SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid WHERE source_key = destination_key;",
-    "SELECT source_key FROM \"SourceNode\" WHERE _uniqueid in {src_unique_ids};",
-    "SELECT destination_key FROM \"DestinationNode\" WHERE _uniqueid in {dst_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _dst IN {dst_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};",
-    "SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};",
-    pytest.param("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};",
+@pytest.mark.parametrize("query,n_results", [
+    ("SELECT source_key FROM \"SourceNode\";", 5),
+    ("SELECT destination_key FROM \"DestinationNode\";", 5),
+    ("SELECT edge_key FROM \"edge\";", 5),
+    ("SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid;", 5),
+    ("SELECT source_key, edge_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON B._src = A._uniqueid WHERE source_key = edge_key;", 5),
+    ("SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid;", 5),
+    ("SELECT destination_key, edge_key FROM \"DestinationNode\" AS A JOIN \"edge\" AS B ON B._dst = A._uniqueid WHERE destination_key = edge_key;", 5),
+    ("SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid;", 5),
+    ("SELECT source_key, destination_key FROM \"SourceNode\" AS A JOIN \"edge\" AS B ON A._uniqueid = B._src JOIN \"DestinationNode\" AS C ON B._dst = C._uniqueid WHERE source_key = destination_key;", 5),
+    ("SELECT source_key FROM \"SourceNode\" WHERE _uniqueid in {src_unique_ids};", 5),
+    ("SELECT destination_key FROM \"DestinationNode\" WHERE _uniqueid in {dst_unique_ids};", 5),
+    ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids};", 5),
+    ("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids};", 5),
+    ("SELECT edge_key FROM \"edge\" WHERE _dst IN {dst_unique_ids};", 5),
+    pytest.param("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
+                  marks=pytest.mark.xfail(
+                      reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};", 5),
+    ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};", 5),
+    pytest.param("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
                  marks=pytest.mark.xfail(
                      reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT * FROM connection.\"_DescriptorConnection\";", 20),
+    ("SELECT * FROM connection.\"edge\";", 5),
 ])
-def test_join_query(query, sql_connection, constraint_formatter):
+def test_join_query(query, n_results, sql_connection, constraint_formatter):
     """
     Test the execution of join queries.
     """
@@ -295,7 +299,7 @@ def test_join_query(query, sql_connection, constraint_formatter):
         raise
 
     assert len(
-        result) == 5, f"Expected 5 rows, got {len(result)} for query: {query}, {query_aql(query, sql_connection)}"
+        result) == n_results, f"Expected {n_results} rows, got {len(result)} for query: {query}, {query_aql(query, sql_connection)}"
 
 
 def query_aql(query: str, sql_connection) -> str:

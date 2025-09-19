@@ -12,6 +12,11 @@ services:
       timeout: 1s
       retries: 60
     ports: []
+    volumes:
+      - ./aperturedb/logs:/aperturedb/logs
+    environment:
+      ADB_ENABLE_DEBUG: 1
+      ADB_LOG_PATH: "logs"
 
   # One image for both seed and tests (Python + aperturedb + pytest + psycopg)
   # Use the same image; just change the command.

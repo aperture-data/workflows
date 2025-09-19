@@ -100,6 +100,16 @@ def passthrough(name: str,
     command_body[name] = value
 
 
+def passthrough_lowercase(name: str,
+                value: Any, command_body: Dict[str, Any]) -> None:
+    """
+    A ColumnOptions modify_command_body hook.
+
+    Adds the value to the command body under the given name in lowercase.
+    """
+    command_body[name] = value.lower()
+
+
 def add_blob(column: str,
              value: Any, row: dict, blob: Optional[bytes]) -> None:
     """

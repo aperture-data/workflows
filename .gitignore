@@ -174,3 +174,4 @@ apps/dataset-ingestion/input
 log.txt
 input/
 aperturedb/
+logs/
