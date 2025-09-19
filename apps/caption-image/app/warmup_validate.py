@@ -2,6 +2,9 @@ from PIL import Image
 import requests
 from transformers import AutoProcessor, BlipForConditionalGeneration
 
+
+# This serves as a warmup for the model to load into memory
+# It also validates that the model is working correctly
 processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 

@@ -22,15 +22,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, done_property: str):
+    def __init__(self, pool, caption_image_property: str):
 
         self.pool = pool
-        self.done_property = done_property
+        self.caption_image_property = caption_image_property
 
         query = [{
             "FindImage": {
                 "constraints": {
-                    self.done_property: ["==", None]
+                    self.caption_image_property: ["==", None]
                 },
                 "results": {
                     "count": True
@@ -68,7 +68,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    self.done_property: ["==", None]
+                    self.caption_image_property: ["==", None]
                 },
                 "batch": {
                     "batch_size": self.batch_size,
@@ -118,7 +118,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": i + 1,
                     "properties": {
-                        self.done_property: captions[i]
+                        self.caption_image_property: captions[i]
                     },
                 }
             })

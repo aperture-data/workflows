@@ -42,7 +42,7 @@ Parameters:
 * **`NUM_WORKERS`**: Specifies the number of worker threads that will be running simultaneously,
 retrieving and processing images in parallel. Default is `1`.
 * **`BATCH_SIZE`**: Specifies the batch size for processing images. Default is `1`.
-* **`LOG_LEVEL`**: Set log level for workflow code. Available options: DEBUG, INFO, WARNING, ERROR. Default is `INFO`.
+* **`LOG_LEVEL`**: Set log level for workflow code. Available options: DEBUG, INFO, WARNING, ERROR. Default is `WARNING`.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 

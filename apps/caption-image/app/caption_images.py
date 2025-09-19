@@ -7,19 +7,19 @@ from aperturedb import ParallelQuery
 from connection_pool import ConnectionPool
 
 app = Typer()
-DONE_PROPERTY = 'wf_caption_image'
+CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 
 @app.command()
 def caption_images(
     num_workers:int = 1,
     batch_size:int = 1,
-    log_level:str = "INFO"
+    log_level:str = "WARNING"
 ):
     logging.basicConfig(level=logging.getLevelName(log_level))
     pool = ConnectionPool()
     data = FindImageQueryGenerator(
         pool,
-        done_property=DONE_PROPERTY)
+        caption_image_property=CAPTION_IMAGE_PROPERTY)
 
     print("Running Caption Image...")
     with pool.get_connection() as db:
