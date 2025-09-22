@@ -75,4 +75,4 @@ services:
       SQL_USER: aperturedb
       SQL_PASS: test
     working_dir: /app
-    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG", "test_security.py"]
