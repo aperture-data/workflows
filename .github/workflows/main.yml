@@ -77,13 +77,12 @@ jobs:
           name: workflows-base
           path: ${{ runner.temp }}/workflows-base.tar
 
-  build-test-apps:
+  build-test-apps-small:
     needs: [ build-base, get-version ]
 
     strategy:
       matrix:
         app: [
-
           object-detection,
           embeddings-extraction,
           face-detection,
@@ -147,7 +146,7 @@ jobs:
           docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
-  build-test-meta:
+  build-test-apps-large:
     needs: [build-base, get-version]
 
     strategy:
