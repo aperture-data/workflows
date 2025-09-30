@@ -83,7 +83,7 @@ jobs:
     strategy:
       matrix:
         app: [
-          dataset-ingestion,
+
           object-detection,
           embeddings-extraction,
           face-detection,
@@ -150,6 +150,13 @@ jobs:
   build-test-meta:
     needs: [build-base, get-version]
 
+    strategy:
+      matrix:
+        app: [
+          crawl-to-rag,
+          dataset-ingestion
+        ]
+
     runs-on:
       - deployer
       - self-hosted
@@ -182,8 +189,12 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
-          cd apps/crawl-to-rag
-          bash test.sh
+          cd apps/${{ matrix.app }}
+          if [ -f "test.sh" ]; then
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash test.sh
+          else
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash ../build.sh
+          fi
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main
