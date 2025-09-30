@@ -273,14 +273,10 @@ def multicorn_plan(plan_node: dict) -> str:
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _dst IN {dst_unique_ids};", 5),
-    pytest.param("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
-                  marks=pytest.mark.xfail(
-                      reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};", 5),
-    pytest.param("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
-                 marks=pytest.mark.xfail(
-                     reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5),
     ("SELECT * FROM connection.\"_DescriptorConnection\";", 20),
     ("SELECT * FROM connection.\"edge\";", 5),
 ])

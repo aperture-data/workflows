@@ -203,7 +203,9 @@ def system_connection_table() -> TableDefinition:
     table_name = "Connection"
     classes = get_classes("connections")
     count = sum(
-        data.get("matched", 0) for class_, data in classes.items()
+        # https://github.com/aperture-data/athena/pull/1726
+        # data may be either a dict or a list of dicts
+        data.get("matched", 0) if isinstance(data, dict) else sum(item.get("matched", 0) for item in data) for class_, data in classes.items()
     )
 
     columns = []
@@ -261,12 +263,18 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     property_types = defaultdict(set)
     classes = get_classes(type_)
     for data in classes.values():
-        if "properties" in data and data["properties"] is not None:
-            assert isinstance(data["properties"], dict), \
-                f"Expected properties to be a dict, got {type(data['properties'])}"
-            for prop, prop_data in data["properties"].items():
-                count, indexed, prop_type = prop_data
-                property_types[prop].add(prop_type.lower())
+        # https://github.com/aperture-data/athena/pull/1726
+        # data may be either a dict or a list of dicts
+        if isinstance(data, dict):
+            data = [data] # normalize to list form
+            
+        for item in data:
+            if "properties" in item and item["properties"] is not None:
+                assert isinstance(item["properties"], dict), \
+                    f"Expected properties to be a dict, got {type(item['properties'])}"
+                for prop, prop_data in item["properties"].items():
+                    count, indexed, prop_type = prop_data
+                    property_types[prop].add(prop_type.lower())
 
     columns = []
     for prop, types in property_types.items():

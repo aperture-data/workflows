@@ -7,7 +7,7 @@
 # FROM "WorkflowCreated";
 
 import logging
-from typing import List
+from typing import List, Union
 from .common import Curry
 from .column import property_columns, ColumnOptions, get_path_keys
 from .table import TableOptions, literal, connection as table_connection
@@ -31,10 +31,12 @@ def connection_schema() -> List[TableDefinition]:
     return results
 
 
-def connection_table(connection: str, data: dict) -> TableDefinition:
+def connection_table(connection: str, data: Union[dict, list]) -> TableDefinition:
     """
     Create a TableDefinition for a connection.
     This is used to create the foreign table in PostgreSQL.
+
+    Note that data is a list from 0.18.15 onwards, but commonly of length 1
     """
 
     table_name = connection
@@ -43,15 +45,32 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
     is_system_class = connection[0] == "_"
 
     try:
-        if not is_system_class:
-            columns.extend(property_columns(data))
+        # We have to handle three cases here: dict, list of length 1, and list of length > 1
+        if isinstance(data, dict):
+            data = [data] # normalize to list form
+
+        assert isinstance(data, list), "Expected data to be a list"
+
+        if len(data) == 1:
+            count = data[0].get("matched", 0)
+            src_class = data[0].get("src", None)
+            dst_class = data[0].get("dst", None)
+            if not is_system_class:
+                columns.extend(property_columns(data[0]))
+        else: # two or more items
+            # new-style list of length > 1; sum the matched values and set src and dst to None
+            count = sum(item.get("matched", 0) for item in data)
+            src_class = None
+            dst_class = None
+            # TODO: We don't support properties here; could try a "consistent properties" approach instead.
+
 
         # Add the _src, and _dst columns
         columns.append(ColumnDefinition(
             column_name="_src",
             type_name="text",
             options=ColumnOptions(
-                count=data.get("matched", 0),
+                count=count,
                 indexed=True,
                 type="uniqueid",
             ).to_string()))
@@ -59,7 +78,7 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
             column_name="_dst",
             type_name="text",
             options=ColumnOptions(
-                count=data.get("matched", 0),
+                count=count,
                 indexed=True,
                 type="uniqueid",
             ).to_string()))
@@ -72,11 +91,11 @@ def connection_table(connection: str, data: dict) -> TableDefinition:
 
     options = TableOptions(
         table_name=f'connection."{table_name}"',
-        count=data.get("matched", 0),
+        count=count,
         command="FindConnection",
         result_field="connections",
         modify_query=Curry(table_connection, class_name=connection,
-                           src_class=data["src"], dst_class=data["dst"]),
+            src_class=src_class, dst_class=dst_class),
         path_keys=path_keys,
     )
 

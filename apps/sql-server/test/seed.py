@@ -230,6 +230,34 @@ def load_blobs_testdata(client):
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
 
+def load_generic_connection_testdata(client):
+    # See https://github.com/aperture-data/athena/issues/757
+    query = [
+        {
+            "AddEntity": {
+            "_ref": 1,
+            "class": "Person"
+            }
+        },
+        {
+            "AddEntity": {
+            "_ref": 2,
+            "class": "School",
+            "connect": {
+                "ref": 1
+            }
+            }
+        },
+        {
+            "AddEntity": {
+            "_ref": 3,
+            "class": "Sport",
+            "connect": {
+                "ref": 2
+            }
+            }
+        }
+    ]
 
 def db_connection():
     """Create a database connection."""
@@ -254,6 +282,7 @@ if __name__ == "__main__":
     load_text_descriptors_testdata(client)
     load_images_testdata(client)
     load_blobs_testdata(client)
+    load_generic_connection_testdata(client)
     print("Test data loaded successfully.")
 
     _, results, _ = execute_query(client, [{"GetSchema": {}}])
