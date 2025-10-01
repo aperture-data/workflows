@@ -154,7 +154,7 @@ storage.buckets.get
 storage.objects.get
 storage.objects.list
 ```
-and the storage.objects permissions can be bound to the buckets.
+and the storage.objects permissions can be bound to the taget bucket.
 
 ## Notes
 
