@@ -6,6 +6,7 @@
 
 import json
 import base64
+from locale import CODESET
 import uuid
 from typing import List, Optional, Tuple, Dict, Any, Literal
 import logging
@@ -68,8 +69,13 @@ def execute_query(
             f"HTTP error {resp_status} from ApertureDB proxy: {data.decode('utf-8')}"
         )
 
-    parsed = json.loads(data)
-    out_json = parsed["json"]
+    try:
+        parsed = json.loads(data)
+        out_json = parsed["json"]
+    except Exception as e:
+        logger.error(f"Error parsing JSON: {e} {data=}")
+        raise
+
     out_blobs = [base64.b64decode(s) for s in parsed.get("blobs", [])] or None
     out_status = parsed.get('status', 0)
     elapsed_time = datetime.now() - start_time

@@ -235,29 +235,50 @@ def load_generic_connection_testdata(client):
     query = [
         {
             "AddEntity": {
-            "_ref": 1,
-            "class": "Person"
+                "_ref": 1,
+                "class": "Person"
             }
         },
         {
             "AddEntity": {
-            "_ref": 2,
-            "class": "School",
-            "connect": {
-                "ref": 1
-            }
+                "_ref": 2,
+                "class": "School",
+                "connect": {
+                    "ref": 1
+                }
             }
         },
         {
             "AddEntity": {
-            "_ref": 3,
-            "class": "Sport",
-            "connect": {
-                "ref": 2
+                "class": "Sport",
+                "connect": {
+                    "ref": 2
+                }
             }
+        },
+        {
+            "AddEntity": {
+                "_ref": 3,
+                "class": "College",
+                "connect": {
+                    "ref": 1,
+                    "class": "ReusedConnection"
+                }
+            }
+        },
+        {
+            "AddEntity": {
+                "class": "Athletics",
+                "connect": {
+                    "ref": 3,
+                    "class": "ReusedConnection"
+                }
             }
         }
     ]
+
+    status, _, _ = execute_query(client, query)
+    assert status == 0
 
 def db_connection():
     """Create a database connection."""
