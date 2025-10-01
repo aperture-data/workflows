@@ -61,13 +61,22 @@ def describe_entity_class(
         description="The name of the entity class to describe")]
 ) -> EntityClassDescription:
     """Describe an entity class in the database."""
+    def make_description(description):
+        properties = {
+            k: PropertyDescription(matched=v[0], indexed=v[1], type=v[2]) 
+                for k, v in (description.get('properties') or {}).items()
+        }
+        return EntityClassDescription(
+            matched=description['matched'], 
+            properties=properties)
+
     schema = get_schema()
     try:
         description = schema['entities']['classes'][class_name]
     except KeyError:
         logger.error(f"Entity class '{class_name}' not found in schema.")
         raise ValueError(f"Entity class '{class_name}' not found in schema.")
-    return EntityClassDescription(matched=description['matched'], properties={k: PropertyDescription(matched=v[0], indexed=v[1], type=v[2]) for k, v in (description.get('properties') or {}).items()})
+    return make_description(description)
 
 
 @declare_mcp_tool
@@ -88,6 +97,17 @@ def describe_connection_class(
         description="The name of the connection class to describe")]
 ) -> ConnectionClassDescriptions:
     """Describe an connection class in the database."""
+    def make_description(description):
+        properties = {
+            k: PropertyDescription(matched=v[0], indexed=v[1], type=v[2]) 
+                for k, v in (description.get('properties') or {}).items()
+        }
+        return ConnectionClassDescription(
+            matched=description['matched'], 
+            properties=properties, 
+            src=description['src'], 
+            dst=description['dst'])
+
     schema = get_schema()
     try:
         # From athena 0.18.15, connection class values are lists of dicts
@@ -98,5 +118,5 @@ def describe_connection_class(
     except KeyError:
         logger.error(f"Connection class '{class_name}' not found in schema.")
         raise ValueError(
-            f"Connection class '{class_name}' not found in schema.")
-    return ConnectionClassDescriptions(items=[ConnectionClassDescription(matched=d['matched'], properties={k: PropertyDescription(matched=v[0], indexed=v[1], type=v[2]) for k, v in (d.get('properties') or {}).items()}, src=d['src'], dst=d['dst']) for d in description])
+            f"Connection class '{class_name}' not found in schema.")    
+    return ConnectionClassDescriptions(items=[make_description(d) for d in description])
