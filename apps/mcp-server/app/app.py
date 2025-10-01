@@ -20,7 +20,7 @@ def test_connection():
     client = create_connector()
     from aperturedb.Utils import Utils
     utils = Utils(client)
-    utils.summary()
+    utils.get_schema()
 
 
 test_connection()
