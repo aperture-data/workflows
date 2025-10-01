@@ -116,6 +116,39 @@ docker run \
 
 See [Common Parameters](../../README.md#common-parameters) for additional options.
 
+## Permissions
+
+In S3, the minimal permissions for running the workflow are as follows:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::YOUR_BUCKET_NAME",
+                "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+The ListAllMyBuckets permission is used to verify the account credentials are
+correct, to assist in bucket access/existence mis-configuration error reporting.
 ## Notes
 
 For deduplication, the hash is of the provider, bucket, and object path (e.g., `gs://my-bucket/documents/proposal.pdf`).
