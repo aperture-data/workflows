@@ -6,7 +6,6 @@
 
 import json
 import base64
-from locale import CODESET
 import uuid
 from typing import List, Optional, Tuple, Dict, Any, Literal
 import logging

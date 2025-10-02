@@ -267,7 +267,7 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
         # data may be either a dict or a list of dicts
         if isinstance(data, dict):
             data = [data] # normalize to list form
-            
+
         for item in data:
             if "properties" in item and item["properties"] is not None:
                 assert isinstance(item["properties"], dict), \
