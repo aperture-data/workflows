@@ -356,4 +356,4 @@ def query_aql(query: str, sql_connection) -> str:
         except Exception as e:
             print(f"Error parsing JSON: {e} {multicorn=}")
             raise
-    return aqls
+    return json.dumps(aqls)
