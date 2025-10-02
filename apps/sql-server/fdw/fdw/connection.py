@@ -7,7 +7,7 @@
 # FROM "WorkflowCreated";
 
 import logging
-from typing import List, Union
+from typing import List, Union, Optional
 from .common import Curry
 from .column import property_columns, ColumnOptions, get_path_keys
 from .table import TableOptions, literal, connection as table_connection
@@ -27,11 +27,13 @@ def connection_schema() -> List[TableDefinition]:
     results = []
     classes = get_classes("connections")
     for connection, data in classes.items():
-        results.append(connection_table(connection, data))
+        result = connection_table(connection, data)
+        if result is not None:
+            results.append(result)
     return results
 
 
-def connection_table(connection: str, data: Union[dict, list]) -> TableDefinition:
+def connection_table(connection: str, data: Union[dict, list]) -> Optional[TableDefinition]:
     """
     Create a TableDefinition for a connection.
     This is used to create the foreign table in PostgreSQL.
@@ -57,12 +59,8 @@ def connection_table(connection: str, data: Union[dict, list]) -> TableDefinitio
             dst_class = data[0].get("dst", None)
             if not is_system_class:
                 columns.extend(property_columns(data[0]))
-        else: # two or more items
-            # new-style list of length > 1; sum the matched values and set src and dst to None
-            count = sum(item.get("matched", 0) for item in data)
-            src_class = None
-            dst_class = None
-            # TODO: We don't support properties here; could try a "consistent properties" approach instead.
+        else: # TODO: two or more items; skip for now
+            return None
 
 
         # Add the _src, and _dst columns

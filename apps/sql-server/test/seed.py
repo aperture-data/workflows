@@ -280,6 +280,12 @@ def load_generic_connection_testdata(client):
     status, _, _ = execute_query(client, query)
     assert status == 0
 
+
+def str_to_bool(s):
+    """Convert a string to a boolean."""
+    return s.lower() in ["true", "1", "yes", "y"]
+
+
 def db_connection():
     """Create a database connection."""
     # Not used in testing, but can be used to seed a different database
@@ -291,8 +297,8 @@ def db_connection():
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
-
+    USE_SSL = str_to_bool(os.getenv("USE_SSL", "true"))
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, use_ssl=USE_SSL)
 
 
 if __name__ == "__main__":

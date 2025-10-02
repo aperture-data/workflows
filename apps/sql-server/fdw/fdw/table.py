@@ -88,9 +88,6 @@ def connection(class_name: Optional[str],
     Queries that are on system classes, or which neither request nor constrain other connection properties
     are converted to a pair of Find<Object> commands using "is_connected_to".
 
-    In the case of connection classes with multiple entries, then src_class and dst_class are None.
-    In this case, we cannot use Find<Object> commands, so we fall back on an unconstrained "FindConnection" command, but only if it is not a system class (https://github.com/aperture-data/athena/issues/1746).
-
     So the input query is a single FindConnection command, and the output has one of these six forms:
     1. Single FindConnection command
     2. A Find<Object> command ref-tied to `src` in FindConnection
@@ -123,11 +120,6 @@ def connection(class_name: Optional[str],
 
     if class_name and not is_system_class:
         command_body["with_class"] = class_name
-
-    # If src_class and dst_class are None, then we fall back on an unconstrained FindConnection command, possibly with `with_class`
-    if src_class is None and dst_class is None:
-        logger.warning(f"Sticking with unconstraied FindConnection: {query=}")
-        return None
 
     result_query = []
 
