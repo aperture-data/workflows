@@ -182,10 +182,11 @@ class ImageIngester(Ingester):
         logger.info("Images ready to load")
         if self.maximum_object_count is not None:
             self.df = self.df.head( self.maximum_object_count )
-        self.df = self.find_existing(db, self.df["wf_sha1_hash"].tolist())
-        if len(self.df.index) == 0:
-            logger.warning("No items to load after checking db for matches")
-            return True
+        if self.check_for_existing:
+            self.df = self.find_existing(db, self.df["wf_sha1_hash"].tolist())
+            if len(self.df.index) == 0:
+                logger.warning("No items to load after checking db for matches")
+                return True
         csv_data = ImageDataCSV( filename=None,df=self.df)
         csv_data.sources = CustomSources( self.source )
         loader = ParallelLoader(db)
