@@ -59,7 +59,7 @@ docker run -d \
            --health-retries=20 \
            --health-interval=1s \
            aperturedata/aperturedb-community
-docker exec ${DB_NAME} apt-get install -y netcat
+docker exec ${DB_NAME} apt-get install -y netcat-traditional
 
 echo "Waiting for the ${DB_NAME} to be ready..."
 until [ "`docker inspect -f {{.State.Health.Status}} ${DB_NAME}`" == "healthy" ]; do
