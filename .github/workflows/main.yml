@@ -99,6 +99,7 @@ jobs:
           sql-server,
           label-studio,
           ocr-extraction,
+          add-width-and-height,
         ]
     runs-on:
       - ubuntu-latest
