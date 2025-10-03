@@ -389,6 +389,26 @@ services:
             <<: *common-env
             RUN_ONCE: "${RUN_ONCE:-true}"
             COLLECT_EMBEDDINGS: "${COLLECT_EMBEDDINGS:-true}"
+    object-detection:
+        build:
+            context: ./apps/object-detection
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
+        image: aperturedata/workflows-face-detection:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+            add-image:
+                condition: service_completed_successfully
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
 
 configs:
   nginx.conf:
