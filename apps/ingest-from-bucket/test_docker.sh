@@ -57,4 +57,4 @@ vars+=(-e WF_CLOUD_PROVIDER="$PROVIDER")
 vars+=(-e WF_BUCKET="$BUCKET")
 vars+=(-e WF_INGEST_IMAGES="true")
 
-docker run --rm -it ${vars[@]} aperturedata/workflows-bucket-loader
+docker run --rm -it ${vars[@]} aperturedata/workflows-ingest-from-bucket
