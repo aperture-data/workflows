@@ -77,13 +77,12 @@ jobs:
           name: workflows-base
           path: ${{ runner.temp }}/workflows-base.tar
 
-  build-test-apps:
+  build-test-apps-small:
     needs: [ build-base, get-version ]
 
     strategy:
       matrix:
         app: [
-          dataset-ingestion,
           object-detection,
           embeddings-extraction,
           face-detection,
@@ -147,8 +146,15 @@ jobs:
           docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
-  build-test-meta:
+  build-test-apps-large:
     needs: [build-base, get-version]
+
+    strategy:
+      matrix:
+        app: [
+          crawl-to-rag,
+          dataset-ingestion
+        ]
 
     runs-on:
       - deployer
@@ -182,8 +188,12 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
         run: |
-          cd apps/crawl-to-rag
-          bash test.sh
+          cd apps/${{ matrix.app }}
+          if [ -f "test.sh" ]; then
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash test.sh
+          else
+            WORKFLOW_VERSION=$VERSION VERSION=latest bash ../build.sh
+          fi
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main
@@ -195,7 +205,7 @@ jobs:
           docker push aperturedata/workflows-crawl-to-rag:$VERSION
 
   update-version:
-    needs: [build-test-meta, build-test-apps, get-version]
+    needs: [build-test-apps-small, build-test-apps-large, get-version]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
     env:

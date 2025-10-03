@@ -2,44 +2,45 @@
 set -x
 set -euo pipefail
 
-bash ../build.sh
-export WORKFLOW_NAME="ingest-croissant"
-RUNNER_NAME="$(whoami)"
-PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
+WORKFLOW="ingest-croissant"
 
-NW_NAME="${PREFIX}"
-DB_NAME="${PREFIX}_aperturedb"
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
 
-CROISSANT_URL="https://huggingface.co/api/datasets/suyc21/MedicalConverter/croissant"
+cd $BIN_DIR
 
-docker stop ${DB_NAME}   || true
-docker rm ${DB_NAME}  || true
-docker network rm ${NW_NAME} || true
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
+COMPOSE_PROJECT_NAME="${WORKFLOW}"
 
-docker network create ${NW_NAME}
+export DB_HOST="lenz"
+export DB_PORT="55551"
+export DB_PASS="admin"
+export DB_TCP_CN="lenz"
+export DB_HTTP_CN="nginx"
 
-# Start empty aperturedb instance for coco
-docker run -d \
-           --name ${DB_NAME} \
-           --network ${NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           --health-cmd='nc -z localhost 55555 || exit 1' \
-           --health-retries=20 \
-           --health-interval=1s \
-           aperturedata/aperturedb-community
-docker exec ${DB_NAME} apt-get install -y netcat-traditional
+# ---- cleanup on exit ----
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+}
+trap cleanup EXIT
 
-echo "Waiting for the ${DB_NAME} to be ready..."
-until [ "`docker inspect -f {{.State.Health.Status}} ${DB_NAME}`" == "healthy" ]; do
-    sleep 1;
-done;
-echo "${DB_NAME} is ready."
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN"
 
-docker run --rm \
-    --network ${NW_NAME} \
-    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-    -e "WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET}" \
-    -e "DB_HOST=${DB_NAME}" \
-    -e "WF_CROISSANT_URL=${CROISSANT_URL}" \
-    aperturedata/workflows-${WORKFLOW_NAME}
+$COMMAND build base
+
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
+(
+  sleep 5
+  $COMMAND logs -f > $TEST_LOG
+) &
+LOG_PID=$!
+
+$COMMAND up --exit-code-from ingest-croissant ingest-croissant
+
+# Wait for logs to finish
+kill $LOG_PID || true

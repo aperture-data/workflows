@@ -1,3 +1,2 @@
-aperturedb>=0.4.48
 mlcroissant
 GitPython
