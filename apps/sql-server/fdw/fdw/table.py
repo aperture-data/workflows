@@ -74,7 +74,7 @@ def literal(parameters: Dict[str, Any],
 
 
 def connection(class_name: Optional[str],
-               src_class: str, dst_class: str,
+               src_class: Optional[str], dst_class: Optional[str],
                query: List[dict]) -> Optional[Callable]:
     """
     A TableOptions modify_query hook.
@@ -100,6 +100,7 @@ def connection(class_name: Optional[str],
     because the results will be a dictionary rather than a flat list. This hook optionally returns a function
     that takes the response and returns the rewritten results.
     """
+
     # The three questions we ask are:
     # Is this a system class?
     # Does it request or constrain _src or _dst?
