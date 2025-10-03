@@ -22,6 +22,7 @@ COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 export DB_HOST DB_PASS
 DB_HOST="${DB_HOST:-aperturedb}"
 DB_PASS="${DB_PASS:-admin}"
+export DB_TCP_CN="lenz"
 
 # ---- cleanup on exit ----
 cleanup() {
