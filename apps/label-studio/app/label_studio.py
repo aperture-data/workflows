@@ -77,7 +77,7 @@ def main(args):
 
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
         env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
-        env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]=args.label_studio_handle_untagged 
+        env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]= "TRUE" if args.label_studio_handle_untagged else "FALSE"
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if "DB_HOST_PUBLIC" in os.environ:
