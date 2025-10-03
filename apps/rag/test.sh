@@ -56,7 +56,7 @@ function setup() {
 
     docker build -t get_summary -f- . <<EOD
 FROM aperturedata/workflows-base
-RUN echo "/opt/venv/bin/adb utils execute summary" > /app/app.sh
+RUN echo "python3 -c 'from aperturedb.CommonLibrary import create_connector; client = create_connector(); from aperturedb.Utils import Utils; utils = Utils(client); import json; print(json.dumps(utils.get_schema(), indent=4))'" > /app/app.sh
 EOD
 }
 
