@@ -3,8 +3,6 @@ set -x
 set -euo pipefail
 
 bash ../build.sh
-# disable croissant tests so we can push changed for workflow#215 ( temporary )
-return 0
 export WORKFLOW_NAME="ingest-croissant"
 RUNNER_NAME="$(whoami)"
 PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"

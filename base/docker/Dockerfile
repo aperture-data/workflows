@@ -32,7 +32,7 @@ COPY requirements.txt /
 RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir -r /requirements.txt
 
-RUN pip3 install --upgrade aperturedb
+RUN pip3 install --upgrade aperturedb==0.4.50
 
 RUN rm /usr/lib/python3.10/sitecustomize.py
 
