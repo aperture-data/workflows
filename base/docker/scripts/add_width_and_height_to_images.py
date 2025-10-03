@@ -24,13 +24,13 @@ class AddWidthAndHeightToImages(QueryGenerator):
     def __init__(self, pool: ConnectionPool, 
         width_property: str = "width",
         height_property: str = "height",
-        additional_contraints: Optional[dict] = None,
+        additional_constraints: Optional[dict] = None,
         batch_size: int = 1,
         ):
         self.pool = pool
         self.width_property = width_property
         self.height_property = height_property
-        self.additional_contraints = additional_contraints if additional_contraints is not None else {}
+        self.additional_constraints = additional_constraints if additional_constraints is not None else {}
         self.batch_size = batch_size
 
         query = [
@@ -39,7 +39,7 @@ class AddWidthAndHeightToImages(QueryGenerator):
                     "constraints": {
                         self.width_property: ["==", None],
                         self.height_property: ["==", None],
-                        **self.additional_contraints
+                        **self.additional_constraints
                     },
                     "results": {
                         "count": True
@@ -81,7 +81,7 @@ class AddWidthAndHeightToImages(QueryGenerator):
                     "constraints": {
                         self.width_property: ["==", None],
                         self.height_property: ["==", None],
-                        **self.additional_contraints
+                        **self.additional_constraints
                     },
                     "batch": {
                         "batch_size": self.batch_size,
@@ -136,7 +136,7 @@ def add_width_and_height_to_images(
     pool: ConnectionPool, 
     width_property: str = "width",
     height_property: str = "height",
-    additional_contraints: Optional[dict] = None,
+    additional_constraints: Optional[dict] = None,
     batch_size: int = 1,
     numthreads: int = 1,
 ):
@@ -144,7 +144,7 @@ def add_width_and_height_to_images(
         generator = AddWidthAndHeightToImages(pool, 
             width_property=width_property, 
             height_property=height_property, 
-            additional_contraints=additional_contraints, 
+            additional_constraints=additional_constraints, 
             batch_size=batch_size)
     except NoImagesToProcessException:
         logger.warning("No images to process. Skipping.")
