@@ -77,6 +77,7 @@ def main(args):
 
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
         env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
+        env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]=args.label_studio_handle_untagged 
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if "DB_HOST_PUBLIC" in os.environ:
@@ -198,6 +199,8 @@ def get_args():
     obj.add_argument("--label-studio-token",type=str,default=None, help="User token for label studio") 
     obj.add_argument("--label-studio-user",type=str,default=None,required=True, help="User for label studio") 
     obj.add_argument("--label-studio-password",type=str,default=None,required=True, help="User password for label studio") 
+    obj.add_argument("--label-studio-handle-untagged",type=bool,default=False,
+            help="Enables code to allow import of images without dimension properties") 
 
     # workflow options
     obj.add_argument("--spec-id",type=str,default=None,
