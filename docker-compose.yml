@@ -128,25 +128,6 @@ services:
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
 
-    dataset-ingestion:
-        build:
-            context: ./apps/dataset-ingestion
-            args:
-                <<: *build-args
-            labels:
-                <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
-        image: aperturedata/workflows-dataset-ingestion:${VERSION}
-        environment:
-            <<: *common-env
-            BATCH_SIZE: "${BATCH_SIZE:-100}"
-            NUM_WORKERS: "${NUM_WORKERS:-8}"
-            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
-            DATASET: "${DATASET:-coco}"
-            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
-            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
-            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
-
     embeddings-extraction:
         build:
             context: ./apps/embeddings-extraction
@@ -353,11 +334,30 @@ services:
             WF_CROISSANT_URL: "${WF_CROISSANT_URL:-https://huggingface.co/api/datasets/suyc21/MedicalConverter/croissant}"
             WF_SAMPLE_COUNT: "${WF_SAMPLE_COUNT:--1}"
             WF_FLATTEN_JSON: "${WF_FLATTEN_JSON:-false}"
-        command: |
-            bash -c "
-            /start.sh
-            "
 
+    dataset-ingestion:
+        build:
+            context: ./apps/dataset-ingestion
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-croissant:${VERSION}"
+        image: aperturedata/workflows-ingest-croissant:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            BATCH_SIZE: "${BATCH_SIZE:-100}"
+            NUM_WORKERS: "${NUM_WORKERS:-8}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
+            DATASET: "${DATASET:-coco}"
+            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
+            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
 
 configs:
   nginx.conf:

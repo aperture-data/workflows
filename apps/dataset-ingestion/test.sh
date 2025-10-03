@@ -1,91 +1,43 @@
 #!/bin/bash
-set -e
 
-bash ../build.sh
-export WORKFLOW_NAME="dataset-ingestion"
-RUNNER_NAME="$(whoami)"
-PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
+WORKFLOW="dataset-ingestion"
 
-COCO_NW_NAME="${PREFIX}_coco"
-CELEBA_NW_NAME="${PREFIX}_celeba"
-COCO_DB_NAME="${PREFIX}_aperturedb_coco"
-CELEBA_DB_NAME="${PREFIX}_aperturedb_celeba"
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
 
+cd $BIN_DIR
 
-docker stop ${COCO_DB_NAME} ${CELEBA_DB_NAME}  || true
-docker rm ${COCO_DB_NAME} ${CELEBA_DB_NAME} || true
-docker network rm ${COCO_NW_NAME} || true
-docker network rm ${CELEBA_NW_NAME} || true
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
+COMPOSE_PROJECT_NAME="${WORKFLOW}"
 
-docker network create ${COCO_NW_NAME}
-docker network create ${CELEBA_NW_NAME}
+export DB_HOST="lenz"
+export DB_PORT="55551"
+export DB_PASS="admin"
+export DB_TCP_CN="lenz"
+export DB_HTTP_CN="nginx"
 
-# Start empty aperturedb instance for coco
-docker run -d \
-           --name ${COCO_DB_NAME} \
-           --network ${COCO_NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+}
+trap cleanup EXIT
 
-docker run -d \
-           --name ${CELEBA_DB_NAME} \
-           --network ${CELEBA_NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN"
 
-sleep 20
+$COMMAND build base
 
-#Ingest and verify COCO
-docker run \
-    --rm \
-    --network ${COCO_NW_NAME} \
-    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-    -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
-    -e "DB_HOST=${COCO_DB_NAME}" \
-    -e "BATCH_SIZE=100" \
-    -e "NUM_WORKERS=8" \
-    -e "SAMPLE_COUNT=-1" \
-    -e "DATASET=coco" \
-    aperturedata/workflows-dataset-ingestion &
-pid1=$!
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
+(
+  sleep 5
+  $COMMAND logs -f > $TEST_LOG
+) &
+LOG_PID=$!
 
+$COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}
 
-#Ingest and verify Faces
-docker run \
-    --rm \
-    --network ${CELEBA_NW_NAME} \
-    -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-    -e WF_DATA_SOURCE_GCP_BUCKET=${WF_DATA_SOURCE_GCP_BUCKET} \
-    -e "DB_HOST=${CELEBA_DB_NAME}" \
-    -e "BATCH_SIZE=100" \
-    -e "NUM_WORKERS=8" \
-    -e "CLEAN=true" \
-    -e "SAMPLE_COUNT=-1" \
-    -e "LOAD_CELEBAHQ=true" \
-    -e "DATASET=faces" \
-    aperturedata/workflows-dataset-ingestion &
-pid2=$!
-
-wait $pid1
-exit_code1=$?
-
-wait $pid2
-exit_code2=$?
-
-if [ $exit_code1 -eq 0 ] && [ $exit_code2 -eq 0 ]; then
-  echo "Both ingestion succeeded."
-  exit 0
-else
-  echo "At least one ingestion failed. $exit_code1 $exit_code2"
-  exit 1
-fi
-
-# if CLEANUP is set to true, stop the aperturedb instance and remove the network
-if [ "$CLEANUP" = "true" ]; then
-    docker stop ${COCO_DB_NAME}
-    docker stop ${CELEBA_DB_NAME}
-    docker network rm ${COCO_NW_NAME}
-    docker network rm ${CELEBA_NW_NAME}
-fi
+export DATASET="faces"
+$COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}
