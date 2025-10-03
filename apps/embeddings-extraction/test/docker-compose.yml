@@ -1,14 +1,4 @@
 services:
-  aperturedb:
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - "bash -lc 'echo > /dev/tcp/127.0.0.1/55555'"
-      interval: 2s
-      timeout: 1s
-      retries: 60
-    ports: []
-
   # One image for both seed and tests (Python + aperturedb + pytest + CLIP)
   # Use the same image; just change the command.
   test-base:
@@ -23,14 +13,17 @@ services:
   seed:
     image: aperturedata/workflows-embeddings-extraction-tests:${VERSION:-latest}
     depends_on:
-      aperturedb:
-        condition: service_healthy
+      lenz:
+        condition: service_started
     working_dir: /app
     environment:
-      DB_HOST: aperturedb
-      DB_PORT: 55555
+      DB_HOST: lenz
+      DB_PORT: 55551
       DB_USER: admin
       DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+    volumes:
+      - ./ca:/ca
     command: ["python", "/app/seed.py"]
 
   embeddings-extraction:
@@ -39,17 +32,19 @@ services:
       seed:
         condition: service_completed_successfully
     environment:
-      DB_HOST: aperturedb
-      DB_PORT: 55555
+      DB_HOST: lenz
+      DB_PORT: 55551
       DB_USER: admin
       DB_PASS: admin
-      APERTUREDB_KEY: ""
+      CA_CERT: /ca/ca.crt
       WF_AUTH_TOKEN: test
       WF_EXTRACT_IMAGES: "true"
       WF_EXTRACT_PDFS: "true"
       WF_EXTRACT_IMAGE_TEXT: "true"
       WF_EXTRACT_PDF_TEXT: "true"
       WF_EXTRACT_VIDEOS: "true"
+    volumes:
+      - ./ca:/ca
 
   # Test runner
   tests:
@@ -58,9 +53,12 @@ services:
       embeddings-extraction:
         condition: service_completed_successfully
     environment:
-      DB_HOST: aperturedb
-      DB_PORT: 55555
+      DB_HOST: lenz
+      DB_PORT: 55551
       DB_USER: admin
       DB_PASS: admin
+      CA_CERT: /ca/ca.crt
     working_dir: /app
+    volumes:
+      - ./ca:/ca
     command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
