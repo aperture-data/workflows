@@ -40,7 +40,7 @@ echo "Writing logs to $TEST_LOG"
 ) &
 LOG_PID=$!
 
-$COMMAND up --exit-code-from ingest-croissant ingest-croissant
+$COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}
 
 # Wait for logs to finish
 kill $LOG_PID || true
