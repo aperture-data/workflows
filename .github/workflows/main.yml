@@ -122,7 +122,8 @@ jobs:
           sql-server,
           label-studio,
           ocr-extraction,
-          dataset-ingestion-movies
+          dataset-ingestion-movies,
+          add-width-and-height
         ]
     runs-on:
       - ubuntu-latest
