@@ -40,7 +40,7 @@ jobs:
               --header "X-GitHub-Api-Version: 2022-11-28" \
               https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/VERSION \
               -d "{\"value\":\"${VERSION}\"}"
-            elif [ "${{ github.event_name }}" == "pull_request" ]; then
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
             SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
             VERSION="pr-${{ github.event.number }}-${SHORT_SHA}"
           elif [ "${{ github.event_name }}" == "schedule" ]; then
@@ -65,11 +65,11 @@ jobs:
       - name: Build base
         run: |
           cd base/docker
-          bash build.sh
+          WORKFLOW_VERSION=$VERSION bash build.sh
 
       - name: Build and export
         run: |
-          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:latest
+          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:$VERSION
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

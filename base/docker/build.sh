@@ -8,6 +8,4 @@ IMG_NAME="aperturedata/workflows-base"
 
 # Build docker image
 cd $DIR
-docker build -t ${IMG_NAME} .
-
-
+docker build --build-arg WORKFLOW_VERSION=${VERSION} -t ${IMG_NAME}:${VERSION} .
