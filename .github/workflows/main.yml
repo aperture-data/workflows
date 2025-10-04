@@ -87,7 +87,6 @@ jobs:
           embeddings-extraction,
           face-detection,
           jupyterlab,
-          rag,
           mcp-server,
           crawl-website,
           text-extraction,
@@ -152,6 +151,7 @@ jobs:
     strategy:
       matrix:
         app: [
+          rag,
           crawl-to-rag,
           dataset-ingestion
         ]
@@ -182,7 +182,7 @@ jobs:
           registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
           registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
 
-      - name: Test meta workflow
+      - name: Test app
         env:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
