@@ -155,7 +155,8 @@ jobs:
           dataset-ingestion
         ]
     runs-on:
-      - ubuntu-latest
+      - deployer
+      - self-hosted
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
 
