@@ -38,6 +38,6 @@ echo "Writing logs to $TEST_LOG"
 LOG_PID=$!
 
 $COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}
-
+cleanup
 export DATASET="faces"
 $COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}

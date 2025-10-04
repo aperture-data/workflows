@@ -46,8 +46,8 @@ services:
             aperturedb:
                 condition: service_healthy
         image: aperturedata/lenz:latest
-        ports:
-            - 55555:55551
+        # ports:
+        #     - 55555:55551
         restart: always
         environment:
             LNZ_HEALTH_PORT: 58085
@@ -121,12 +121,18 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
         image: aperturedata/workflows-crawl-website:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         environment:
             <<: *common-env
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+        volumes:
+            - ./ca:/ca
 
     embeddings-extraction:
         build:
@@ -232,13 +238,18 @@ services:
         image: aperturedata/workflows-rag:${VERSION}
         ports:
             - "8002:8000"
+        depends_on:
+            text-embeddings:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_TOKEN: "${WF_TOKEN:-test}"
-            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
-            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+            # WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
+            # WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            # WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+        volumes:
+            - ./ca:/ca
 
     sql-server:
         build:
@@ -266,6 +277,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
         image: aperturedata/workflows-text-embeddings:${VERSION}
+        depends_on:
+            text-extraction:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
@@ -274,6 +288,8 @@ services:
             WF_MODEL: "${WF_MODEL:-openclip ViT-B-32 laion2b_s34b_b79k}"
             WF_ENGINE: "${WF_ENGINE:-HNSW}"
             WF_CLEAN: "${WF_CLEAN:-true}"
+        volumes:
+            - ./ca:/ca
 
     text-extraction:
         build:
@@ -284,12 +300,17 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
         image: aperturedata/workflows-text-extraction:${VERSION}
+        depends_on:
+            crawl-website:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+        volumes:
+            - ./ca:/ca
 
     # Put this last because it depends on the others
     crawl-to-rag:
@@ -409,6 +430,7 @@ services:
             <<: *common-env
             RUN_ONCE: "${RUN_ONCE:-true}"
             MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
+
 
 configs:
   nginx.conf:
