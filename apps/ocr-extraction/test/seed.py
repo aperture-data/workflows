@@ -151,11 +151,12 @@ def db_connection():
     if APERTUREDB_KEY:
         return create_connector(key=APERTUREDB_KEY)
 
-    DB_HOST = os.getenv("DB_HOST", "aperturedb")
-    DB_PORT = int(os.getenv("DB_PORT", "55555"))
+    DB_HOST = os.getenv("DB_HOST", "lenz")
+    DB_PORT = int(os.getenv("DB_PORT", "55551"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
+    CA_CERT = os.getenv("CA_CERT", None)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT)
 
 
 def main():

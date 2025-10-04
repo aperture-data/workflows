@@ -1,50 +1,47 @@
 #!/bin/bash
-set -e
 
-bash ../build.sh
-RUNNER_NAME="$(whoami)"
-OD_NW_NAME="${RUNNER_NAME}_object-detection"
-OD_DB_NAME="${RUNNER_NAME}_aperturedb"
-OD_IMAGE_ADDER_NAME="${RUNNER_NAME}_add_image"
+set -x
+set -euo pipefail
 
+WORKFLOW="object-detection"
 
-docker stop ${OD_DB_NAME}  || true
-docker rm ${OD_DB_NAME} || true
-docker network rm ${OD_NW_NAME} || true
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
 
-docker network create ${OD_NW_NAME}
+cd $BIN_DIR
 
-# Start empty aperturedb instance
-docker run -d \
-           --name ${OD_DB_NAME} \
-           --network ${OD_NW_NAME} \
-           -e ADB_MASTER_KEY="admin" \
-           -e ADB_KVGD_DB_SIZE="204800" \
-           aperturedata/aperturedb-community
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
+COMPOSE_PROJECT_NAME="${WORKFLOW}"
 
-sleep 20
+export DB_HOST="lenz"
+export DB_PORT="55551"
+export DB_PASS="admin"
+export DB_TCP_CN="lenz"
+export DB_HTTP_CN="nginx"
 
-# Add images to the db
-docker run --name ${OD_IMAGE_ADDER_NAME} \
-           --network ${OD_NW_NAME} \
-           -e TOTAL_IMAGES=100 \
-           -e DB_HOST=${OD_DB_NAME} \
-           -v ./input:/app/data \
-           --rm \
-           aperturedata/wf-add-image
+# ---- cleanup on exit ----
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+}
+trap cleanup EXIT
 
-# Run the object detection workflow
-docker run \
-           --network ${OD_NW_NAME} \
-           -e DB_HOST=${OD_DB_NAME} \
-           -e RUN_ONCE=true \
-           -e MODEL_NAME="frcnn-mobilenet" \
-           -e "WF_LOGS_AWS_CREDENTIALS=${WF_LOGS_AWS_CREDENTIALS}" \
-           --rm \
-           aperturedata/workflows-object-detection
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN"
 
-# if CLEANUP is set to true, stop the aperturedb instance and remove the network
-if [ "$CLEANUP" = "true" ]; then
-    docker stop ${OD_DB_NAME}
-    docker network rm ${OD_NW_NAME}
-fi
+$COMMAND build base
+
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
+(
+  sleep 5
+  $COMMAND logs -f > $TEST_LOG
+) &
+LOG_PID=$!
+
+$COMMAND up --exit-code-from ${WORKFLOW} ${WORKFLOW}
+
+# Wait for logs to finish
+kill $LOG_PID || true

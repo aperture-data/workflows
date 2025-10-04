@@ -24,6 +24,7 @@ COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 export DB_HOST DB_PASS
 DB_HOST="${DB_HOST:-aperturedb}"
 DB_PASS="${DB_PASS:-admin}"
+export DB_TCP_CN="lenz"
 
 # ---- cleanup on exit ----
 cleanup() {
@@ -39,7 +40,7 @@ COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN -f $COMPOSE_TEST"
 
 # Should the test script be building this workflow?
-$COMMAND build base 
+$COMMAND build base
 $COMMAND build test-base $WORKFLOW
 
 if [ "$BUILD_ONLY" = "true" ]; then
