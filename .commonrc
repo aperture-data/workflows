@@ -1,0 +1,52 @@
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
+COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
+
+
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
+
+
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME -f $COMPOSE_MAIN"
+# Check if test directory exists
+if [ -d "$BIN_DIR/test" ]; then
+  COMPOSE_TEST="$BIN_DIR/test/docker-compose.yml"
+  COMMAND="$COMMAND -f $COMPOSE_TEST"
+fi
+
+echo "COMMAND: $COMMAND"
+
+export DB_HOST="lenz"
+export DB_PORT="55551"
+export DB_PASS="admin"
+export DB_TCP_CN="lenz"
+export DB_HTTP_CN="nginx"
+
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+}
+trap cleanup EXIT
+
+run_pytest() {
+  # ---- run tests ----
+  echo ">>> Running $COMPOSE_PROJECT_NAME tests (project=$COMPOSE_PROJECT_NAME)"
+
+  # Should the test script be building this workflow?
+  $COMMAND build base
+  $COMMAND build test-base $COMPOSE_PROJECT_NAME
+
+  # This log file is useful for debugging test failures
+  TEST_LOG=$BIN_DIR/test.log
+  echo "Writing logs to $TEST_LOG"
+  (
+    sleep 5
+    $COMMAND logs -f > $TEST_LOG
+  ) &
+  LOG_PID=$!
+
+  $COMMAND up --no-build --exit-code-from tests tests
+
+  # Wait for logs to finish
+  kill $LOG_PID || true
+}
