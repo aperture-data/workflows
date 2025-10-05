@@ -4,7 +4,7 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-ocr-extraction
 
-RUN pip install aperturedb==0.4.50 wheel ftfy regex tqdm
+RUN pip install wheel ftfy regex tqdm
 
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \

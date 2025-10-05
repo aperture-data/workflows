@@ -4,7 +4,7 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-embeddings-extraction
 
-RUN pip install aperturedb==0.4.50 wheel ftfy regex tqdm
+RUN pip install wheel ftfy regex tqdm
 
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
