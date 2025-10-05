@@ -1,3 +1,3 @@
-aperturedb
+aperturedb==0.4.50
 psycopg2-binary
 pytest

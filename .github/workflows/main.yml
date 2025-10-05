@@ -159,9 +159,8 @@ jobs:
     runs-on:
       - deployer
       - self-hosted
-
     env:
-      VERSION: ${{ needs.get-version.outputs.version  }}
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
       - name: Download artifact
@@ -174,8 +173,6 @@ jobs:
         run: |
           docker load --input ${{ runner.temp }}/workflows-base.tar
           docker image ls -a
-
-      - uses: actions/checkout@v3
 
       - uses: aperture-data/common_job_steps@v1
         with:
@@ -200,9 +197,11 @@ jobs:
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          echo "Using version $VERSION"
-          docker tag aperturedata/workflows-crawl-to-rag aperturedata/workflows-crawl-to-rag:$VERSION
-          docker push aperturedata/workflows-crawl-to-rag:$VERSION
+          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
+          docker push aperturedata/workflows-base:$VERSION
+          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
+          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
+
 
   update-version:
     needs: [build-test-apps-small, build-test-apps-large, get-version]

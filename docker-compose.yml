@@ -202,6 +202,25 @@ services:
             <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
+    label-studio:
+        build:
+            context: ./apps/label-studio
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
+        image: aperturedata/workflows-jupyterlab:${VERSION}
+        ports:
+            - "8888:8888"
+        environment:
+            <<: *common-env
+            WF_LOG_LEVEL: "info"
+            WF_LABEL_STUDIO_USER: "aperturedb@localhost"
+            WF_LABEL_STUDIO_PASSWORD: "41apertureDB3"
+            WF_LABEL_STUDIO_TOKEN: "PXq08K1kCwg9eTmhFPdwOgE5DEVvy5MejfW26p13EQvkse6w"
+            WF_LABEL_STUDIO_URL_PATH: "http://localhost:9000/labelstudio"
+            WF_LABEL_STUDIO_HANDLE_UNTAGGED: "TRUE"
 
     # Not a workflow, but useful for debugging mcp-server
     mcp-inspector:
