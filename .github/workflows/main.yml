@@ -130,9 +130,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION bash test.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION bash ../build.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
           fi
 
       - name: Push to docker (on main)
@@ -187,9 +187,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION bash test.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION bash ../build.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
           fi
 
       - name: Push to docker (on main)

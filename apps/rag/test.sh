@@ -37,8 +37,10 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN"
 
+if [ $CI_RUN -eq 0 ]; then
+  $COMMAND build base
+fi
 
-$COMMAND build base
 $COMMAND build crawl-website text-extraction text-embeddings
 
 # This log file is useful for debugging test failures

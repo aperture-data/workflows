@@ -1,3 +1,5 @@
+# if length of command line arguments is 0, then print usage
+CI_RUN=${CI_RUN:-0}
 export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
 COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
@@ -33,7 +35,9 @@ run_pytest() {
   echo ">>> Running $COMPOSE_PROJECT_NAME tests (project=$COMPOSE_PROJECT_NAME)"
 
   # Should the test script be building this workflow?
-  $COMMAND build base
+  if [ $CI_RUN -eq 0 ]; then
+    $COMMAND build base
+  fi
   $COMMAND build test-base $COMPOSE_PROJECT_NAME
 
   # This log file is useful for debugging test failures
