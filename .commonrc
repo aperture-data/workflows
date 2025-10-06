@@ -1,4 +1,4 @@
-export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
 COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
 
