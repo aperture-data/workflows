@@ -5,7 +5,9 @@ set -euo pipefail
 cd $(dirname "$(readlink -f "$0")")
 source ../../.commonrc
 
-$COMMAND build base
+if [ $CI_RUN -eq 0 ]; then
+  $COMMAND build base
+fi
 
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log
