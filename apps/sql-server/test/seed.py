@@ -225,7 +225,7 @@ def load_blobs_testdata(client):
         query.append({
             "AddBlob": {
             }
-        })        
+        })
 
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
@@ -297,8 +297,9 @@ def db_connection():
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
+    CA_CERT = os.getenv("CA_CERT", None)
     USE_SSL = str_to_bool(os.getenv("USE_SSL", "true"))
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, use_ssl=USE_SSL)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT, use_ssl=USE_SSL)
 
 
 if __name__ == "__main__":

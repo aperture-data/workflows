@@ -91,6 +91,10 @@ if [ "$USE_REST" == true ]; then
     params+=(--use-rest)
 fi
 
+if [ -n "${CA_CERT:-}" ]; then
+    params+=(--ca-cert $CA_CERT)
+fi
+
 STATUS_SCRIPT=/app/status_tools.py
 
 adb config create default \

@@ -159,7 +159,8 @@ def db_connection():
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
+    CA_CERT = os.getenv("CA_CERT", None)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT)
 
 
 def main():

@@ -40,7 +40,7 @@ jobs:
               --header "X-GitHub-Api-Version: 2022-11-28" \
               https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/variables/VERSION \
               -d "{\"value\":\"${VERSION}\"}"
-            elif [ "${{ github.event_name }}" == "pull_request" ]; then
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
             SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
             VERSION="pr-${{ github.event.number }}-${SHORT_SHA}"
           elif [ "${{ github.event_name }}" == "schedule" ]; then
@@ -65,11 +65,11 @@ jobs:
       - name: Build base
         run: |
           cd base/docker
-          bash build.sh
+          WORKFLOW_VERSION=$VERSION bash build.sh
 
       - name: Build and export
         run: |
-          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:latest
+          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:$VERSION
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -130,9 +130,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION VERSION=latest bash test.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION VERSION=latest bash ../build.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
           fi
 
       - name: Push to docker (on main)
@@ -144,8 +144,9 @@ jobs:
           docker push aperturedata/workflows-base:$VERSION
           docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
+
   build-test-apps-large:
-    needs: [ build-base, get-version ]
+    needs: [build-base, get-version]
 
     strategy:
       matrix:
@@ -154,6 +155,7 @@ jobs:
           crawl-to-rag,
           dataset-ingestion
         ]
+
     runs-on:
       - deployer
       - self-hosted
@@ -177,8 +179,6 @@ jobs:
           registry_username: ${{ fromJson(secrets.DOCKERHUB).username }}
           registry_password: ${{ fromJson(secrets.DOCKERHUB).password }}
 
-      - uses: actions/checkout@v3
-
       - name: Test app
         env:
           CLEANUP: "true"
@@ -187,9 +187,9 @@ jobs:
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION VERSION=latest bash test.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION VERSION=latest bash ../build.sh
+            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
           fi
 
       - name: Push to docker (on main)
