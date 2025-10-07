@@ -79,8 +79,12 @@ echo "Checking database exists and user can access it..."
 function psql_load_sql() {
   local file=$1
   echo "Loading SQL file: $file"
+  # If file starts with a slash, absolute path, otherwise relative to /app/sql
+  if [[ $file != /* ]]; then
+    file="/app/sql/$file"
+  fi
   set +e
-  su - postgres -c "set -e ; psql --echo-all --set ON_ERROR_STOP=on --username postgres --dbname ${SQL_NAME} --file /app/sql/$file"
+  su - postgres -c "set -e ; psql --echo-all --set ON_ERROR_STOP=on --username postgres --dbname ${SQL_NAME} --file $file --single-transaction"
   if [ $? -ne 0 ]; then
     echo "Failed to load SQL file: $file" >&2
     if [ -f /tmp/fdw.log ]; then
@@ -94,10 +98,19 @@ function psql_load_sql() {
   echo "Successfully loaded SQL file: $file"
 }
 
+mkdir /app/sql/annotations
+chmod 777 /app/sql/annotations
+
 psql_load_sql "types.sql"
 psql_load_sql "import.sql"
+# DEBUG CODE: DO NOT COMMIT
+su - postgres -c "psql -U postgres -d \"$SQL_NAME\" -c '\det connection.*'"
 psql_load_sql "functions.sql"
 psql_load_sql "access.sql"
+
+for file in /app/sql/annotations/*.sql; do
+  psql_load_sql "$file"
+done
 
 echo "Setup complete. Tailing logs to keep container alive..."
 # Start tailing logs in the background

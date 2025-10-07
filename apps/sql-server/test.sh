@@ -44,7 +44,7 @@ TEST_LOG=$BIN_DIR/test.log
 echo "Writing logs to $TEST_LOG"
 (
   sleep 5
-  $COMMAND logs -f > $TEST_LOG
+  $COMMAND logs --follow --timestamps > $TEST_LOG
 ) &
 LOG_PID=$!
 

@@ -53,8 +53,6 @@ This diagram shows how the workflow stores Label Studio data inside an ApertureD
 ```mermaid
 erDiagram
     Image {
-        number width
-        number height
     }
 
     LS_annotation {

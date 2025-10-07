@@ -1,4 +1,5 @@
 from .common import Curry, TYPE_MAP, PathKey
+from .annotation import TableAnnotations
 import logging
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional, Literal, Tuple, Iterator
@@ -166,7 +167,7 @@ def blob_columns(column: str) -> List[ColumnDefinition]:
     ]
 
 
-def property_columns(data: dict) -> List[ColumnDefinition]:
+def property_columns(data: dict, annotations: Optional[TableAnnotations] = None) -> List[ColumnDefinition]:
     """
     Create a list of ColumnDefinitions for the given properties.
     This is used to create the foreign table in PostgreSQL.
@@ -193,6 +194,8 @@ def property_columns(data: dict) -> List[ColumnDefinition]:
                 raise
 
     columns.append(uniqueid_column(data.get("matched", 0)))
+    if annotations:
+        annotations.primary_key()
 
     return columns
 
