@@ -4,3 +4,4 @@ uvicorn
 asyncpg
 pydantic
 python-multipart
+aperturedb

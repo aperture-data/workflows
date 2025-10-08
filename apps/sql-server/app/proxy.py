@@ -149,20 +149,20 @@ class EmbedTextInput(BaseModel):
                              example=["A group of people standing together.", "A cat sitting on a mat."])
 
     @model_validator(mode="after")
-    def check_non_empty(cls, values):
-        if not values.texts:
+    def check_non_empty(self):
+        if not self.texts:
             error_msg = (
                 f"Validation failed for EmbedTextInput:\n"
                 f"  Field 'texts' must contain at least one entry.\n"
-                f"  Received: {values.texts} (type: {type(values.texts)})\n"
-                f"  Provider: {values.provider}\n"
-                f"  Model: {values.model}\n"
-                f"  Corpus: {values.corpus}"
+                f"  Received: {self.texts} (type: {type(self.texts)})\n"
+                f"  Provider: {self.provider}\n"
+                f"  Model: {self.model}\n"
+                f"  Corpus: {self.corpus}"
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
-        logger.info(f"EmbedTextInput validation passed: {len(values.texts)} texts, provider={values.provider}, model={values.model}")
-        return values
+        logger.info(f"EmbedTextInput validation passed: {len(self.texts)} texts, provider={self.provider}, model={self.model}")
+        return self
 
 
 class EmbedTextOutput(BaseModel):
@@ -209,20 +209,20 @@ class EmbedImageInput(BaseModel):
                               description="A list of base64-encoded images to embed.")
 
     @model_validator(mode="after")
-    def check_non_empty(cls, values):
-        if not values.images:
+    def check_non_empty(self):
+        if not self.images:
             error_msg = (
                 f"Validation failed for EmbedImageInput:\n"
                 f"  Field 'images' must contain at least one entry.\n"
-                f"  Received: {values.images} (type: {type(values.images)})\n"
-                f"  Provider: {values.provider}\n"
-                f"  Model: {values.model}\n"
-                f"  Corpus: {values.corpus}"
+                f"  Received: {self.images} (type: {type(self.images)})\n"
+                f"  Provider: {self.provider}\n"
+                f"  Model: {self.model}\n"
+                f"  Corpus: {self.corpus}"
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
         
-        for i, image in enumerate(values.images):
+        for i, image in enumerate(self.images):
             try:
                 base64.b64decode(image)
             except Exception as e:
@@ -232,16 +232,16 @@ class EmbedImageInput(BaseModel):
                     f"  Error: {str(e)}\n"
                     f"  Image data length: {len(image) if image else 0}\n"
                     f"  Image preview (first 100 chars): {image[:100] if image else 'None'}...\n"
-                    f"  Provider: {values.provider}\n"
-                    f"  Model: {values.model}\n"
-                    f"  Corpus: {values.corpus}\n"
-                    f"  Total images: {len(values.images)}"
+                    f"  Provider: {self.provider}\n"
+                    f"  Model: {self.model}\n"
+                    f"  Corpus: {self.corpus}\n"
+                    f"  Total images: {len(self.images)}"
                 )
                 logger.error(error_msg)
                 raise ValueError(error_msg)
         
-        logger.info(f"EmbedImageInput validation passed: {len(values.images)} images, provider={values.provider}, model={values.model}")
-        return values
+        logger.info(f"EmbedImageInput validation passed: {len(self.images)} images, provider={self.provider}, model={self.model}")
+        return self
 
     def get_images(self) -> List[bytes]:
         """

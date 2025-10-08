@@ -34,9 +34,9 @@ def _post_json(
 
     if resp_status < 200 or resp_status >= 300:
         logger.error(
-            f"HTTP error {resp_status} from embedding proxy: {data.decode('utf-8')}, payload: {payload}")
+            f"HTTP error {resp_status} from embedding proxy: {data.decode('utf-8')}")
         raise RuntimeError(
-            f"HTTP error {resp_status} from embedding proxy: {data.decode('utf-8')}, payload: {payload}"
+            f"HTTP error {resp_status} from embedding proxy: {data.decode('utf-8')}"
         )
 
     return json.loads(data)
