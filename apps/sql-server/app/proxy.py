@@ -59,10 +59,10 @@ class EmbedTextInput(BaseModel):
                              example=["A group of people standing together.", "A cat sitting on a mat."])
 
     @model_validator(mode="after")
-    def check_non_empty(cls, values):
-        if not values.texts:
+    def check_non_empty(self):
+        if not self.texts:
             raise ValueError("Field 'texts' must contain at least one entry.")
-        return values
+        return self
 
 
 class EmbedTextOutput(BaseModel):
@@ -108,16 +108,16 @@ class EmbedImageInput(BaseModel):
                               description="A list of base64-encoded images to embed.")
 
     @model_validator(mode="after")
-    def check_non_empty(cls, values):
-        if not values.images:
+    def check_non_empty(self):
+        if not self.images:
             raise ValueError("Field 'images' must contain at least one entry.")
-        for i, image in enumerate(values.images):
+        for i, image in enumerate(self.images):
             try:
                 base64.b64decode(image)
             except Exception as e:
                 raise ValueError(
                     f"Invalid base64 image at index {i}: {str(e)}")
-        return values
+        return self
 
     def get_images(self) -> List[bytes]:
         """

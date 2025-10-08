@@ -35,7 +35,7 @@ mcp = FastMCP(
     """,
 )
 
-register_tools(mcp)
+register_tools(mcp) 
 register_resources(mcp)
 
 updater = StatusUpdater()
