@@ -94,7 +94,7 @@ EOF
 ) | su - postgres -s /bin/sh -c 'psql -v ON_ERROR_STOP=1 --pset pager=off'
 
 # Create the database
-su - postgres -c "set -e ; createdb ${SQL_NAME}"
+su - postgres -c "set -e ; createdb \"${SQL_NAME}\""
 
 
 # Check that we've created the user and database
