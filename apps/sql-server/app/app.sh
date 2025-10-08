@@ -18,7 +18,7 @@ fi
 
 # Uvicorn likes lower-case log levels
 UVICORN_LOG_LEVEL=${WF_LOG_LEVEL,,}
-uvicorn proxy:app --uds "$SOCK" --log-level ${UVICORN_LOG_LEVEL} &
+uvicorn proxy:app --uds "$SOCK" --log-level "${UVICORN_LOG_LEVEL}" &
 PROXY_PID=$!
 
 
@@ -48,11 +48,17 @@ fi
 
 SQL_PASS=${WF_AUTH_TOKEN:-test}
 
+POSTGRES_VERSION=${POSTGRES_VERSION:-17}
+if [[ ! "${POSTGRES_VERSION:-}" =~ ^[0-9]+$ ]]; then
+    echo "Error: POSTGRES_VERSION must be numeric (e.g., 17)"
+    exit 1
+fi
+
 # Make Postgres use the provided certificates if they exist and are readable by the current user
 CERTS_DIR="/etc/tls/certs"
 if [ -r "$CERTS_DIR/tls.crt" ] && [ -r "$CERTS_DIR/tls.key" ]; then
   echo "Using provided TLS certificates for PostgreSQL."
-  cat <<EOF >>/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
+  cat <<EOF >>"/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf"
 ssl = on
 ssl_cert_file = '$CERTS_DIR/tls.crt'
 ssl_key_file = '$CERTS_DIR/tls.key'
@@ -120,17 +126,23 @@ psql_load_sql "access.sql"
 
 echo "Setup complete. Tailing logs to keep container alive..."
 # Start tailing logs in the background
-tail -n 1000 -f /var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log /tmp/fdw.log &
+tail -n 1000 -f "/var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log" /tmp/fdw.log &
 TAIL_PID=$!
 
 PORT=80
+UVICORN_WORKERS=${UVICORN_WORKERS:-1}
+if [[ ! "${UVICORN_WORKERS:-}" =~ ^[0-9]+$ ]]; then
+    echo "Error: UVICORN_WORKERS must be numeric."
+    exit 1
+fi
+
 # Run app.py with uvicorn, exit if it crashes
 echo "Starting FastAPI server..."
 uvicorn app:app \
   --host 0.0.0.0 \
   --port $PORT \
-  --workers ${UVICORN_WORKERS:-1} \
-  --log-level ${UVICORN_LOG_LEVEL:-info}
+  --workers "${UVICORN_WORKERS}" \
+  --log-level "${UVICORN_LOG_LEVEL}"
 UVICORN_STATUS=$?
 
 # If uvicorn exits, kill the tail process and exit with uvicorn's status
