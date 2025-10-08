@@ -140,7 +140,7 @@ fi
 echo "Starting FastAPI server..."
 uvicorn app:app \
   --host 0.0.0.0 \
-  --port $PORT \
+  --port "$PORT" \
   --workers "${UVICORN_WORKERS}" \
   --log-level "${UVICORN_LOG_LEVEL}"
 UVICORN_STATUS=$?
