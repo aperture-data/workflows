@@ -217,7 +217,11 @@ def _test_constraints_inner(constraint, sql_connection, constraint_formatter):
         cur.execute(sql2)
         result2 = cur.fetchone()[0]
         if isinstance(result2, str):
-            result2 = json.loads(result2)
+            try:
+                result2 = json.loads(result2)
+            except Exception as e:
+                print(f"Error parsing JSON: {e} {result2=}")
+                raise
         plan2 = result2[0]["Plan"]
 
     rows1 = plan_actual_rows(plan1)
@@ -254,9 +258,14 @@ def sum_rows_removed_by_filter(plan_node: dict) -> int:
 def multicorn_plan(plan_node: dict) -> str:
     """Extract the Multicorn plan from the plan node."""
     if "Multicorn" in plan_node:
-        return json.dumps(json.loads(plan_node["Multicorn"]))
+        try:
+            return json.dumps(json.loads(plan_node["Multicorn"]))
+        except Exception as e:
+            print(f"Error parsing JSON: {e} {plan_node=}")
+            raise
     return None
 
+xfail_multiple_items_for_connection_class = pytest.mark.xfail(reason="This connection class has multiple items in the data, so we skip them for now")
 
 @pytest.mark.parametrize("query,n_results", [
     ("SELECT source_key FROM \"SourceNode\";", 5),
@@ -273,16 +282,21 @@ def multicorn_plan(plan_node: dict) -> str:
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _dst IN {dst_unique_ids};", 5),
-    pytest.param("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
-                  marks=pytest.mark.xfail(
-                      reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT edge_key FROM \"edge\" WHERE _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};", 5),
-    pytest.param("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5,
-                 marks=pytest.mark.xfail(
-                     reason="https://github.com/aperture-data/athena/issues/1737")),
+    ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5),
     ("SELECT * FROM connection.\"_DescriptorConnection\";", 20),
     ("SELECT * FROM connection.\"edge\";", 5),
+    # These connection classes have multiple items in the data, so we skip them for now
+    pytest.param("SELECT * FROM connection.\"_GenericConnection\";", 7, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"_GenericConnection\" AS B ON A._uniqueid = B._src;", 1, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"_GenericConnection\" AS B ON A._uniqueid = B._src JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM connection.\"_GenericConnection\" AS B JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM connection.\"ReusedConnection\";", 2, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src;", 1, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
+    pytest.param("SELECT * FROM connection.\"ReusedConnection\" AS B JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
 ])
 def test_join_query(query, n_results, sql_connection, constraint_formatter):
     """
@@ -302,14 +316,44 @@ def test_join_query(query, n_results, sql_connection, constraint_formatter):
         result) == n_results, f"Expected {n_results} rows, got {len(result)} for query: {query}, {query_aql(query, sql_connection)}"
 
 
+def find_all_fields(obj, fieldname):
+    """
+    Recursively search through a nested structure of dicts and lists,
+    yielding all values found under the given fieldname.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == fieldname:
+                yield v
+            # recurse into value
+            yield from find_all_fields(v, fieldname)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from find_all_fields(item, fieldname)
+    # else: primitive value, stop
+
+
 def query_aql(query: str, sql_connection) -> str:
     query = f"EXPLAIN (FORMAT JSON) {query};"
     with sql_connection.cursor() as cur:
         cur.execute(query)
         result1 = cur.fetchone()[0]
     if isinstance(result1, str):
-        result1 = json.loads(result1)
-    plan1 = result1[0]["Plan"]
-    multicorn_plan1 = multicorn_plan(plan1)
-    aql = json.loads(multicorn_plan1).get("aql", "")
-    return aql
+        try:
+            result1 = json.loads(result1)
+        except Exception as e:
+            print(f"Error parsing JSON: {e} {result1=}")
+            raise
+    multicorns = list(find_all_fields(result1, "Multicorn"))
+    aqls = []
+    for multicorn in multicorns:
+        try:
+            data = json.loads(multicorn)
+            if "aql" in data:
+                aqls.append(data["aql"])
+            else:
+                print(f"No aql found in {multicorn=}")
+        except Exception as e:
+            print(f"Error parsing JSON: {e} {multicorn=}")
+            raise
+    return json.dumps(aqls)

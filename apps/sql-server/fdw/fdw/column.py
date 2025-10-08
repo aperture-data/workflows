@@ -58,7 +58,11 @@ class ColumnOptions(BaseModel):
         Create a ColumnOptions instance from a string dictionary.
         This is used to decode options from the foreign table column definition.
         """
-        options = json.loads(options_str["column_options"])
+        try:
+            options = json.loads(options_str["column_options"])
+        except Exception as e:
+            logger.error(f"Error parsing JSON: {e} {options_str=}")
+            raise
         return cls(**options)
 
     def to_string(self) -> Dict[str, str]:

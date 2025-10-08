@@ -30,7 +30,11 @@ async def query_multipart(
     query: str = Form(...),
     blobs: Optional[List[UploadFile]] = File(None),
 ):
-    in_json = json.loads(query)
+    try:
+        in_json = json.loads(query)
+    except Exception as e:
+        logger.error(f"Error parsing JSON: {e} {query=}")
+        raise
     in_blobs = [await b.read() for b in (blobs or [])]
     status, out_json, out_blobs = pool.execute_query(in_json, in_blobs)
     return JSONResponse({

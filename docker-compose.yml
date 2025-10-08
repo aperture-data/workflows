@@ -46,8 +46,8 @@ services:
             aperturedb:
                 condition: service_healthy
         image: aperturedata/lenz:latest
-        ports:
-            - 55555:55551
+        # ports:
+        #     - 55555:55551
         restart: always
         environment:
             LNZ_HEALTH_PORT: 58085
@@ -121,31 +121,18 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
         image: aperturedata/workflows-crawl-website:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         environment:
             <<: *common-env
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
-
-    dataset-ingestion:
-        build:
-            context: ./apps/dataset-ingestion
-            args:
-                <<: *build-args
-            labels:
-                <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
-        image: aperturedata/workflows-dataset-ingestion:${VERSION}
-        environment:
-            <<: *common-env
-            BATCH_SIZE: "${BATCH_SIZE:-100}"
-            NUM_WORKERS: "${NUM_WORKERS:-8}"
-            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
-            DATASET: "${DATASET:-coco}"
-            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
-            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
-            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+        volumes:
+            - ./ca:/ca
 
     embeddings-extraction:
         build:
@@ -215,6 +202,25 @@ services:
             <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
+    label-studio:
+        build:
+            context: ./apps/label-studio
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
+        image: aperturedata/workflows-jupyterlab:${VERSION}
+        ports:
+            - "8888:8888"
+        environment:
+            <<: *common-env
+            WF_LOG_LEVEL: "info"
+            WF_LABEL_STUDIO_USER: "aperturedb@localhost"
+            WF_LABEL_STUDIO_PASSWORD: "41apertureDB3"
+            WF_LABEL_STUDIO_TOKEN: "PXq08K1kCwg9eTmhFPdwOgE5DEVvy5MejfW26p13EQvkse6w"
+            WF_LABEL_STUDIO_URL_PATH: "http://localhost:9000/labelstudio"
+            WF_LABEL_STUDIO_HANDLE_UNTAGGED: "TRUE"
 
     # Not a workflow, but useful for debugging mcp-server
     mcp-inspector:
@@ -251,13 +257,18 @@ services:
         image: aperturedata/workflows-rag:${VERSION}
         ports:
             - "8002:8000"
+        depends_on:
+            text-embeddings:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_TOKEN: "${WF_TOKEN:-test}"
-            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
-            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+            # WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
+            # WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            # WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+        volumes:
+            - ./ca:/ca
 
     sql-server:
         build:
@@ -285,6 +296,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
         image: aperturedata/workflows-text-embeddings:${VERSION}
+        depends_on:
+            text-extraction:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
@@ -293,6 +307,8 @@ services:
             WF_MODEL: "${WF_MODEL:-openclip ViT-B-32 laion2b_s34b_b79k}"
             WF_ENGINE: "${WF_ENGINE:-HNSW}"
             WF_CLEAN: "${WF_CLEAN:-true}"
+        volumes:
+            - ./ca:/ca
 
     text-extraction:
         build:
@@ -303,12 +319,17 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
         image: aperturedata/workflows-text-extraction:${VERSION}
+        depends_on:
+            crawl-website:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+        volumes:
+            - ./ca:/ca
 
     # Put this last because it depends on the others
     crawl-to-rag:
@@ -353,10 +374,81 @@ services:
             WF_CROISSANT_URL: "${WF_CROISSANT_URL:-https://huggingface.co/api/datasets/suyc21/MedicalConverter/croissant}"
             WF_SAMPLE_COUNT: "${WF_SAMPLE_COUNT:--1}"
             WF_FLATTEN_JSON: "${WF_FLATTEN_JSON:-false}"
-        command: |
-            bash -c "
-            /start.sh
-            "
+
+    dataset-ingestion:
+        build:
+            context: ./apps/dataset-ingestion
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-croissant:${VERSION}"
+        image: aperturedata/workflows-ingest-croissant:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            BATCH_SIZE: "${BATCH_SIZE:-100}"
+            NUM_WORKERS: "${NUM_WORKERS:-8}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
+            DATASET: "${DATASET:-coco}"
+            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
+            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
+
+    add-image:
+        image: aperturedata/wf-add-image:latest
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            TOTAL_IMAGES: "${TOTAL_IMAGES:-100}"
+    face-detection:
+        build:
+            context: ./apps/face-detection
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
+        image: aperturedata/workflows-face-detection:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+            add-image:
+                condition: service_completed_successfully
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            COLLECT_EMBEDDINGS: "${COLLECT_EMBEDDINGS:-true}"
+    object-detection:
+        build:
+            context: ./apps/object-detection
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
+        image: aperturedata/workflows-face-detection:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+            add-image:
+                condition: service_completed_successfully
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
 
 
 configs:
