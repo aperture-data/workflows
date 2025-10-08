@@ -99,7 +99,7 @@ su - postgres -c "set -e ; createdb \"${SQL_NAME}\""
 
 # Check that we've created the user and database
 echo "Checking database exists and user can access it..."
-(PGPASSWORD="${SQL_PASS}" psql --host=127.0.0.1 --port=${SQL_PORT} --username=$SQL_USER --dbname=${SQL_NAME} --tuples-only --no-align --command="SELECT 1;" | grep -q 1 ) || exit 1
+(PGPASSWORD="${SQL_PASS}" psql --host=127.0.0.1 --port=${SQL_PORT} --username="$SQL_USER" --dbname="${SQL_NAME}" --tuples-only --no-align --command="SELECT 1;" | grep -q 1 ) || exit 1
 
 function psql_load_sql() {
   local file=$1
