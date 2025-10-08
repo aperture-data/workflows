@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+
+set -o errexit -o nounset -o pipefail
 
 # Dump log file on error
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
@@ -28,13 +29,28 @@ if [ -z "$WF_AUTH_TOKEN" ]; then
 fi
 
 SQL_NAME=${SQL_NAME:-aperturedb}
+if [[ ! "$SQL_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "Error: SQL_NAME contains invalid characters. Only letters, numbers, underscore, and dash are allowed."
+  exit 1
+fi
+
 SQL_USER=${SQL_USER:-aperturedb}
-SQL_PASS=${WF_AUTH_TOKEN:-test}
+if [[ ! "$SQL_USER" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "Error: SQL_USER contains invalid characters. Only letters, numbers, underscore, and dash are allowed."
+  exit 1
+fi
+
 SQL_PORT=${SQL_PORT:-5432}
+if [[ ! "$SQL_PORT" =~ ^[0-9]+$ ]]; then
+  echo "Error: SQL_PORT must be numeric."
+  exit 1
+fi
+
+SQL_PASS=${WF_AUTH_TOKEN:-test}
 
 # Make Postgres use the provided certificates if they exist and are readable by the current user
 CERTS_DIR="/etc/tls/certs"
-if [ -r $CERTS_DIR/tls.crt ] && [ -r $CERTS_DIR/tls.key ]; then
+if [ -r "$CERTS_DIR/tls.crt" ] && [ -r "$CERTS_DIR/tls.key" ]; then
   echo "Using provided TLS certificates for PostgreSQL."
   cat <<EOF >>/etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 ssl = on
@@ -55,24 +71,27 @@ until su - postgres -c "pg_isready -h /var/run/postgresql"; do
 done
 
 # Be careful to avoid problems with special characters in the password
-su - postgres -c "psql <<'EOF'
+DELIM="D$(openssl rand -hex 16)"
+(cat <<EOF
 DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${SQL_USER}') THEN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${SQL_USER}') THEN
     EXECUTE format(
-      'CREATE ROLE ${SQL_USER} LOGIN PASSWORD %L',
-      '${SQL_PASS}'
+      'CREATE ROLE %I LOGIN PASSWORD %L',
+      '${SQL_USER}',
+      \$${DELIM}\$${SQL_PASS}\$${DELIM}\$
     );
   END IF;
-END;
+END
 \$\$;
-EOF"
+EOF
+) | su - postgres -s /bin/sh -c 'psql -v ON_ERROR_STOP=1 --pset pager=off'
+
+# Create the database
 su - postgres -c "set -e ; createdb ${SQL_NAME}"
 
 
 # Check that we've created the user and database
-# echo "Checking user exists..."
-# su - postgres -c "psql -h 127.0.0.1 -p 5432 -U postgres -tAc \"SELECT rolname FROM pg_roles WHERE rolname='${SQL_USER}';\" "
 echo "Checking database exists and user can access it..."
 (PGPASSWORD="${SQL_PASS}" psql --host=127.0.0.1 --port=${SQL_PORT} --username=$SQL_USER --dbname=${SQL_NAME} --tuples-only --no-align --command="SELECT 1;" | grep -q 1 ) || exit 1
 

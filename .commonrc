@@ -28,7 +28,18 @@ cleanup() {
   $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
     -f "$COMPOSE_MAIN" down -v --remove-orphans || true
 }
-trap cleanup EXIT
+
+final_banner() {
+  rc=$1
+  if [ $rc -eq 0 ]; then
+    printf "\n\033[1;32m✅  SUCCESS\033[0m: %s\n" "$COMPOSE_PROJECT_NAME"
+  else
+    printf "\n\033[1;31m❌  FAILURE\033[0m: %s (exit code %d)\n" \
+      "$COMPOSE_PROJECT_NAME" "$rc"
+  fi
+}
+
+trap 'ret=$?; cleanup; final_banner $ret ; exit $ret' EXIT
 
 run_pytest() {
   # ---- run tests ----
