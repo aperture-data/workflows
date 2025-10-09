@@ -209,8 +209,8 @@ services:
                 <<: *build-args
             labels:
                 <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
-        image: aperturedata/workflows-jupyterlab:${VERSION}
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-label-studio:${VERSION}"
+        image: aperturedata/workflows-label-studio:${VERSION}
         ports:
             - "8888:8888"
         environment:
