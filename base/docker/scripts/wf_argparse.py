@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import argparse
 import os
 import logging
@@ -285,6 +287,7 @@ VALIDATORS = {
     "log_level": validate_log_level,
     "bool": validate_bool,
     "web_url": validate_web_url,
+    "hostname": validate_hostname,
     "positive_int": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=1),
     "non_negative_int": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=0),
     "port": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=1, max=65535),
@@ -357,7 +360,7 @@ def main():
     try:
         result = validator(value, cli=True)
         print(result)
-        sys.exit(0)
+        sys.exit(EXIT_SUCCESS)
     except argparse.ArgumentTypeError as e:
         name = args.envar or "value"
         logging.error(f"Invalid {name}: {e}")
@@ -369,7 +372,6 @@ def main():
         logger.exception("Unexpected error")
         sys.exit(EXIT_OTHER_ERROR)
     
-    sys.exit(EXIT_SUCCESS)
 
 
 if __name__ == "__main__":

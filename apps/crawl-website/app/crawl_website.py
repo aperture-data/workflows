@@ -520,7 +520,7 @@ def main(args):
         "ITEM_PIPELINES": {
             ApertureDBPipeline: 1000,
         },
-        "LOG_LEVEL": args.log_level.upper(),
+        "LOG_LEVEL": args.log_level,
         "EXTENSIONS": {
             'scrapy.extensions.closespider.CloseSpider': 100,
         },
@@ -580,7 +580,7 @@ def get_args():
 
     params = obj.parse_args()
 
-    logging.basicConfig(level=params.log_level.upper(), force=True)
+    logging.basicConfig(level=params.log_level, force=True)
 
     logger.info(f"Parsed arguments: {params}")
 
