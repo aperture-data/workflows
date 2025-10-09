@@ -8,6 +8,7 @@ from urllib.parse import urlparse, urlunparse, ParseResult
 import ipaddress
 import sys
 from typing import Union, Optional
+from collections.abc import Container
 
 
 # This class wraps argparse and adds a number of additional features:
@@ -286,9 +287,10 @@ def validate_float_in_range(v, *, force_string=False, min=None, max=None) -> Uni
     return str(value) if force_string else value
 
 
-def validate_string(v, *, force_string=False, regex:Union[str, re.Pattern]=None) -> str:
+def validate_string(v, *, force_string=False, regex:Union[str, re.Pattern]=None, 
+    choices:Optional[Container[str]]=None) -> str:
     """
-    Checks a string, optionally against a regex.
+    Checks a string, optionally against a regex and/or choices.
     Input is stripped of leading and trailing whitespace.
     Empty strings are not allowed.
     """
@@ -301,6 +303,9 @@ def validate_string(v, *, force_string=False, regex:Union[str, re.Pattern]=None)
         assert isinstance(regex, re.Pattern), "regex must be a string or a re.Pattern"
         if not regex.match(v):
             raise argparse.ArgumentTypeError(f"Invalid string format. Must match regex: {regex.pattern}")
+    if choices is not None:
+        if v not in choices:
+            raise argparse.ArgumentTypeError(f"Invalid string. Must be one of: {', '.join(choices)}")
     return v
 
 # These regular expressions are used with validate_string
@@ -322,6 +327,7 @@ VALIDATORS = {
     'string': lambda v, **kwargs: validate_string(v, **kwargs),
     'slug': lambda v, **kwargs: validate_string(v, regex=SLUG_RE, **kwargs),
     'shell_safe': lambda v, **kwargs: validate_string(v, regex=SHELL_SAFE_RE, **kwargs),
+    'environment': lambda v, **kwargs: validate_string(v, choices={'develop', 'main'}, **kwargs),
 }
 
 
