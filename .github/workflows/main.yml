@@ -140,9 +140,7 @@ jobs:
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
           docker push aperturedata/workflows-base:$VERSION
-          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
   build-test-apps-large:
@@ -197,9 +195,7 @@ jobs:
         # Pushing base to docker should be no-op after the first time
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker tag aperturedata/workflows-base aperturedata/workflows-base:$VERSION
           docker push aperturedata/workflows-base:$VERSION
-          docker tag aperturedata/workflows-${{ matrix.app }} aperturedata/workflows-${{ matrix.app }}:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
 

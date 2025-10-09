@@ -209,8 +209,8 @@ services:
                 <<: *build-args
             labels:
                 <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
-        image: aperturedata/workflows-jupyterlab:${VERSION}
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-label-studio:${VERSION}"
+        image: aperturedata/workflows-label-studio:${VERSION}
         ports:
             - "8888:8888"
         environment:
@@ -449,6 +449,26 @@ services:
             <<: *common-env
             RUN_ONCE: "${RUN_ONCE:-true}"
             MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
+
+    ingest-from-sql:
+        image: aperturedata/workflows-ingest-from-sql:${VERSION}
+        build:
+            context: ./apps/ingest-from-sql
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-sql:${VERSION}"
+
+    ingest-from-bucket:
+        image: aperturedata/workflows-ingest-from-bucket:${VERSION}
+        build:
+            context: ./apps/ingest-from-bucket
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-bucket:${VERSION}"
 
 
 configs:
