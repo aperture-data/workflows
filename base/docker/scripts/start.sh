@@ -131,7 +131,7 @@ app_error() {
     local app_exit_code=$?
     # Try to get error message from status server, but don't fail if we can't
     local error_message
-    error_message=$(curl -s http://${HOSTNAME:-}:${STATUS_SERVER_PORT}/status | jq -r '.error_message // empty' 2>/dev/null || echo "")
+    error_message=$(curl -s http://${STATUS_SERVER_HOSTNAME}:${STATUS_SERVER_PORT}/status | jq -r '.error_message // empty' 2>/dev/null || echo "")
     
     if [ -z "$error_message" ]; then
         error_message="App failed"
@@ -198,7 +198,7 @@ upload_to_s3() {
         AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS})
     fi
 
-    if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
+    if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
         echo "No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY, skipping S3 upload"
         return 0
     fi
