@@ -1,4 +1,5 @@
 # define some macros for use later in the file
+
 x-definitions:
     build-args: &build-args
         VERSION: ${VERSION}
@@ -9,7 +10,9 @@ x-definitions:
     common-env: &common-env
         DB_HOST: ${DB_HOST:-}
         DB_PASS: ${DB_PASS:-}
+        DB_PORT: ${DB_PORT:-}
         APERTUREDB_KEY: ${APERTUREDB_KEY:-}
+        CA_CERT: ${CA_CERT:-/ca/ca.crt}
     build-labels: &build-labels
         org.opencontainers.image.vendor: "Aperture Data"
         org.opencontainers.image.version: "${VERSION}"
@@ -19,13 +22,84 @@ x-definitions:
         org.opencontainers.image.source: "${SOURCE_URL}"
 
 services:
+
+    ca:
+        image: nginx
+        restart: on-failure
+        command: |
+            bash -c "
+            openssl genpkey -algorithm RSA -out /ca/ca.key -aes256 -pass pass:1234
+            openssl req -x509 -new -nodes -key /ca/ca.key -sha256 -days 3650 -out /ca/ca.crt -subj \"/C=US/ST=CA/L=Los Gatos/O=ApertureData/OU=ApertureDataCA/CN=ApertureDataCA\" -passin pass:1234
+            openssl genrsa -out /cert/tls.key 4096
+            openssl req -new -key /cert/tls.key -out /ca/tcp.csr -days 3650 -subj \"/C=US/ST=NY/L=NYC/O=instance/OU=instanceDB/CN=${DB_TCP_CN:-localhost}\"
+            openssl x509 -req  -CA /ca/ca.crt -CAkey /ca/ca.key -in /ca/tcp.csr -out /cert/tcp.crt -passin pass:1234
+            openssl req -new -key /cert/tls.key -out /ca/http.csr -days 3650 -subj \"/C=US/ST=NY/L=NYC/O=instance/OU=instanceDB/CN=${DB_HTTP_CN:-localhost}\"
+            openssl x509 -req  -CA /ca/ca.crt -CAkey /ca/ca.key -in /ca/http.csr -out /cert/http.crt -passin pass:1234"
+        volumes:
+            - ./aperturedb/certificate:/cert
+            - ./ca:/ca
+
+    lenz:
+        depends_on:
+            ca:
+                condition: service_completed_successfully
+            aperturedb:
+                condition: service_healthy
+        image: aperturedata/lenz:latest
+        # ports:
+        #     - 55555:55551
+        restart: always
+        environment:
+            LNZ_HEALTH_PORT: 58085
+            LNZ_TCP_PORT: 55551
+            LNZ_HTTP_PORT: 8080
+            LNZ_ADB_BACKENDS: '["aperturedb:55553"]'
+            LNZ_REPLICAS: 1
+            LNZ_ADB_MAX_CONCURRENCY: 48
+            LNZ_FORCE_SSL: false
+            LNZ_CERTIFICATE_PATH: /etc/lenz/certificate/tcp.crt
+            LNZ_PRIVATE_KEY_PATH: /etc/lenz/certificate/tls.key
+        volumes:
+            - ./aperturedb/certificate:/etc/lenz/certificate
+
     # not a workflow, but provided for convenience; used in tests
     aperturedb:
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - "bash -lc 'echo > /dev/tcp/127.0.0.1/55553'"
+            interval: 2s
+            timeout: 1s
+            retries: 60
         image: aperturedata/aperturedb-community:latest
-        ports:
-            - "55555:55555"
+        restart: always
         environment:
-            ADB_MASTER_KEY: admin
+            ADB_MASTER_KEY: "admin"
+            ADB_PORT: 55553
+            ADB_KVGD_DB_SIZE: 204800
+            ADB_FORCE_SSL: false
+            ADB_ENABLE_DEBUG: 1
+            ADB_LOG_PATH: "logs"
+
+    webui:
+        image: aperturedata/aperturedata-platform-web-private:latest
+        restart: always
+
+    nginx:
+        depends_on:
+            ca:
+                condition: service_completed_successfully
+        image: nginx
+        restart: always
+        ports:
+            - 8087:80
+            - 8443:443
+        configs:
+            - source: nginx.conf
+              target: /etc/nginx/conf.d/default.conf
+        volumes:
+            - ./aperturedb/certificate:/etc/nginx/certificate
+
 
     # base image for all workflows; intended for build only
     base:
@@ -47,31 +121,18 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
         image: aperturedata/workflows-crawl-website:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         environment:
             <<: *common-env
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_START_URLS: "${WF_START_URLS:-https://docs.aperturedata.io/}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
-
-    dataset-ingestion:
-        build:
-            context: ./apps/dataset-ingestion
-            args:
-                <<: *build-args
-            labels:
-                <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
-        image: aperturedata/workflows-dataset-ingestion:${VERSION}
-        environment:
-            <<: *common-env
-            BATCH_SIZE: "${BATCH_SIZE:-100}"
-            NUM_WORKERS: "${NUM_WORKERS:-8}"
-            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
-            DATASET: "${DATASET:-coco}"
-            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
-            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
-            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
+            WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
+        volumes:
+            - ./ca:/ca
 
     embeddings-extraction:
         build:
@@ -141,6 +202,25 @@ services:
             <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
+    label-studio:
+        build:
+            context: ./apps/label-studio
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-label-studio:${VERSION}"
+        image: aperturedata/workflows-label-studio:${VERSION}
+        ports:
+            - "8888:8888"
+        environment:
+            <<: *common-env
+            WF_LOG_LEVEL: "info"
+            WF_LABEL_STUDIO_USER: "aperturedb@localhost"
+            WF_LABEL_STUDIO_PASSWORD: "41apertureDB3"
+            WF_LABEL_STUDIO_TOKEN: "PXq08K1kCwg9eTmhFPdwOgE5DEVvy5MejfW26p13EQvkse6w"
+            WF_LABEL_STUDIO_URL_PATH: "http://localhost:9000/labelstudio"
+            WF_LABEL_STUDIO_HANDLE_UNTAGGED: "TRUE"
 
     # Not a workflow, but useful for debugging mcp-server
     mcp-inspector:
@@ -177,13 +257,18 @@ services:
         image: aperturedata/workflows-rag:${VERSION}
         ports:
             - "8002:8000"
+        depends_on:
+            text-embeddings:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_TOKEN: "${WF_TOKEN:-test}"
-            WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
-            WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
-            WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+            # WF_LLM_PROVIDER: "${WF_LLM_PROVIDER:-}"
+            # WF_LLM_API_KEY: "${WF_LLM_API_KEY:-}"
+            # WF_N_DOCUMENTS: "${WF_N_DOCUMENTS:-5}"
+        volumes:
+            - ./ca:/ca
 
     sql-server:
         build:
@@ -211,6 +296,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
         image: aperturedata/workflows-text-embeddings:${VERSION}
+        depends_on:
+            text-extraction:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
@@ -219,6 +307,8 @@ services:
             WF_MODEL: "${WF_MODEL:-openclip ViT-B-32 laion2b_s34b_b79k}"
             WF_ENGINE: "${WF_ENGINE:-HNSW}"
             WF_CLEAN: "${WF_CLEAN:-true}"
+        volumes:
+            - ./ca:/ca
 
     text-extraction:
         build:
@@ -229,12 +319,17 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
         image: aperturedata/workflows-text-extraction:${VERSION}
+        depends_on:
+            crawl-website:
+                condition: service_completed_successfully
         environment:
             <<: *common-env
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
             WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+        volumes:
+            - ./ca:/ca
 
     # Put this last because it depends on the others
     crawl-to-rag:
@@ -259,3 +354,136 @@ services:
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
             WF_MAX_DOCUMENTS: "${WF_MAX_DOCUMENTS:-20}"
 
+    ingest-croissant:
+        build:
+            context: ./apps/ingest-croissant
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-croissant:${VERSION}"
+        image: aperturedata/workflows-ingest-croissant:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            WF_CROISSANT_URL: "${WF_CROISSANT_URL:-https://huggingface.co/api/datasets/suyc21/MedicalConverter/croissant}"
+            WF_SAMPLE_COUNT: "${WF_SAMPLE_COUNT:--1}"
+            WF_FLATTEN_JSON: "${WF_FLATTEN_JSON:-false}"
+
+    dataset-ingestion:
+        build:
+            context: ./apps/dataset-ingestion
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-croissant:${VERSION}"
+        image: aperturedata/workflows-ingest-croissant:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            BATCH_SIZE: "${BATCH_SIZE:-100}"
+            NUM_WORKERS: "${NUM_WORKERS:-8}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
+            DATASET: "${DATASET:-coco}"
+            INCLUDE_TRAIN: "${INCLUDE_TRAIN:-false}"
+            LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
+            WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
+
+    add-image:
+        image: aperturedata/wf-add-image:latest
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            TOTAL_IMAGES: "${TOTAL_IMAGES:-100}"
+    face-detection:
+        build:
+            context: ./apps/face-detection
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
+        image: aperturedata/workflows-face-detection:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+            add-image:
+                condition: service_completed_successfully
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            COLLECT_EMBEDDINGS: "${COLLECT_EMBEDDINGS:-true}"
+    object-detection:
+        build:
+            context: ./apps/object-detection
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-object-detection:${VERSION}"
+        image: aperturedata/workflows-object-detection:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+            add-image:
+                condition: service_completed_successfully
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
+            MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
+
+    ingest-from-sql:
+        image: aperturedata/workflows-ingest-from-sql:${VERSION}
+        build:
+            context: ./apps/ingest-from-sql
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-sql:${VERSION}"
+
+    ingest-from-bucket:
+        image: aperturedata/workflows-ingest-from-bucket:${VERSION}
+        build:
+            context: ./apps/ingest-from-bucket
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-bucket:${VERSION}"
+
+
+configs:
+  nginx.conf:
+    content: |
+      server {
+        listen 80;
+        listen 443 ssl;
+        client_max_body_size 256m;
+        ssl_certificate /etc/nginx/certificate/http.crt;
+        ssl_certificate_key /etc/nginx/certificate/tls.key;
+        location / {
+          proxy_pass http://webui;
+        }
+        location /api/ {
+          proxy_pass http://lenz:8080;
+        }
+      }

@@ -20,7 +20,7 @@ def test_connection():
     client = create_connector()
     from aperturedb.Utils import Utils
     utils = Utils(client)
-    utils.summary()
+    utils.get_schema()
 
 
 test_connection()
@@ -35,7 +35,7 @@ mcp = FastMCP(
     """,
 )
 
-register_tools(mcp)
+register_tools(mcp) 
 register_resources(mcp)
 
 updater = StatusUpdater()

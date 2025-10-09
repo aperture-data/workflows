@@ -91,6 +91,14 @@ if [ "$USE_REST" == true ]; then
     params+=(--use-rest)
 fi
 
+if [ -n "${CA_CERT:-}" ]; then
+    params+=(--ca-cert $CA_CERT)
+fi
+
+if [ "$VERIFY_HOSTNAME" == false ]; then
+    params+=(--no-verify-hostname)
+fi
+
 STATUS_SCRIPT=/app/status_tools.py
 
 adb config create default \

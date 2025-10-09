@@ -2,154 +2,63 @@
 set -x
 set -euo pipefail
 
-RUNNER_NAME="$(whoami)"
-NETWORK_NAME="${RUNNER_NAME}_aperturedb"
+WORKFLOW="rag"
 
-APERTUREDB_IMAGE="aperturedata/aperturedb-community"
-APERTUREDB_NAME="${RUNNER_NAME}_aperturedb"
+# Get the directory this script is in
+export BIN_DIR=$(dirname "$(readlink -f "$0")")
+export ROOT_DIR=$BIN_DIR/../..
+export TEST_DIR=$BIN_DIR/test
 
-CRAWL_IMAGE="aperturedata/workflows-crawl-website"
-CRAWL_NAME="${RUNNER_NAME}_crawl_website"
+echo "BIN_DIR: $BIN_DIR"
+echo "ROOT_DIR: $ROOT_DIR"
 
-EXTRACT_IMAGE="aperturedata/workflows-text-extraction"
-EXTRACT_NAME="${RUNNER_NAME}_text_extraction"
+cd $BIN_DIR
 
-EMBED_IMAGE="aperturedata/workflows-text-embeddings"
-EMBED_NAME="${RUNNER_NAME}_text_embeddings"
+COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
+COMPOSE_PROJECT_NAME="${WORKFLOW}-tests"
+COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
-RAG_IMAGE="aperturedata/workflows-rag"
-RAG_NAME="${RUNNER_NAME}_rag"
+export DB_HOST DB_PASS
+DB_HOST="${DB_HOST:-lenz}"
+DB_PASS="${DB_PASS:-admin}"
+export DB_PORT=55551
+export DB_TCP_CN="lenz"
 
-ID="my_key"
-SECRET="my_secret"
-CRAWL_URL="https://www.aperturedata.io/"
-ADB_CONFIG="TEMPORARY_CONFIG_USED_BY_TESTS"
-
-CLEANUP=${CLEANUP:-true}
-
-function build() {
-    # Get the directory this script is in
-    DIR=$(dirname $(readlink -f $0))
-    cd $DIR
-    bash ../build.sh
-    bash ../build.sh crawl-website
-    bash ../build.sh text-extraction
-    bash ../build.sh text-embeddings
+# ---- cleanup on exit ----
+cleanup() {
+  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
+    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
 }
+trap cleanup EXIT
 
-function cleanup() {
-    docker stop ${APERTUREDB_NAME} || true
-    docker rm ${APERTUREDB_NAME} || true
-    docker stop ${CRAWL_NAME} || true
-    docker rm ${CRAWL_NAME} || true
-    docker stop ${EXTRACT_NAME} || true
-    docker rm ${EXTRACT_NAME} || true
-    docker stop ${EMBED_NAME} || true
-    docker rm ${EMBED_NAME} || true
-    docker stop ${RAG_NAME} || true
-    docker rm ${RAG_NAME} || true
-    docker network rm ${NETWORK_NAME} || true
-}
+# ---- run tests ----
+echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
-function setup() {
-    docker network create ${NETWORK_NAME}
+COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN"
 
-    docker build -t get_summary -f- . <<EOD
-FROM aperturedata/workflows-base
-RUN echo "/opt/venv/bin/adb utils execute summary" > /app/app.sh
-EOD
-}
-
-function run_aperturedb() {
-    # Run as a daemon
-    docker run -d \
-               --name ${APERTUREDB_NAME} \
-               --network ${NETWORK_NAME} \
-               -e ADB_MASTER_KEY="admin" \
-               -e ADB_KVGD_DB_SIZE="204800" \
-               ${APERTUREDB_IMAGE}
-    # Wait for the database to start
-    sleep 20
-}
-
-function run_crawl() {
-    # Run until complete
-    docker run \
-               --name ${CRAWL_NAME} \
-               --network ${NETWORK_NAME} \
-               -e DB_HOST=${APERTUREDB_NAME} \
-               -e WF_START_URLS=${CRAWL_URL} \
-               -e WF_MAX_DOCUMENTS=20 \
-               -e WF_OUTPUT=${ID} \
-               --rm \
-               ${CRAWL_IMAGE}
-}
-
-function run_extract() {
-    # Run until complete
-    docker run \
-               --name ${EXTRACT_NAME} \
-               --network ${NETWORK_NAME} \
-               -e DB_HOST=${APERTUREDB_NAME} \
-               -e WF_INPUT=${ID} \
-               -e WF_OUTPUT=${ID} \
-               --rm \
-               ${EXTRACT_IMAGE}
-}
-
-function run_embed() {
-    # Run until complete
-    docker run \
-               --name ${EMBED_NAME} \
-               --network ${NETWORK_NAME} \
-               -e DB_HOST=${APERTUREDB_NAME} \
-               -e WF_INPUT=${ID} \
-               -e WF_OUTPUT=${ID} \
-               --rm \
-               ${EMBED_IMAGE}
-}
-
-function get_summary() {
-    docker run -t \
-        --rm \
-        --network ${NETWORK_NAME} \
-        -e DB_HOST=${APERTUREDB_NAME} \
-        get_summary
-}
-
-function run_rag() {
-    # Run as a daemon
-    docker run -d \
-               --name ${RAG_NAME} \
-               --network ${NETWORK_NAME} \
-               -e DB_HOST=${APERTUREDB_NAME} \
-               -e WF_INPUT=${ID} \
-               -e WF_TOKEN=${SECRET} \
-               --rm \
-               ${RAG_IMAGE}
-}
-
-if [ "$CLEANUP" = true ]; then
-    trap cleanup EXIT
+if [ $CI_RUN -eq 0 ]; then
+  $COMMAND build base
 fi
 
-build
-cleanup
-setup
-run_aperturedb
-get_summary
-run_crawl
-get_summary
-run_extract
-get_summary
-run_embed
-get_summary
-run_rag
+$COMMAND build crawl-website text-extraction text-embeddings
 
+# This log file is useful for debugging test failures
+TEST_LOG=$BIN_DIR/test.log
+echo "Writing logs to $TEST_LOG"
+(
+  sleep 5
+  $COMMAND logs -f > $TEST_LOG
+) &
+LOG_PID=$!
+
+$COMMAND up -d $WORKFLOW $WORKFLOW
+ret=$?
 sleep 20
 
-if [ "$CLEANUP" = true ]; then
-    cleanup
-fi
+docker logs rag-tests-crawl-website-1
+docker logs rag-tests-text-extraction-1
+docker logs rag-tests-text-embeddings-1
+docker logs rag-tests-$WORKFLOW-1
 
-exit 0
+exit $ret
