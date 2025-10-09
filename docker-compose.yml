@@ -450,6 +450,15 @@ services:
             RUN_ONCE: "${RUN_ONCE:-true}"
             MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
 
+    ingest-from-sql:
+        build:
+            context: ./apps/ingest-from-sql
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-sql:${VERSION}"
+
 
 configs:
   nginx.conf:
