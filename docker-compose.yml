@@ -382,8 +382,8 @@ services:
                 <<: *build-args
             labels:
                 <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/dataset-ingestion:${VERSION}"
-        image: aperturedata/dataset-ingestion:${VERSION}
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
+        image: aperturedata/workflows-dataset-ingestion:${VERSION}
         depends_on:
             lenz:
                 condition: service_started
