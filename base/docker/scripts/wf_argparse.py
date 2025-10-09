@@ -142,9 +142,9 @@ class ArgumentParser:
 # 3. Convert the value into an appropriate Pythonic type
 #
 # If validation fails, then an ArgumentTypeError is raised.
-# If cli is True, then the return value is either a string or a stringifiable type.
+# If force_string is True, then the return value is either a string or a stringifiable type.
 
-def validate_log_level(v, *, cli=False):
+def validate_log_level(v, *, force_string=False):
     """
     Checks a logging level.
     Expects a string like "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
@@ -157,12 +157,12 @@ def validate_log_level(v, *, cli=False):
     if isinstance(level, str):
         # Unknown level string
         raise argparse.ArgumentTypeError(f"Unknown log level: {v}")
-    if cli:
+    if force_string:
         return logging.getLevelName(level)  # return canonical name (string)
     return level  # return numeric code
 
 
-def validate_bool(v, *, cli=False):
+def validate_bool(v, *, force_string=False):
     """
     Checks a boolean value.
     Expects a string like "true", "false".
@@ -174,7 +174,7 @@ def validate_bool(v, *, cli=False):
         result = False
     else:
         raise argparse.ArgumentTypeError(f"Boolean value expected: {v}")
-    if cli:
+    if force_string:
         return "true" if result else "false" # JSON
     return result
 
@@ -187,7 +187,7 @@ class URL(ParseResult):
         return urlunparse(self)
 
 
-def validate_web_url(v, *, cli=False):
+def validate_web_url(v, *, force_string=False):
     """
     Checks a web URL.
     Expects a string like "https://www.example.com".
@@ -209,7 +209,7 @@ def validate_web_url(v, *, cli=False):
     if not host:
         raise argparse.ArgumentTypeError(f"No hostname: {v}")
 
-    parsed = parsed._replace(hostname=validate_hostname(host, cli=True))
+    parsed = parsed._replace(hostname=validate_hostname(host, force_string=True))
 
     # TODO: Consider checking for internal domains that might expose sensitive information,
     # especially in the context of cloud hosting.
@@ -222,7 +222,7 @@ def validate_web_url(v, *, cli=False):
     return parsed
 
 
-def validate_hostname(v, *, cli=False):
+def validate_hostname(v, *, force_string=False):
     """
     Checks a hostname.
     Expects a string like "www.example.com".
@@ -241,7 +241,7 @@ def validate_hostname(v, *, cli=False):
 
 INT_RE = re.compile(r"^[+-]?\d+$")
 
-def validate_int_in_range(v, *, cli=False, min=None, max=None):
+def validate_int_in_range(v, *, force_string=False, min=None, max=None):
     """
     Checks an integer in a range.
     Expects a string like "123".
@@ -259,12 +259,12 @@ def validate_int_in_range(v, *, cli=False, min=None, max=None):
         raise argparse.ArgumentTypeError(f"Value must be greater than or equal to {min}: {v}")
     if max is not None and value > max:
         raise argparse.ArgumentTypeError(f"Value must be less than or equal to {max}: {v}")
-    return str(value) if cli else value
+    return str(value) if force_string else value
 
 
 FLOAT_RE = re.compile(r"^[+-]?\d+(\.\d+)?$")
 
-def validate_float_in_range(v, *, cli=False, min=None, max=None):
+def validate_float_in_range(v, *, force_string=False, min=None, max=None):
     """
     Checks a float in a range.
     Expects a string like "123.45".
@@ -281,18 +281,71 @@ def validate_float_in_range(v, *, cli=False, min=None, max=None):
         raise argparse.ArgumentTypeError(f"Value must be greater than or equal to {min}: {v}")
     if max is not None and value > max:
         raise argparse.ArgumentTypeError(f"Value must be less than or equal to {max}: {v}")
-    return str(value) if cli else value
+    return str(value) if force_string else value
 
 VALIDATORS = {
     "log_level": validate_log_level,
     "bool": validate_bool,
     "web_url": validate_web_url,
     "hostname": validate_hostname,
-    "positive_int": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=1),
-    "non_negative_int": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=0),
-    "port": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=1, max=65535),
-    'non_negative_float': lambda v, *, cli=False: validate_float_in_range(v, cli=cli, min=0),
+    "positive_int": lambda v, **kwargs: validate_int_in_range(v, min=1, **kwargs),
+    "non_negative_int": lambda v, **kwargs: validate_int_in_range(v, min=0, **kwargs),
+    "port": lambda v, **kwargs: validate_int_in_range(v, min=1, max=65535, **kwargs),
+    'non_negative_float': lambda v, **kwargs: validate_float_in_range(v, min=0, **kwargs),
 }
+
+
+def validate(validator_type, value=None, envar=None, default=None, hidden=False, raise_errors=True, force_string=False):
+    """
+    Validate and sanitize a value using the specified validator.
+    
+    Args:
+        validator_type: Type of validator to use (from VALIDATORS dict)
+        value: Value to validate (optional if envar is provided)
+        envar: Environment variable name to read value from
+        default: Default value if value/envar is not set
+        hidden: Whether to hide value in error messages
+        raise_errors: Whether to raise ArgumentTypeError on validation failure
+        force_string: Forces return value to be a string or stringifiable type
+        
+    Returns:
+        Validated and sanitized value
+        
+    Raises:
+        argparse.ArgumentTypeError: If validation fails and raise_errors is True
+        ValueError: If validator_type is unknown or no value is provided
+    """
+    validator = VALIDATORS.get(validator_type)
+    if validator is None:
+        raise ValueError(f"Unknown validator type: {validator_type}. Use one of: {', '.join(VALIDATORS.keys())}")
+
+    # Determine value
+    if value is None or value == "":
+        if envar:
+            value = os.getenv(envar)
+            if value is None or value == "":
+                if default is not None:
+                    value = default
+                else:
+                    raise ValueError(f"Environment variable {envar} is not set.")
+        else:
+            raise ValueError("Must provide either value or envar (or both).")
+
+    try:
+        result = validator(value, force_string=force_string)
+        return result
+    except argparse.ArgumentTypeError as e:
+        if hidden:
+            # Modify exception message to hide the value
+            error_msg = str(e).replace(value, "**HIDDEN**")
+            e = argparse.ArgumentTypeError(error_msg)
+        
+        if raise_errors:
+            raise e
+        else:
+            # Return the original value if not raising errors
+            logging.error(f"Ignoring invalid {envar or 'value'}: {e}")
+            return value
 
 
 EXIT_SUCCESS = 0
@@ -308,15 +361,29 @@ def main():
         "--type",
         required=True,
         choices=sorted(VALIDATORS.keys()),
-        help="Validator type to apply."
+        help="Validator type to apply.",
+        required=True,
     )
     parser.add_argument(
         "--envar",
-        help="Environment variable name. If --value is omitted, the value will be read from this variable."
+        help="Environment variable name. If --value is omitted, the value will be read from this variable.",
+        default=None,
     )
     parser.add_argument(
         "--value",
-        help="Value to validate. If omitted, value will be read from the environment variable."
+        help="Value to validate. If omitted, value will be read from the environment variable.",
+        default=None,
+    )
+    parser.add_argument(
+        "--default",
+        help="Default value to use if --value is omitted or empty and --envar is unset or empty.",
+        default=None,
+    )
+    parser.add_argument(
+        "--hidden",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether the value is hidden. If set, the value will not appear in logging or error messages.",
     )
     parser.add_argument(
         "--raise",
@@ -340,39 +407,29 @@ def main():
         stream=sys.stderr,
     )
 
-    validator = VALIDATORS.get(args.type)
-    if validator is None:
-        logging.error(f"Unknown validator type: {args.type}. Use one of: {', '.join(VALIDATORS.keys())}")
-        sys.exit(EXIT_OTHER_ERROR)
-
-    # Determine value
-    value = args.value
-    if value is None:
-        if args.envar:
-            value = os.getenv(args.envar)
-            if value is None:
-                logging.error(f"Environment variable {args.envar} is not set.")
-                sys.exit(EXIT_OTHER_ERROR)
-        else:
-            logging.error("Must provide either --value or --envar (or both).")
-            sys.exit(EXIT_OTHER_ERROR)
-
     try:
-        result = validator(value, cli=True)
+        result = validate(
+            validator_type=args.type,
+            value=args.value,
+            envar=args.envar,
+            default=args.default,
+            hidden=args.hidden,
+            raise_errors=args.raise_errors,
+            force_string=True,
+        )
         print(result)
         sys.exit(EXIT_SUCCESS)
+    except ValueError as e:
+        logging.error(str(e))
+        sys.exit(EXIT_OTHER_ERROR)
     except argparse.ArgumentTypeError as e:
         name = args.envar or "value"
         logging.error(f"Invalid {name}: {e}")
-        if args.raise_errors:
-            sys.exit(EXIT_VALIDATION_FAILURE)
-        else:
-            sys.exit(EXIT_SUCCESS)
+        sys.exit(EXIT_VALIDATION_FAILURE)
     except Exception as e:
         logger.exception("Unexpected error")
         sys.exit(EXIT_OTHER_ERROR)
     
-
 
 if __name__ == "__main__":
     main()
