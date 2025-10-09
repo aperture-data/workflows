@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 import uvicorn
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 import requests
 import time
 import threading
@@ -12,25 +12,39 @@ logger = logging.getLogger(__name__)
 
 lock = threading.Lock()
 
+
+def is_localhost_request(request: Request) -> bool:
+    """
+    Check if the request is coming from localhost.
+    """
+    client_host = request.client.host if request.client else None
+    # Check for common localhost addresses
+    localhost_addresses = {'127.0.0.1', '::1', 'localhost'}
+    return client_host in localhost_addresses
+
+
 RESPONSE = {
     "status": "starting",  # Not defined yet.
-    "completeness": 0.0, #Completeness of phase (0.0 to 1.0)
+    "completeness": 0.0,  # Completeness of phase (0.0 to 1.0)
     "phase": "initializing",  # Initial phase
-    "phases": ["initializing"], # possible phases of the workflow
+    "phases": ["initializing"],  # possible phases of the workflow
     "accessible": False,  # Whether the workflow is accessible
-    "error_message": "", # Error message if any
-    "error_code": "" # ("db_error", "workflow_error", "api_error")
+    "error_message": "",  # Error message if any
+    "error_code": ""  # ("db_error", "workflow_error", "api_error")
 }
+
 
 def get_workflow_status():
     global RESPONSE
     response = None
     try:
-        response = requests.get(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PROMETHEUS_PORT')}/")
+        response = requests.get(
+            f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PROMETHEUS_PORT')}/")
     except requests.exceptions.ConnectionError:
         # This is not an error. The workflows might not be running yet.
         # Or they might not have implemented the prometheus endpoint yet.
-        logger.info("Could not connect to the server. The server might not be running.")
+        logger.info(
+            "Could not connect to the server. The server might not be running.")
     except Exception as e:
         RESPONSE["accessible"] = False
         RESPONSE["error_message"] = str(e)
@@ -42,9 +56,12 @@ def get_workflow_status():
 
             for sample in metric.samples:
                 if sample.name == "workflow_information_info":
-                    RESPONSE["phases"] = sample.labels.get("phases", "").split("|")
-                    RESPONSE["error_message"] = sample.labels.get("error_message", "")
-                    RESPONSE["error_code"] = sample.labels.get("error_code", "")
+                    RESPONSE["phases"] = sample.labels.get(
+                        "phases", "").split("|")
+                    RESPONSE["error_message"] = sample.labels.get(
+                        "error_message", "")
+                    RESPONSE["error_code"] = sample.labels.get(
+                        "error_code", "")
                 if sample.name == "status":
                     RESPONSE["status"] = sample.labels.get("status", "unknown")
                 if sample.name == "phases":
@@ -54,15 +71,18 @@ def get_workflow_status():
                     if sample.labels.get("accessible") == "yes":
                         RESPONSE["accessible"] = sample.value == 1.0
 
-
         try:
-            ur = requests.post(f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PORT')}/response", json=RESPONSE)
+            ur = requests.post(
+                f"http://{os.environ.get('HOSTNAME')}:{os.environ.get('PORT')}/response", json=RESPONSE)
             if ur.ok:
                 print("Status updated successfully.")
         except Exception as e:
             print(f"Failed to update status: {e}")
 
+
 running = True
+
+
 def get_status_periodically():
     """
     Fetches the status periodically every 10 seconds.
@@ -74,12 +94,15 @@ def get_status_periodically():
 
 # This block allows you to run the FastAPI application directly
 # when the script is executed.
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global running
     background_thread = threading.Thread(target=get_status_periodically)
-    background_thread.daemon = True  # Allows the thread to exit when the main program exits
-    #Commented since we don't want to fetch status from the server till atleast 1 workflow implements it.
+    # Allows the thread to exit when the main program exits
+    background_thread.daemon = True
+    # Commented since we don't want to fetch status from the server till atleast 1 workflow implements it.
     background_thread.start()  # Start the background thread to fetch status
     yield
     running = False
@@ -110,10 +133,12 @@ async def get_status():
     global RESPONSE
     return RESPONSE
 
+
 def reconfigure_workflow():
     from reconfigure import reconfigure
     retval = reconfigure()
     return retval
+
 
 @app.post(
     "/reconfigure",
@@ -123,10 +148,16 @@ def reconfigure_workflow():
 async def reconfigure(request: Request, background_tasks: BackgroundTasks):
     """
     Reconfigures the application.
+    Only accessible from localhost for security reasons.
     """
+    if not is_localhost_request(request):
+        raise HTTPException(
+            status_code=403, detail="Access denied. This endpoint is only accessible from localhost.")
+
     logger.info(f"Reconfiguring the application with request: {request}")
     background_tasks.add_task(reconfigure_workflow)
     return {"message": "Reconfiguration requested."}
+
 
 @app.post(
     "/response",
@@ -136,10 +167,15 @@ async def reconfigure(request: Request, background_tasks: BackgroundTasks):
 async def set_response(request: Request):
     """
     Sets the global RESPONSE dictionary with the provided data.
+    Only accessible from localhost for security reasons.
 
     This endpoint allows you to update the RESPONSE dictionary,
     which can be used in other parts of the application.
     """
+    if not is_localhost_request(request):
+        raise HTTPException(
+            status_code=403, detail="Access denied. This endpoint is only accessible from localhost.")
+
     req_json = await request.json()
     print(f"{req_json=}")
     global RESPONSE
@@ -147,7 +183,6 @@ async def set_response(request: Request):
         for key, value in req_json.items():
             RESPONSE[key] = value
     return {"message": "Response data set successfully"}
-
 
 
 if __name__ == "__main__":
