@@ -40,12 +40,11 @@ if [[ "$PROVIDER" == "s3" ]]; then
     export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID-"INVALID"}
     export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY-"INVALID"}
     BUCKET=wf-test-priv-1
-    #for f in one two three four five;
     vars+=(-e WF_AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID")
     vars+=(-e WF_AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY")
 elif [[ "$PROVIDER" == "gs" ]]; then
     echo "* Provider = GS"
-    vars+=(-e WF_GCP="$GCP_XXX")
+    vars+=(-e WF_GCP_SERVICE_ACCOUNT_KEY="$(cat gcp.key)")
 else
     echo "Bad Provider (s3|gs)"
     exit 1
@@ -57,4 +56,4 @@ vars+=(-e WF_CLOUD_PROVIDER="$PROVIDER")
 vars+=(-e WF_BUCKET="$BUCKET")
 vars+=(-e WF_INGEST_IMAGES="true")
 
-docker run --rm -it ${vars[@]} aperturedata/workflows-ingest-from-bucket
+docker run --rm -it "${vars[@]}" aperturedata/workflows-ingest-from-bucket
