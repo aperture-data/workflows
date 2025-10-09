@@ -451,6 +451,7 @@ services:
             MODEL_NAME: "${MODEL_NAME:-frcnn-mobilenet}"
 
     ingest-from-sql:
+        image: aperturedata/workflows-ingest-from-sql:${VERSION}
         build:
             context: ./apps/ingest-from-sql
             args:
