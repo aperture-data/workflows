@@ -4,6 +4,7 @@ import logging
 import re
 from urllib.parse import urlparse, urlunparse, ParseResult
 import ipaddress
+import sys
 
 
 # This class wraps argparse and adds a number of additional features:
@@ -289,3 +290,87 @@ VALIDATORS = {
     "port": lambda v, *, cli=False: validate_int_in_range(v, cli=cli, min=1, max=65535),
     'non_negative_float': lambda v, *, cli=False: validate_float_in_range(v, cli=cli, min=0),
 }
+
+
+EXIT_SUCCESS = 0
+EXIT_VALIDATION_FAILURE = 1
+EXIT_OTHER_ERROR = 2
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Validate and sanitize workflow parameter values."
+    )
+    parser.add_argument(
+        "--type",
+        required=True,
+        choices=sorted(VALIDATORS.keys()),
+        help="Validator type to apply."
+    )
+    parser.add_argument(
+        "--envar",
+        help="Environment variable name. If --value is omitted, the value will be read from this variable."
+    )
+    parser.add_argument(
+        "--value",
+        help="Value to validate. If omitted, value will be read from the environment variable."
+    )
+    parser.add_argument(
+        "--raise",
+        dest="raise_errors",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Raise on validation error (use --no-raise to always exit 0)."
+    )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging verbosity level (default: WARNING)."
+    )
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.log_level.upper(),
+        format="%(levelname)s: %(message)s",
+        stream=sys.stderr,
+    )
+
+    validator = VALIDATORS.get(args.type)
+    if validator is None:
+        logging.error(f"Unknown validator type: {args.type}. Use one of: {', '.join(VALIDATORS.keys())}")
+        sys.exit(EXIT_OTHER_ERROR)
+
+    # Determine value
+    value = args.value
+    if value is None:
+        if args.envar:
+            value = os.getenv(args.envar)
+            if value is None:
+                logging.error(f"Environment variable {args.envar} is not set.")
+                sys.exit(EXIT_OTHER_ERROR)
+        else:
+            logging.error("Must provide either --value or --envar (or both).")
+            sys.exit(EXIT_OTHER_ERROR)
+
+    try:
+        result = validator(value, cli=True)
+        print(result)
+        sys.exit(0)
+    except argparse.ArgumentTypeError as e:
+        name = args.envar or "value"
+        logging.error(f"Invalid {name}: {e}")
+        if args.raise_errors:
+            sys.exit(EXIT_VALIDATION_FAILURE)
+        else:
+            sys.exit(EXIT_SUCCESS)
+    except Exception as e:
+        logger.exception("Unexpected error")
+        sys.exit(EXIT_OTHER_ERROR)
+    
+    sys.exit(EXIT_SUCCESS)
+
+
+if __name__ == "__main__":
+    main()
