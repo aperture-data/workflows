@@ -436,8 +436,8 @@ services:
                 <<: *build-args
             labels:
                 <<: *build-labels
-                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
-        image: aperturedata/workflows-face-detection:${VERSION}
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-object-detection:${VERSION}"
+        image: aperturedata/workflows-object-detection:${VERSION}
         depends_on:
             lenz:
                 condition: service_started
