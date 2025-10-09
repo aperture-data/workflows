@@ -17,8 +17,7 @@ STATUS_SERVER_PORT=8080
 PROMETHEUS_PORT=8001
 STATUS_SCRIPT=/app/status_tools.py
 
-# Exit code tracking
-ret_val=0
+# Timing and URL variables (set during execution)
 start=0
 end=0
 runtime=0
@@ -31,7 +30,7 @@ URL=""
 setup_logging() {
     mkdir -p ${OUTPUT}
 
-    if [ "$KEEP_PREV_OUTPUT" == true ]; then
+    if [ "${KEEP_PREV_OUTPUT}" == true ]; then
         # Sometimes it is useful to keep results from previous app runs.
         # This is useful when you want to compare results from different runs.
         echo "Keeping old output." >> $LOGFILE
@@ -43,12 +42,12 @@ setup_logging() {
 
     echo "Workflow Version: ${WORKFLOW_VERSION}"
 
-    if [ -z "$RUN_NAME" ]; then
+    if [ -z "${RUN_NAME:-}" ]; then
         RUN_NAME="unspecified_app_run"
         echo "WARNING: RUN_NAME not specified" >> $LOGFILE
     fi
 
-    if [ -z "$APP_NAME" ]; then
+    if [ -z "${APP_NAME:-}" ]; then
         APP_NAME="unspecified_app"
         echo "WARNING: APP_NAME not specified" >> $LOGFILE
     fi
@@ -81,9 +80,9 @@ setup_database() {
     local USE_REST=${USE_REST:-false}
     local DEFAULT_DB_PORT
 
-    if [ "$USE_REST" == true ]; then
+    if [ "${USE_REST}" == true ]; then
         DB_HOST=${DB_HOST_PRIVATE_HTTP}
-        if [ "$USE_SSL" == true ]; then
+        if [ "${USE_SSL}" == true ]; then
             DEFAULT_DB_PORT=443
         else
             DEFAULT_DB_PORT=80
@@ -96,11 +95,11 @@ setup_database() {
     local DB_PORT=${DB_PORT:-$DEFAULT_DB_PORT}
 
     local params=()
-    if [ "$USE_SSL" == false ]; then
+    if [ "${USE_SSL}" == false ]; then
         params+=(--no-use-ssl)
     fi
 
-    if [ "$USE_REST" == true ]; then
+    if [ "${USE_REST}" == true ]; then
         params+=(--use-rest)
     fi
 
@@ -108,7 +107,7 @@ setup_database() {
         params+=(--ca-cert $CA_CERT)
     fi
 
-    if [ "$VERIFY_HOSTNAME" == false ]; then
+    if [ "${VERIFY_HOSTNAME:-true}" == false ]; then
         params+=(--no-verify-hostname)
     fi
 
@@ -122,24 +121,31 @@ setup_database() {
 
     echo "Verifying connectivity to ${DB_HOST}..." | tee -a $LOGFILE
     
-    # Temporarily disable errexit to capture failure and report to status server
-    set +o errexit
     adb utils execute status 2>&1 | tee -a $LOGFILE
-    local db_ret_val="${PIPESTATUS[0]}"
-    set -o errexit
-    
-    if [ "${db_ret_val}" -ne 0 ]; then
-        python $STATUS_SCRIPT --completed 0 --error-message "Could not connect to database" --error-code "workflow_error"
-        return 1
-    fi
 
     echo "Done."
     adb utils execute summary >> db_summary_before.log
 }
 
+app_error() {
+    local app_exit_code=$?
+    # Try to get error message from status server, but don't fail if we can't
+    local error_message
+    error_message=$(curl -s http://${HOSTNAME:-}:${STATUS_SERVER_PORT}/status | jq -r '.error_message // empty' 2>/dev/null || echo "")
+    
+    if [ -z "$error_message" ]; then
+        error_message="App failed"
+    fi
+    
+    python $STATUS_SCRIPT --completed 0 --error-message "${error_message}. Failed with exit code: ${app_exit_code}" --error-code "workflow_error"
+    exit "${app_exit_code}"
+}
+
 # Run the main application
 run_app() {
-    if [ "$USERLOG_MSG" == true ]; then
+    trap app_error ERR
+
+    if [ "${USERLOG_MSG:-true}" == true ]; then
         python3 userlog.py --info "Starting App ${APP_NAME} - Run: ${RUN_NAME}."
     fi
 
@@ -149,23 +155,7 @@ run_app() {
     echo "Starting App: ${APP_NAME} - Run: ${RUN_NAME}..." | tee -a $LOGFILE
     export PYTHONPATH=.
 
-    # Temporarily disable errexit to capture app failure and report to status server
-    set +o errexit
     bash app.sh |& tee -a $APPLOG
-    ret_val="${PIPESTATUS[0]}"
-    set -o errexit
-
-    if [ "${ret_val}" -ne 0 ]; then
-        # Try to get error message from status server, but don't fail if we can't
-        local error_message
-        error_message=$(curl -s http://${HOSTNAME}:${STATUS_SERVER_PORT}/status | jq -r '.error_message // empty' 2>/dev/null || echo "")
-        
-        if [ -z "$error_message" ]; then
-            error_message="App failed"
-        fi
-        
-        python $STATUS_SCRIPT --completed 0 --error-message "${error_message}. Failed with exit code: ${ret_val}" --error-code "workflow_error"
-    fi
 
     echo "App Done." | tee -a $LOGFILE
 
@@ -180,7 +170,7 @@ run_app() {
     adb utils execute summary >> db_summary_after.log
     diff db_summary_before.log db_summary_after.log >> db_summary_diff.log || true
 
-    if [ "$USERLOG_MSG" == true ]; then
+    if [ "${USERLOG_MSG:-true}" == true ]; then
         python3 userlog.py --info "Done App ${APP_NAME} - Run: ${RUN_NAME}."
     fi
 
@@ -194,7 +184,7 @@ run_app() {
 
 # Upload results to S3
 upload_to_s3() {
-    if [ "$PUSH_TO_S3" != true ]; then
+    if [ "${PUSH_TO_S3:-false}" != true ]; then
         echo "Not uploading results to S3."
         echo "=================== APP LOG ==================="
         cat $APPLOG
@@ -202,13 +192,20 @@ upload_to_s3() {
         return 0
     fi
 
-    if ([ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS}" ]; then
+    if ([ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS:-}" ]; then
+        echo "Using WF_LOGS_AWS_CREDENTIALS"
         AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS})
         AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS})
     fi
+
+    if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
+        echo "No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY, skipping S3 upload"
+        return 0
+    fi
     
-    aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    echo "Configuring AWS credentials to upload logs to S3"
+    aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+    aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
     aws configure set default.region us-west-2
 
     declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io)
@@ -216,8 +213,8 @@ upload_to_s3() {
     local FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:-${domains[$ENVIRONMENT]}}
     local LOGS_BUCKET=${WF_LOGS_AWS_BUCKET:-"aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
     local DATE=$(date '+%Y-%m-%d')
-    local SECONDS=$(date '+%s')
-    local SUFFIX=$DATE/${APP_NAME}/${SECONDS}_${RUN_NAME}/
+    local TIMESTAMP=$(date '+%s')
+    local SUFFIX=$DATE/${APP_NAME}/${TIMESTAMP}_${RUN_NAME}/
     local BUCKET=s3://$LOGS_BUCKET/$SUFFIX
 
     echo "Uploading results to S3..." >> $LOGFILE
@@ -240,7 +237,9 @@ upload_to_s3() {
 
 # Post notification to Slack
 post_to_slack() {
-    if [ "$POST_TO_SLACK" != true ]; then
+    local exit_code=$1
+    
+    if [ "${POST_TO_SLACK:-false}" != true ]; then
         return 0
     fi
 
@@ -249,9 +248,9 @@ post_to_slack() {
     local RESULTS="<$URL|Results>" # URL may not be available if PUSH_TO_S3 is false
     local GRAFANA="<$GRAFANA_URL|Dashboards>"
 
-    if [ "${ret_val}" -ne 0 ]; then
+    if [ "${exit_code}" -ne 0 ]; then
         python3 slack-alert.py \
-            -msg ":fire: App \`${APP_NAME}\` failed(\"${ret_val}\"). $RESULTS. $GRAFANA." \
+            -msg ":fire: App \`${APP_NAME}\` failed(\"${exit_code}\"). $RESULTS. $GRAFANA." \
             -channel "${SLACK_CHANNEL_FAILED}"
     else
         python3 slack-alert.py \
@@ -264,15 +263,10 @@ post_to_slack() {
 cleanup() {
     local exit_code=$?
     
-    # Use ret_val if it was set by app failure, otherwise use trap's exit code
-    if [ ${ret_val} -ne 0 ]; then
-        exit_code=${ret_val}
-    fi
-
     # Upload results and post to Slack even on failure (disable errexit temporarily)
     set +o errexit
     upload_to_s3
-    post_to_slack
+    post_to_slack "${exit_code}"
     set -o errexit
 
     if [ "${exit_code}" -ne 0 ]; then
@@ -286,6 +280,8 @@ cleanup() {
     exit "${exit_code}"
 }
 
+# Make sure we log error details
+trap 'echo "Error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}" >&2' ERR
 # Set up trap to ensure cleanup happens on exit
 trap cleanup EXIT
 
