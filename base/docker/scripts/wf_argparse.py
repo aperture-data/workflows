@@ -266,9 +266,7 @@ def validate_hostname(v, *, force_string=False) -> str:
             v.encode("idna")
         except Exception:
             raise argparse.ArgumentTypeError(f"Invalid hostname")
-
-
-
+    return v
 INT_RE = re.compile(r"^[+-]?\d+$")
 
 def validate_int_in_range(v, *, force_string=False, min=None, max=None) -> Union[int, str]:
