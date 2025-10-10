@@ -264,21 +264,35 @@ def validate_web_url(v, *, force_string=False) -> URL:
     return parsed
 
 
+# Hostname regex: alphanumeric labels separated by dots, no leading/trailing dots or hyphens
+# Each label: starts and ends with alphanumeric, can have hyphens in middle
+# Minimum 2 characters total, maximum 253 (DNS limit)
+HOSTNAME_RE = re.compile(
+    r'^(?=.{2,253}$)'  # Length 2-253 chars
+    r'([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*'  # Optional labels ending with dot
+    r'[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$'  # Final label without trailing dot
+)
+
 def validate_hostname(v, *, force_string=False) -> str:
     """
     Checks a hostname.
-    Expects a string like "www.example.com".
+    Expects a string like "www.example.com" or an IP address.
     Returns a hostname.
     """
     v = v.strip()
+    
+    # Check if it's a valid IP address; includes both IPv4 and IPv6
     try:
         ip = ipaddress.ip_address(v)
+        return v  # Valid IP address
     except ValueError:
-        try:
-            v.encode("idna")
-        except Exception:
-            raise argparse.ArgumentTypeError(f"Invalid hostname")
-    return v
+        pass  # Not an IP, continue to hostname validation
+    
+    # Validate as hostname/domain name using validate_string with regex
+    # TODO: Consider excluding single-label hostnames (e.g. localhost)
+    return validate_string(v, regex=HOSTNAME_RE, force_string=force_string)
+
+    
 INT_RE = re.compile(r"^[+-]?\d+$")
 
 def validate_int_in_range(v, *, force_string=False, min=None, max=None) -> Union[int, str]:

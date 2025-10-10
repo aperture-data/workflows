@@ -40,8 +40,28 @@ VALIDATOR_TEST_CASES = {
         'invalid': ['ftp://example.com', 'example.com', ''],
     },
     'hostname': {
-        'valid': ['example.com', 'sub.example.com', 'localhost', '192.168.1.1'],
-        'invalid': ['invalid..com', '-invalid.com', ''],
+        'valid': [
+            'example.com',           # Basic domain
+            'sub.example.com',       # Subdomain
+            'localhost',             # Single label
+            'my-server',             # Hyphen in middle
+            '192.168.1.1',          # IPv4
+            '::1',                   # IPv6
+            'a.b',                   # Minimal two-label
+            'xx',                    # Minimal single-label (2 chars)
+        ],
+        'invalid': [
+            '',                      # Empty
+            'x',                     # Too short (1 char)
+            'invalid..com',          # Consecutive dots
+            '-invalid.com',          # Label starts with hyphen
+            'invalid-.com',          # Label ends with hyphen
+            'http://example.com',    # Contains ://
+            '.example.com',          # Starts with dot
+            'example.com.',          # Ends with dot (technically valid in DNS but we reject)
+            'invalid_host',          # Underscore not allowed
+            'host name',             # Space not allowed
+        ],
     },
     'positive_int': {
         'valid': ['1', '100', '999999'],
