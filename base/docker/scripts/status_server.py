@@ -16,10 +16,15 @@ lock = threading.Lock()
 def is_localhost_request(request: Request) -> bool:
     """
     Check if the request is coming from localhost.
+
+    If the client host is None (e.g., request.client is None), access is denied (returns False).
     """
     client_host = request.client.host if request.client else None
     # Check for common localhost addresses
     localhost_addresses = {'127.0.0.1', '::1', 'localhost'}
+    if client_host is None:
+        # Explicitly deny access if client_host is None
+        return False
     return client_host in localhost_addresses
 
 
