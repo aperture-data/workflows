@@ -24,7 +24,7 @@ function uuid() {
 
 # We expect WF_OUTPUT (or generate a consistent uuid)
 # WF_INPUT gets pinned to WF_OUTPUT
-WF_OUTPUT=$(/app/wf_argparse.py --type slug --envar WF_OUTPUT --default $(uuid))
+WF_OUTPUT=$(/app/wf_argparse.py --type string --envar WF_OUTPUT --default $(uuid))
 echo "WF_OUTPUT: $WF_OUTPUT"
 WF_INPUT=$WF_OUTPUT
 
