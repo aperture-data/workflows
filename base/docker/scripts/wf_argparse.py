@@ -224,7 +224,7 @@ def validate_web_url(v, *, force_string=False) -> URL:
     Returns a URL.
     """
     v = v.strip()
-    parsed = URL(urlparse(v))
+    parsed = URL._make(urlparse(v))
 
     if not parsed.scheme or not parsed.netloc:
         raise argparse.ArgumentTypeError(f"Invalid URL")
@@ -239,13 +239,25 @@ def validate_web_url(v, *, force_string=False) -> URL:
     if not host:
         raise argparse.ArgumentTypeError(f"No hostname")
 
-    parsed = parsed._replace(hostname=validate_hostname(host, force_string=True))
+    # Validate and sanitize the hostname
+    validated_host = validate_hostname(host, force_string=True)
+    
+    # Reconstruct netloc with validated hostname
+    # netloc format: [user:pass@]host[:port]
+    netloc = validated_host
+    if parsed.port:
+        validated_port = validate_int_in_range(parsed.port, min=1, max=65535)
+        netloc = f"{netloc}:{validated_port}"
+    if parsed.username:
+        if parsed.password:
+            netloc = f"{parsed.username}:{parsed.password}@{netloc}"
+        else:
+            netloc = f"{parsed.username}@{netloc}"
+    
+    parsed = parsed._replace(netloc=netloc)
 
     # TODO: Consider checking for internal domains that might expose sensitive information,
     # especially in the context of cloud hosting.
-
-    if parsed.port:
-        parsed = parsed._replace(port=validate_int_in_range(parsed.port, min=1, max=65535))
 
     # TODO: Consider sanitizing query parameters to prevent injection attacks.
 
@@ -372,7 +384,8 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         validator_type: Type of validator to use (from VALIDATORS dict)
         value: Value to validate (optional if envar is provided)
         envar: Environment variable name to read value from
-        default: Default value if value/envar is not set
+        default: Default value if value/envar is not set. 
+            Default for default is None, meaning unset.
         hidden: Whether to hide value in error messages
         raise_errors: Whether to raise ArgumentTypeError on validation failure
         force_string: Forces return value to be a string or stringifiable type

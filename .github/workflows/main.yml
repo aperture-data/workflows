@@ -77,8 +77,33 @@ jobs:
           name: workflows-base
           path: ${{ runner.temp }}/workflows-base.tar
 
-  build-test-apps-small:
+  test-base:
     needs: [ build-base, get-version ]
+    runs-on:
+      - ubuntu-latest
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download base image
+        uses: actions/download-artifact@v4
+        with:
+          name: workflows-base
+          path: ${{ runner.temp }}
+
+      - name: Load base image
+        run: |
+          docker load --input=${{ runner.temp }}/workflows-base.tar
+
+      - name: Test base modules
+        run: |
+          cd base/docker
+          CI_RUN=1 bash test.sh
+
+  build-test-apps-small:
+    needs: [ test-base, get-version ]
 
     strategy:
       matrix:
@@ -144,7 +169,7 @@ jobs:
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
 
   build-test-apps-large:
-    needs: [build-base, get-version]
+    needs: [test-base, get-version]
 
     strategy:
       matrix:
