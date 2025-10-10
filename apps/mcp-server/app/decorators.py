@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 from pydantic import BaseModel
 from fastapi import HTTPException
 import inspect
@@ -147,7 +147,7 @@ def register_tools(mcp: "FastMCP"):
         )
 
 
-def declare_mcp_resource(uri: str, mime_type: str=None):
+def declare_mcp_resource(uri: str, mime_type: Optional[str]=None):
     """Decorator to expose a resource to both MCP and FastAPI, DRY."""
     def decorator(fn: Callable):
         resource = Resource(uri=uri, mime_type=mime_type, function=fn)

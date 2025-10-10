@@ -162,8 +162,7 @@ class TestFindSimilarTools:
         
         documents = result.data.documents
         
-        # Should return all available documents (which is 10 in our seed data)
-        assert len(documents) <= 1000
+        # TODO: Decouple this from the seed data
         assert len(documents) == 10  # We seeded exactly 10 documents
 
     @pytest.mark.asyncio
