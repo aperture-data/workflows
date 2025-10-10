@@ -5,7 +5,7 @@ set -o errexit -o nounset -o pipefail
 # Dump log file on error
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
 
-WF_LOG_LEVEL=${WF_LOG_LEVEL:-WARNING}
+WF_LOG_LEVEL=$(/app/wf_argparse.py --type log_level --envar WF_LOG_LEVEL --default WARNING)
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
 
 # Start proxy server

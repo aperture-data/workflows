@@ -1,4 +1,3 @@
-from fastmcp.server.auth import BearerAuthProvider
 import os
 import asyncio
 import functools

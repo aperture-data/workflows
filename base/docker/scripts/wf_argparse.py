@@ -39,6 +39,33 @@ from collections.abc import Container
 # This module also provides a CLI interface for the registry
 # which can be used to sanitize and validate untrusted input in bash scripts.
 #     VERIFY_HOSTNAME=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
+#
+# usage: wf_argparse.py [-h] --type
+#                       {bool,environment,hostname,log_level,non_negative_float,non_negative_int,port,positive_int,shell_safe,slug,string,web_url}
+#                       [--envar ENVAR] [--value VALUE] [--default DEFAULT]
+#                       [--hidden | --no-hidden] [--raise | --no-raise]
+#                       [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+
+# Validate and sanitize workflow parameter values.
+
+# options:
+#   -h, --help            show this help message and exit
+#   --type {bool,environment,hostname,log_level,non_negative_float,non_negative_int,port,positive_int,shell_safe,slug,string,web_url}
+#                         Validator type to apply.
+#   --envar ENVAR         Environment variable name. If --value is omitted, the
+#                         value will be read from this variable.
+#   --value VALUE         Value to validate. If omitted, value will be read from
+#                         the environment variable.
+#   --default DEFAULT     Default value to use if --value is omitted or empty
+#                         and --envar is unset or empty.
+#   --hidden, --no-hidden
+#                         Whether the value is hidden. If set, the value will
+#                         not appear in logging or error messages. (default:
+#                         False)
+#   --raise, --no-raise   Raise on validation error (use --no-raise to always
+#                         exit 0). (default: True)
+#   --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+#                         Logging verbosity level (default: WARNING).
 
 
 
@@ -147,7 +174,7 @@ class ArgumentParser:
 # If validation fails, then an ArgumentTypeError is raised.
 # If force_string is True, then the return value is either a string or a stringifiable type.
 
-def validate_log_level(v, *, force_string=False) -> Union[int, str]:
+def validate_log_level(v:str, *, force_string=False) -> Union[int, str]:
     """
     Checks a logging level.
     Expects a string like "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
@@ -312,6 +339,10 @@ def validate_string(v, *, force_string=False, regex:Union[str, re.Pattern]=None,
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$") # e.g. word1-word2-word3
 SHELL_SAFE_RE = re.compile(r"^[^$;&|><'\"` \t]+$")
 
+ENVIRONMENT_CHOICES = {'develop', 'main'}
+CLIP_MODEL_NAME_CHOICES = {'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'} # TODO: get from clip.available_models()
+OCR_METHOD_CHOICES = {'tesseract', 'easyocr'}
+
 VALIDATORS = {
     "log_level": validate_log_level,
     "bool": validate_bool,
@@ -327,7 +358,9 @@ VALIDATORS = {
     'string': lambda v, **kwargs: validate_string(v, **kwargs),
     'slug': lambda v, **kwargs: validate_string(v, regex=SLUG_RE, **kwargs),
     'shell_safe': lambda v, **kwargs: validate_string(v, regex=SHELL_SAFE_RE, **kwargs),
-    'environment': lambda v, **kwargs: validate_string(v, choices={'develop', 'main'}, **kwargs),
+    'environment': lambda v, **kwargs: validate_string(v, choices=ENVIRONMENT_CHOICES, **kwargs),
+    'clip_model_name': lambda v, **kwargs: validate_string(v, choices=CLIP_MODEL_NAME_CHOICES, **kwargs),
+    'ocr_method': lambda v, **kwargs: validate_string(v, choices=OCR_METHOD_CHOICES, **kwargs),
 }
 
 

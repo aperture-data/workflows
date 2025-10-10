@@ -24,15 +24,11 @@ function uuid() {
 
 # We expect WF_OUTPUT (or generate a consistent uuid)
 # WF_INPUT gets pinned to WF_OUTPUT
-WF_OUTPUT=${WF_OUTPUT:-$(uuid)}
+WF_OUTPUT=$(/app/wf_argparse.py --type slug --envar WF_OUTPUT --default $(uuid))
 echo "WF_OUTPUT: $WF_OUTPUT"
 WF_INPUT=$WF_OUTPUT
 
-# Check that WF_TOKEN is set or the last step will fail
-if [ -z "$WF_TOKEN" ]; then
-    echo "Error: WF_TOKEN is not set"
-    exit 1
-fi
+WF_TOKEN=$(/app/wf_argparse.py --type string --envar WF_TOKEN)
 
 # Check that WF_DESCRIPTOR_SET is *not* set
 if [ -n "${WF_DESCRIPTOR_SET:-}" ]; then
