@@ -385,9 +385,9 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         ValueError: If validator_type is unknown or no value is provided
     """
     if hidden:
-        logger.info(f"type={validator_type}, envar={envar}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
+        logger.info(f"type={validator_type}, envar={envar}, value=**HIDDEN**, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
     else:
-        logger.info(f"type={validator_type}, envar={envar}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
+        logger.info(f"type={validator_type}, envar={envar}, value={value}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
     validator = VALIDATORS.get(validator_type)
     if validator is None:
         raise ValueError(f"Unknown validator type: {validator_type}. Use one of: {', '.join(VALIDATORS.keys())}")
