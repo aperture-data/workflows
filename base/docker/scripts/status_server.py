@@ -174,7 +174,7 @@ async def set_response(request: Request):
     """
     if not is_localhost_request(request):
         raise HTTPException(
-            status_code=403, detail="Access denied. This endpoint is only accessible from localhost.")
+            status_code=403, detail="Access denied.")
 
     req_json = await request.json()
     print(f"{req_json=}")
