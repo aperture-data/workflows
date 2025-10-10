@@ -4,9 +4,8 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-mcp-server
 
-# Install dependencies for embeddings
-RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
-RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+# Install dependencies; git is required for CLIP
+# RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt

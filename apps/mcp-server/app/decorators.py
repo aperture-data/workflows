@@ -57,7 +57,6 @@ class Resource():
     """A class to represent a resource in MCP."""
     uri: str
     function: Callable
-    mime_type: str="application/octet-stream"
 
     @property
     def full_uri(self) -> str:
@@ -147,14 +146,18 @@ def register_tools(mcp: "FastMCP"):
         )
 
 
-def declare_mcp_resource(uri: str, mime_type: str=None):
+def declare_mcp_resource(uri: str, fn=None):
     """Decorator to expose a resource to both MCP and FastAPI, DRY."""
     def decorator(fn: Callable):
-        resource = Resource(uri=uri, mime_type=mime_type, function=fn)
+        resource = Resource(uri=uri, function=fn)
         _registered_resources.append(resource)
         return fn
 
-    return decorator
+    # Support for both styles of decorator usage
+    if fn is None:
+        return decorator
+    else:
+        return decorator(fn)
 
 
 def register_resources(mcp: "FastMCP"):
@@ -171,5 +174,4 @@ def register_resources(mcp: "FastMCP"):
             uri=resource.full_uri,
             name=resource.name,
             description=resource.description,
-            mime_type=resource.mime_type,
         )(fn=resource.get_function())
