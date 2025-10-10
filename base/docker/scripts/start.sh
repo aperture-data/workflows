@@ -57,37 +57,53 @@ while [ -z "$(lsof -i:8080)" ]; do
 done
 echo "Starting Status Server is up."
 
+# Initialize ADB_USER and ADB_PASS
+ADB_USER=${DB_USER:-"admin"}
+ADB_PASS=${DB_PASS:-"admin"}
 
-DB_HOST=${DB_HOST:-"localhost"}
-DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST}}
-DB_HOST_PRIVATE_TCP=${DB_HOST_PRIVATE_TCP:-${DB_HOST}}
-DB_HOST_PRIVATE_HTTP=${DB_HOST_PRIVATE_HTTP:-${DB_HOST}}
-DB_USER=${DB_USER:-"admin"}
-DB_PASS=${DB_PASS:-"admin"}
+#Initialize ADB_USE_SSL and ADB_USE_REST
+ADB_USE_SSL="${USE_SSL:-true}"
+ADB_USE_REST="${USE_REST:-false}"
 
-USE_SSL=${USE_SSL:-true}
-USE_REST=${USE_REST:-false}
-
-if [ "$USE_REST" == true ]; then
-    DB_HOST=${DB_HOST_PRIVATE_HTTP}
-    if [ "$USE_SSL" == true ]; then
-        DEFAULT_DB_PORT=443
+#Initialize ADB_PORT
+if [ -n "${DB_PORT}" ]; then
+    ADB_PORT="${DB_PORT}"
+elif [ "${ADB_USE_REST}" == true ]; then
+    if [ "${ADB_USE_SSL}" == true ]; then
+        ADB_PORT=443
     else
-        DEFAULT_DB_PORT=80
+        ADB_PORT=80
     fi
 else
-    DB_HOST=${DB_HOST_PRIVATE_TCP}
-    DEFAULT_DB_PORT=55555
+    ADB_PORT=55555
 fi
 
-DB_PORT=${DB_PORT:-$DEFAULT_DB_PORT}
+# Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
+if [ -n "${DB_HOST_PRIVATE}" ]; then
+    ADB_HOST="${DB_HOST_PRIVATE}"
+    ADB_VERIFY_HOSTNAME=false
+elif [ -n "${DB_HOST_PUBLIC}" ]; then
+    ADB_HOST="${DB_HOST_PUBLIC}"
+    ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+elif [ -z "${DB_HOST}" ]; then
+    ADB_HOST="localhost"
+    ADB_VERIFY_HOSTNAME=false
+elif [ "${DB_HOST}" == "localhost" || "${DB_HOST}" == "127.0.0.1" || "${DB_HOST}" == "::1" ]; then
+    ADB_HOST="${DB_HOST}"
+    ADB_VERIFY_HOSTNAME=false
+else
+    ADB_HOST="${DB_HOST}"
+    ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+fi
 
 params=()
-if [ "$USE_SSL" == false ]; then
+if [ "${ADB_USE_SSL}" == false ]; then
     params+=(--no-use-ssl)
+elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
+    params+=(--no-verify-hostname)
 fi
 
-if [ "$USE_REST" == true ]; then
+if [ "${ADB_USE_REST}" == true ]; then
     params+=(--use-rest)
 fi
 
@@ -95,21 +111,17 @@ if [ -n "${CA_CERT:-}" ]; then
     params+=(--ca-cert $CA_CERT)
 fi
 
-if [ "$VERIFY_HOSTNAME" == false ]; then
-    params+=(--no-verify-hostname)
-fi
-
 STATUS_SCRIPT=/app/status_tools.py
 
 adb config create default \
-    --host=$DB_HOST \
-    --port=$DB_PORT \
-    --username=$DB_USER \
-    --password=$DB_PASS \
+    --host=$ADB_HOST \
+    --port=$ADB_PORT \
+    --username=$ADB_USER \
+    --password=$ADB_PASS \
     "${params[@]}" \
     --no-interactive
 
-echo "Verifying connectivity to ${DB_HOST}..." | tee -a $LOGFILE
+echo "Verifying connectivity to ${ADB_HOST}..." | tee -a $LOGFILE
 adb utils execute status 2>&1 | tee -a $LOGFILE
 ret_val="${PIPESTATUS[0]}"
 
