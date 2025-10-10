@@ -70,36 +70,56 @@ start_status_server() {
 
 # Setup database configuration
 setup_database() {
-    local DB_HOST=${DB_HOST:-"localhost"}
-    local DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST}}
-    local DB_HOST_PRIVATE_TCP=${DB_HOST_PRIVATE_TCP:-${DB_HOST}}
-    local DB_HOST_PRIVATE_HTTP=${DB_HOST_PRIVATE_HTTP:-${DB_HOST}}
-    local DB_USER=${DB_USER:-"admin"}
-    local DB_PASS=${DB_PASS:-"admin"}
-    local USE_SSL=${USE_SSL:-true}
-    local USE_REST=${USE_REST:-false}
-    local DEFAULT_DB_PORT
+    # Initialize ADB_USER and ADB_PASS
+    local ADB_USER=${DB_USER:-"admin"}
+    local ADB_PASS=${DB_PASS:-"admin"}
 
-    if [ "${USE_REST}" == true ]; then
-        DB_HOST=${DB_HOST_PRIVATE_HTTP}
-        if [ "${USE_SSL}" == true ]; then
-            DEFAULT_DB_PORT=443
+    # Initialize ADB_USE_SSL and ADB_USE_REST
+    local ADB_USE_SSL="${USE_SSL:-true}"
+    local ADB_USE_REST="${USE_REST:-false}"
+
+    # Initialize ADB_PORT
+    local ADB_PORT
+    if [ -n "${DB_PORT:-}" ]; then
+        ADB_PORT="${DB_PORT}"
+    elif [ "${ADB_USE_REST}" == true ]; then
+        if [ "${ADB_USE_SSL}" == true ]; then
+            ADB_PORT=443
         else
-            DEFAULT_DB_PORT=80
+            ADB_PORT=80
         fi
     else
-        DB_HOST=${DB_HOST_PRIVATE_TCP}
-        DEFAULT_DB_PORT=55555
+        ADB_PORT=55555
     fi
 
-    local DB_PORT=${DB_PORT:-$DEFAULT_DB_PORT}
+    # Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
+    local ADB_HOST
+    local ADB_VERIFY_HOSTNAME
+    if [ -n "${DB_HOST_PRIVATE:-}" ]; then
+        ADB_HOST="${DB_HOST_PRIVATE}"
+        ADB_VERIFY_HOSTNAME=false
+    elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
+        ADB_HOST="${DB_HOST_PUBLIC}"
+        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+    elif [ -z "${DB_HOST:-}" ]; then
+        ADB_HOST="localhost"
+        ADB_VERIFY_HOSTNAME=false
+    elif [ "${DB_HOST}" == "localhost" ] || [ "${DB_HOST}" == "127.0.0.1" ] || [ "${DB_HOST}" == "::1" ]; then
+        ADB_HOST="${DB_HOST}"
+        ADB_VERIFY_HOSTNAME=false
+    else
+        ADB_HOST="${DB_HOST}"
+        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+    fi
 
     local params=()
-    if [ "${USE_SSL}" == false ]; then
+    if [ "${ADB_USE_SSL}" == false ]; then
         params+=(--no-use-ssl)
+    elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
+        params+=(--no-verify-hostname)
     fi
 
-    if [ "${USE_REST}" == true ]; then
+    if [ "${ADB_USE_REST}" == true ]; then
         params+=(--use-rest)
     fi
 
@@ -107,20 +127,15 @@ setup_database() {
         params+=(--ca-cert $CA_CERT)
     fi
 
-    if [ "${VERIFY_HOSTNAME:-true}" == false ]; then
-        params+=(--no-verify-hostname)
-    fi
-
     adb config create default \
-        --host=$DB_HOST \
-        --port=$DB_PORT \
-        --username=$DB_USER \
-        --password=$DB_PASS \
+        --host=$ADB_HOST \
+        --port=$ADB_PORT \
+        --username=$ADB_USER \
+        --password=$ADB_PASS \
         "${params[@]}" \
         --no-interactive
 
-    echo "Verifying connectivity to ${DB_HOST}..." | tee -a $LOGFILE
-    
+    echo "Verifying connectivity to ${ADB_HOST}..." | tee -a $LOGFILE
     adb utils execute status 2>&1 | tee -a $LOGFILE
 
     echo "Done."
