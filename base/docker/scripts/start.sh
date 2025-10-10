@@ -88,7 +88,7 @@ elif [ -n "${DB_HOST_PUBLIC}" ]; then
 elif [ -z "${DB_HOST}" ]; then
     ADB_HOST="localhost"
     ADB_VERIFY_HOSTNAME=false
-elif [ "${DB_HOST}" == "localhost" || "${DB_HOST}" == "127.0.0.1" || "${DB_HOST}" == "::1" ]; then
+elif [ "${DB_HOST}" == "localhost" ] || [ "${DB_HOST}" == "127.0.0.1" ] || [ "${DB_HOST}" == "::1" ]; then
     ADB_HOST="${DB_HOST}"
     ADB_VERIFY_HOSTNAME=false
 else
