@@ -62,14 +62,14 @@ ADB_USER=${DB_USER:-"admin"}
 ADB_PASS=${DB_PASS:-"admin"}
 
 #Initialize ADB_USE_SSL and ADB_USE_REST
-ADB_USE_SSL=(( "${USE_SSL}" = false ? false : true ))
-ADB_USE_REST=(( "${USE_REST}" = true ? true : false ))
+ADB_USE_SSL="${USE_SSL:-true}"
+ADB_USE_REST="${USE_REST:-false}"
 
 #Initialize ADB_PORT
 if [ -n "${DB_PORT}" ]; then
     ADB_PORT="${DB_PORT}"
-elif ${ADB_USE_REST}; then
-    if ${ADB_USE_SSL}; then
+elif [ "${ADB_USE_REST}" == true ]; then
+    if [ "${ADB_USE_SSL}" == true ]; then
         ADB_PORT=443
     else
         ADB_PORT=80
@@ -78,28 +78,28 @@ else
     ADB_PORT=55555
 fi
 
-# Initialize ADB_HOST and ADB_VERIFY_HOST
+# Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
 if [ -n "${DB_HOST_PRIVATE}" ]; then
     ADB_HOST="${DB_HOST_PRIVATE}"
-    ADB_VERIFY_HOST=false
+    ADB_VERIFY_HOSTNAME=false
 elif [ -n "${DB_HOST_PUBLIC}" ]; then
     ADB_HOST="${DB_HOST_PUBLIC}"
-    ADB_VERIFY_HOST=(( "${VERIFY_HOSTNAME}" = false ? false : true ))
+    ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
 elif [ -z "${DB_HOST}" ]; then
     ADB_HOST="localhost"
-    ADB_VERIFY_HOST=false
+    ADB_VERIFY_HOSTNAME=false
 elif [ "${DB_HOST}" == "localhost" || "${DB_HOST}" == "127.0.0.1" || "${DB_HOST}" == "::1" ]; then
     ADB_HOST="${DB_HOST}"
-    ADB_VERIFY_HOST=false
+    ADB_VERIFY_HOSTNAME=false
 else
     ADB_HOST="${DB_HOST}"
-    ADB_VERIFY_HOST=(( "${VERIFY_HOSTNAME}" = false ? false : true ))
+    ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
 fi
 
 params=()
 if [ "${ADB_USE_SSL}" == false ]; then
     params+=(--no-use-ssl)
-elif [ "${ADB_VERIFY_HOST}" == false ]; then
+elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
     params+=(--no-verify-hostname)
 fi
 
