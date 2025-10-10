@@ -1,10 +1,6 @@
 import logging
 import os
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastmcp.server.auth import BearerAuthProvider
-from fastapi import Depends, HTTPException, status
-
 from connection_pool import ConnectionPool
 
 
