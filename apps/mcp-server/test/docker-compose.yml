@@ -1,0 +1,74 @@
+services:
+  # One image for both seed and tests (Python + aperturedb + pytest + httpx)
+  # Use the same image; just change the command.
+  test-base:
+    build:
+      context: apps/mcp-server/test
+      dockerfile: Dockerfile
+    image: aperturedata/workflows-mcp-server-tests:${VERSION:-latest}
+    deploy:
+      replicas: 0
+
+  # Populate ApertureDB with synthetic test data
+  seed:
+    image: aperturedata/workflows-mcp-server-tests:${VERSION:-latest}
+    depends_on:
+      lenz:
+        condition: service_started
+    working_dir: /app
+    environment:
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+    volumes:
+      - ./ca:/ca
+    command: ["python", "/app/seed.py"]
+
+  mcp-server:
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 3s
+      timeout: 3s
+      start_period: 20s
+      retries: 60
+    environment:
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+      APERTUREDB_KEY: ""
+      WF_AUTH_TOKEN: test
+      WF_LOG_LEVEL: DEBUG
+      WF_INPUT: TestText_0
+    volumes:
+      - ./ca:/ca
+
+  # Test runner
+  tests:
+    image: aperturedata/workflows-mcp-server-tests:${VERSION:-latest}
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    environment:
+      # MCP server
+      MCP_HOST: mcp-server
+      MCP_PORT: 8000
+      MCP_AUTH_TOKEN: test
+      # ApertureDB connection (for resource tests)
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+    volumes:
+      - ./ca:/ca
+    working_dir: /app
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
+
+
