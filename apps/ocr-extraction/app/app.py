@@ -1,5 +1,4 @@
 import os
-import argparse
 from typing import Literal
 import logging
 
@@ -8,6 +7,7 @@ from aperturedb import ParallelQuery
 from embeddings import Embedder
 from connection_pool import ConnectionPool
 from ocr import OCR
+from wf_argparse import ArgumentParser
 
 from image_ocr import FindImageOCRQueryGenerator
 from pdf_ocr import FindPDFOCRQueryGenerator
@@ -59,7 +59,7 @@ def clean_embeddings(db):
 
 def main(params):
 
-    logging.basicConfig(level=params.log_level.upper(), force=True)
+    logging.basicConfig(level=params.log_level, force=True)
 
     logger.info(f"Starting OCR Extraction: {params}")
 
@@ -116,42 +116,15 @@ def main(params):
 
 
 def get_args():
-
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ('yes', 'true', 't', 'y', '1'):
-            return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-            return False
-        else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
-
-    obj = argparse.ArgumentParser()
-
-    obj.add_argument('-numthreads', type=int,
-                     default=os.environ.get('NUMTHREADS', 4))
-
-    obj.add_argument('-model_name',  type=str,
-                     default=os.environ.get('MODEL_NAME', 'ViT-B/16'))
-
-    obj.add_argument('-clean',  type=str2bool,
-                     default=os.environ.get('CLEAN', "false"))
-
-    obj.add_argument('--extract-image-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_IMAGE_TEXT', False))
-
-    obj.add_argument('--extract-pdf-text', type=str2bool,
-                     default=os.environ.get('WF_EXTRACT_PDF_TEXT', False))
-
-    obj.add_argument('--ocr-method', choices=['tesseract', 'easyocr'],
-                     default=os.environ.get('WF_OCR_METHOD', 'tesseract'))
-
-    obj.add_argument('--log-level', type=str,
-                     default=os.environ.get('WF_LOG_LEVEL', 'WARNING'))
-
-    obj.add_argument('--generate-embeddings', type=str2bool,
-                     default=os.environ.get('WF_GENERATE_EMBEDDINGS', False))
+    obj = ArgumentParser(support_legacy_envars=True)
+    obj.add_argument('-numthreads', type='non_negative_int', default=4)
+    obj.add_argument('-model_name',  type='clip_model_name', default='ViT-B/16')
+    obj.add_argument('-clean',  type='bool', default=False)
+    obj.add_argument('--extract-image-text', type='bool', default=False)
+    obj.add_argument('--extract-pdf-text', type='bool', default=False)
+    obj.add_argument('--ocr-method', type='ocr_method', default='tesseract')
+    obj.add_argument('--log-level', type='log_level', default='WARNING')
+    obj.add_argument('--generate-embeddings', type='bool', default=False)
 
     params = obj.parse_args()
 

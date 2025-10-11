@@ -42,14 +42,21 @@ final_banner() {
 trap 'ret=$?; cleanup; final_banner $ret ; exit $ret' EXIT
 
 run_pytest() {
+  BUILD_WORKFLOW=${BUILD_WORKFLOW:-1}
   # ---- run tests ----
   echo ">>> Running $COMPOSE_PROJECT_NAME tests (project=$COMPOSE_PROJECT_NAME)"
+
 
   # Should the test script be building this workflow?
   if [ $CI_RUN -eq 0 ]; then
     $COMMAND build base
   fi
-  $COMMAND build test-base $COMPOSE_PROJECT_NAME
+  
+  if [ $BUILD_WORKFLOW -eq 1 ]; then
+    $COMMAND build test-base $COMPOSE_PROJECT_NAME
+  else
+    $COMMAND build test-base
+  fi
 
   # This log file is useful for debugging test failures
   TEST_LOG=$BIN_DIR/test.log

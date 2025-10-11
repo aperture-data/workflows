@@ -62,12 +62,12 @@ def find_similar_documents(query: Annotated[str, Field(description="The query te
             set=descriptor_set,
             vector=embedding,
             k_neighbors=k,
-            results={"list": ["uniqueid", "url", "text"]}
+            results={"list": ["_uniqueid", "url", "text"]}
         )
     logger.info(
         f"Found {len(entities)} similar documents for query: {query} (k={k})")
     return FindSimilarDocumentsResponse(documents=[
-        Document(doc_id=e["uniqueid"], url=e["url"], text=e["text"])
+        Document(doc_id=e["_uniqueid"], url=e["url"], text=e["text"])
         for e in entities
     ])
 

@@ -40,7 +40,6 @@ services:
       DB_PASS: admin
       CA_CERT: /ca/ca.crt
       APERTUREDB_KEY: ""
-      WF_AUTH_TOKEN: test
       WF_EXTRACT_IMAGE_TEXT: "true"
       WF_EXTRACT_PDF_TEXT: "true"
       WF_GENERATE_EMBEDDINGS: "true"

@@ -1,4 +1,4 @@
-from wf_argparse import ArgumentParser
+from wf_argparse import ArgumentParser, SEP_WHITESPACE
 import os
 import logging
 from typing import List, Optional, Generator
@@ -520,7 +520,7 @@ def main(args):
         "ITEM_PIPELINES": {
             ApertureDBPipeline: 1000,
         },
-        "LOG_LEVEL": args.log_level.upper(),
+        "LOG_LEVEL": args.log_level,
         "EXTENSIONS": {
             'scrapy.extensions.closespider.CloseSpider': 100,
         },
@@ -534,31 +534,31 @@ def main(args):
 def get_args():
     obj = ArgumentParser(support_legacy_envars=True)
 
-    obj.add_argument('--start-urls', type=str,
+    obj.add_argument('--start-urls', type='web_url',
                      help='The URLs to start crawling from',
                      default='https://docs.aperturedata.io/',
-                     sep=' ')
+                     sep=SEP_WHITESPACE)
 
-    obj.add_argument('--allowed-domains', type=str,
+    obj.add_argument('--allowed-domains', type='hostname',
                      help='The allowed domains to crawl (in addition to those in start URLs)',
-                     sep=' ')
+                     sep=SEP_WHITESPACE)
 
-    obj.add_argument('--max-documents',  type=int,
+    obj.add_argument('--max-documents',  type='positive_int',
                      default=1000)
 
     obj.add_argument('--content-types',  type=str,
                      default='text/plain;text/html;application/pdf')
 
-    obj.add_argument('--log-level', type=str,
+    obj.add_argument('--log-level', type='log_level',
                      default='WARNING')
 
-    obj.add_argument('--concurrent-requests', type=int,
+    obj.add_argument('--concurrent-requests', type='positive_int',
                      default=64)
 
-    obj.add_argument('--concurrent-requests-per-domain', type=int,
+    obj.add_argument('--concurrent-requests-per-domain', type='positive_int',
                      default=8)
 
-    obj.add_argument('--download-delay', type=float,
+    obj.add_argument('--download-delay', type='non_negative_float',
                      default=0)
 
     obj.add_argument(
@@ -580,7 +580,7 @@ def get_args():
 
     params = obj.parse_args()
 
-    logging.basicConfig(level=params.log_level.upper(), force=True)
+    logging.basicConfig(level=params.log_level, force=True)
 
     logger.info(f"Parsed arguments: {params}")
 
