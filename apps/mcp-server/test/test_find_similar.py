@@ -125,30 +125,31 @@ class TestFindSimilarTools:
     @pytest.mark.asyncio
     async def test_find_similar_documents_nonexistent_set(self, mcp_url, mcp_auth):
         """Test find similar with a non-existent descriptor set."""
-        with pytest.raises(Exception):  # FastMCP will raise an exception
+        # Check that the call raises ToolError wrapping a ValueError
+        with pytest.raises(Exception) as exc_info:
             async with Client(mcp_url, auth=mcp_auth) as client:
                 await client.call_tool("find_similar_documents", {
                     "query": "test query",
                     "k": 3,
                     "descriptor_set": "NonExistentSet"
                 })
+        ex = exc_info.value
+        # Check both type and message
+        assert type(ex).__name__ == "ToolError"
+        assert "ValueError" in str(ex)
+
 
     @pytest.mark.asyncio
     async def test_find_similar_documents_empty_query(self, mcp_url, mcp_auth):
         """Test find similar with an empty query."""
-        # This might succeed but return unexpected results, or fail depending on implementation
-        try:
-            async with Client(mcp_url, auth=mcp_auth) as client:
-                result = await client.call_tool("find_similar_documents", {
-                    "query": "",
-                    "k": 3,
-                    "descriptor_set": "TestText_0"
-                })
-            # If it succeeds, just verify structure
-            assert result.data
-        except Exception:
-            # If it fails, that's also acceptable
-            pass
+        # For now, empty queries are allowed
+        async with Client(mcp_url, auth=mcp_auth) as client:
+            result = await client.call_tool("find_similar_documents", {
+                "query": "",
+                "k": 3,
+                "descriptor_set": "TestText_0"
+            })
+        assert result.data
 
     @pytest.mark.asyncio
     async def test_find_similar_documents_large_k(self, mcp_url, mcp_auth):
