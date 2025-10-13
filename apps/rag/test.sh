@@ -37,7 +37,7 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
   -f $COMPOSE_MAIN"
 
-if [ $CI_RUN -eq 0 ]; then
+if [ ${CI_RUN:-0} -eq 0 ]; then
   $COMMAND build base
 fi
 
