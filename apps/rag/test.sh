@@ -61,9 +61,9 @@ $COMMAND up -d $WORKFLOW $WORKFLOW
 ret=$?
 sleep 20
 
-docker logs rag-tests-crawl-website-1
-docker logs rag-tests-text-extraction-1
-docker logs rag-tests-text-embeddings-1
-docker logs rag-tests-$WORKFLOW-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-crawl-website-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-text-extraction-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-text-embeddings-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-$WORKFLOW-1
 
 exit $ret
