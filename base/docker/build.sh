@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
-COMPOSE_PROJECT_NAME="workflows-base"
+RUNNER_NAME=${RUNNER_NAME:-$(hostname)}
+COMPOSE_PROJECT_NAME="${RUNNER_NAME}-workflows-base"
 cd $(dirname "$(readlink -f "$0")")
 source ../../.commonrc
 $COMMAND build base
