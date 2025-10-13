@@ -1,8 +1,9 @@
 # if length of command line arguments is 0, then print usage
 CI_RUN=${CI_RUN:-0}
+RUNNER_NAME=${RUNNER_NAME:-$(hostname)}
 export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
-COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
+COMPOSE_PROJECT_NAME="${RUNNER_NAME}-$(basename $BIN_DIR)"
 
 
 COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
@@ -25,8 +26,7 @@ export DB_TCP_CN="lenz"
 export DB_HTTP_CN="nginx"
 
 cleanup() {
-  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
-    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+  $COMMAND down --remove-orphans || true
 }
 
 final_banner() {
@@ -51,7 +51,7 @@ run_pytest() {
   if [ $CI_RUN -eq 0 ]; then
     $COMMAND build base
   fi
-  
+
   if [ $BUILD_WORKFLOW -eq 1 ]; then
     $COMMAND build test-base $COMPOSE_PROJECT_NAME
   else
