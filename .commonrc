@@ -2,10 +2,11 @@
 CI_RUN=${CI_RUN:-0}
 RUNNER_NAME="${RUNNER_NAME:-runner}"
 RUNNER_NAME="${RUNNER_NAME// /}"
+RUNNER_NAME="${RUNNER_NAME,,}"
 
 export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
-COMPOSE_PROJECT_NAME="${RUNNER_NAME}-$(basename $BIN_DIR)"
+COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
 
 
 COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"

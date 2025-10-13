@@ -5,6 +5,7 @@ set -euo pipefail
 WORKFLOW="rag"
 RUNNER_NAME="${RUNNER_NAME:-runner}"
 RUNNER_NAME="${RUNNER_NAME// /}"
+# RUNNER_NAME="${RUNNER_NAME,,}"
 
 # Get the directory this script is in
 export BIN_DIR=$(dirname "$(readlink -f "$0")")
@@ -17,7 +18,7 @@ echo "ROOT_DIR: $ROOT_DIR"
 cd $BIN_DIR
 
 COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
-COMPOSE_PROJECT_NAME="${RUNNER_NAME}-${WORKFLOW}-tests"
+COMPOSE_PROJECT_NAME="${WORKFLOW}-tests"
 COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
 export DB_HOST DB_PASS
