@@ -153,8 +153,8 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
           RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION=$VERSION
-          CI_RUN=1
+          WORKFLOW_VERSION: $VERSION
+          CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
@@ -211,8 +211,8 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
           RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION=$VERSION
-          CI_RUN=1
+          WORKFLOW_VERSION: $VERSION
+          CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
