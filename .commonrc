@@ -1,6 +1,8 @@
 # if length of command line arguments is 0, then print usage
 CI_RUN=${CI_RUN:-0}
-RUNNER_NAME=${RUNNER_NAME:-runner}
+RUNNER_NAME="${RUNNER_NAME:-runner}"
+RUNNER_NAME="${RUNNER_NAME// /}"
+
 export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
 COMPOSE_PROJECT_NAME="${RUNNER_NAME}-$(basename $BIN_DIR)"
