@@ -3,7 +3,7 @@ set -x
 set -euo pipefail
 
 WORKFLOW="rag"
-export RUNNER_NAME=${RUNNER_NAME:-$(hostname)}
+export RUNNER_NAME=${RUNNER_NAME:-runner}
 
 # Get the directory this script is in
 export BIN_DIR=$(dirname "$(readlink -f "$0")")
