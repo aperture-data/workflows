@@ -75,6 +75,7 @@ setup_database() {
     local ADB_USE_SSL=$(/app/wf_argparse.py --type bool --envar USE_SSL --default true)
     local ADB_USE_REST=$(/app/wf_argparse.py --type bool --envar USE_REST --default false)
     local VERIFY_HOSTNAME_DEFAULT=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
+    local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT --default "")
     
     # Initialize ADB_PORT
     local ADB_PORT
@@ -127,7 +128,7 @@ setup_database() {
     fi
 
     if [[ -n "${CA_CERT:-}" ]]; then
-        local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT)
+        echo "Using CA certificate: $CA_CERT"
         params+=(--ca-cert "$CA_CERT")
     fi
 
