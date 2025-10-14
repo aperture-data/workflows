@@ -11,7 +11,7 @@ from typing import Union, Optional
 from collections.abc import Container
 
 
-# This class wraps argparse and adds a number of additional features:
+# This class wraps argparse.ArgumentParser and adds a number of additional features:
 # 
 # 1. Support for environment variables.
 # Each argument automatically defaults to being set from a WF_ environment variable.
@@ -35,7 +35,11 @@ from collections.abc import Container
 # This class provides a registry for type sanitation, validation, and conversion.
 # If the type is specified as a string, it is looked up in the registry.
 #
-# 5. CLI
+# 5. Freestanding validate function that can be used outside of this class
+# This is convenient in cases where creating an ArgumentParser instance is too heavyweight.
+#     validate(validator_type, value, envar, default, hidden, raise_errors, force_string, sep)
+#
+# 6. CLI
 # This module also provides a CLI interface for the registry
 # which can be used to sanitize and validate untrusted input in bash scripts.
 #     VERIFY_HOSTNAME=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
