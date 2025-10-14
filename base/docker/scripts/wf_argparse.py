@@ -359,9 +359,33 @@ def validate_string(v, *, force_string=False, regex:Union[str, re.Pattern]=None,
             raise argparse.ArgumentTypeError(f"Invalid string. Must be one of: {', '.join(choices)}")
     return v
 
+def validate_json(v, *, force_string=False) -> str:
+    """
+    Validates that a string is valid JSON.
+    Returns the original JSON string (not parsed).
+    """
+    import json
+    v = v.strip()
+    if not v:
+        raise argparse.ArgumentTypeError("Empty JSON string is not allowed")
+    try:
+        json.loads(v)  # Validate it's parseable JSON
+    except json.JSONDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid JSON format: {e}")
+    return v
+
 # These regular expressions are used with validate_string
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$") # e.g. word1-word2-word3
 SHELL_SAFE_RE = re.compile(r"^[^$;&|><'\"` \t]+$")
+FILE_PATH_RE = re.compile(r"^[^$;&|><'\"` \t]+$")
+# AWS S3 bucket names: 3-63 chars, lowercase, numbers, hyphens, dots (not adjacent dots, no leading/trailing special chars)
+AWS_BUCKET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
+# Slack channel names: 1-80 chars, lowercase letters, numbers, hyphens, underscores (without # prefix - that's added by slack-alert.py)
+SLACK_CHANNEL_RE = re.compile(r"^[a-z0-9_-]{1,80}$")
+# AWS Access Key ID: 20 chars, starts with AKIA (long-term) or ASIA (temporary/STS), all uppercase alphanumeric
+AWS_ACCESS_KEY_ID_RE = re.compile(r"^(AKIA|ASIA)[A-Z0-9]{16}$")
+# AWS Secret Access Key: 40 chars, base64 (A-Za-z0-9/+)
+AWS_SECRET_ACCESS_KEY_RE = re.compile(r"^[A-Za-z0-9/+]{40}$")
 
 ENVIRONMENT_CHOICES = {'develop', 'main'}
 CLIP_MODEL_NAME_CHOICES = {'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'} # TODO: get from clip.available_models()
@@ -385,6 +409,13 @@ VALIDATORS = {
     'environment': lambda v, **kwargs: validate_string(v, choices=ENVIRONMENT_CHOICES, **kwargs),
     'clip_model_name': lambda v, **kwargs: validate_string(v, choices=CLIP_MODEL_NAME_CHOICES, **kwargs),
     'ocr_method': lambda v, **kwargs: validate_string(v, choices=OCR_METHOD_CHOICES, **kwargs),
+    'file_path': lambda v, **kwargs: validate_string(v, regex=FILE_PATH_RE, **kwargs),
+    'aws_bucket_name': lambda v, **kwargs: validate_string(v, regex=AWS_BUCKET_NAME_RE, **kwargs),
+    'slack_channel': lambda v, **kwargs: validate_string(v, regex=SLACK_CHANNEL_RE, **kwargs),
+    'aws_access_key_id': lambda v, **kwargs: validate_string(v, regex=AWS_ACCESS_KEY_ID_RE, **kwargs),
+    'aws_secret_access_key': lambda v, **kwargs: validate_string(v, regex=AWS_SECRET_ACCESS_KEY_RE, **kwargs),
+    # JSON
+    'json': validate_json,
 }
 
 

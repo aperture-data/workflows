@@ -4,14 +4,21 @@ set -o errexit -o nounset -o pipefail
 
 cd app
 
+# Validate and sanitize external inputs
+ENVIRONMENT=$(/app/wf_argparse.py --type environment --envar ENVIRONMENT --default develop)
+KEEP_PREV_OUTPUT=$(/app/wf_argparse.py --type bool --envar KEEP_PREV_OUTPUT --default false)
+RUN_NAME=$(/app/wf_argparse.py --type shell_safe --envar RUN_NAME --default "unspecified_app_run")
+APP_NAME=$(/app/wf_argparse.py --type shell_safe --envar APP_NAME --default "unspecified_app")
+USERLOG_MSG=$(/app/wf_argparse.py --type bool --envar USERLOG_MSG --default true)
+PUSH_TO_S3=$(/app/wf_argparse.py --type bool --envar PUSH_TO_S3 --default false)
+POST_TO_SLACK=$(/app/wf_argparse.py --type bool --envar POST_TO_SLACK --default false)
+
 # Global variables
 OUTPUT="output"
 LOGFILE="${OUTPUT}/log.log"
 APPLOG="${OUTPUT}/app.log"
 S3LOGFILE="upload_s3.log"
 WORKFLOW_VERSION=$(cat /app/workflow_version)
-ENVIRONMENT=${ENVIRONMENT:-"develop"}
-KEEP_PREV_OUTPUT=${KEEP_PREV_OUTPUT:-false}
 STATUS_SERVER_HOSTNAME=$(hostname -f)
 STATUS_SERVER_PORT=8080
 PROMETHEUS_PORT=8001
@@ -41,16 +48,8 @@ setup_logging() {
     fi
 
     echo "Workflow Version: ${WORKFLOW_VERSION}"
-
-    if [ -z "${RUN_NAME:-}" ]; then
-        RUN_NAME="unspecified_app_run"
-        echo "WARNING: RUN_NAME not specified" >> $LOGFILE
-    fi
-
-    if [ -z "${APP_NAME:-}" ]; then
-        APP_NAME="unspecified_app"
-        echo "WARNING: APP_NAME not specified" >> $LOGFILE
-    fi
+    echo "App Name: ${APP_NAME}" >> $LOGFILE
+    echo "Run Name: ${RUN_NAME}" >> $LOGFILE
 }
 
 # Start the status server
@@ -70,18 +69,19 @@ start_status_server() {
 
 # Setup database configuration
 setup_database() {
-    # Initialize ADB_USER and ADB_PASS
-    local ADB_USER=${DB_USER:-"admin"}
-    local ADB_PASS=${DB_PASS:-"admin"}
-
-    # Initialize ADB_USE_SSL and ADB_USE_REST
-    local ADB_USE_SSL="${USE_SSL:-true}"
-    local ADB_USE_REST="${USE_REST:-false}"
-
+    # Validate and sanitize database configuration inputs
+    local ADB_USER=$(/app/wf_argparse.py --type shell_safe --envar DB_USER --default admin)
+    local ADB_PASS=$(/app/wf_argparse.py --type string --envar DB_PASS --default admin --hidden)
+    local ADB_USE_SSL=$(/app/wf_argparse.py --type bool --envar USE_SSL --default true)
+    local ADB_USE_REST=$(/app/wf_argparse.py --type bool --envar USE_REST --default false)
+    local VERIFY_HOSTNAME_DEFAULT=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
+    
     # Initialize ADB_PORT
     local ADB_PORT
+    local DB_PORT_VAL=""
     if [ -n "${DB_PORT:-}" ]; then
-        ADB_PORT="${DB_PORT}"
+        DB_PORT_VAL=$(/app/wf_argparse.py --type port --envar DB_PORT --default "")
+        ADB_PORT="${DB_PORT_VAL}"
     elif [ "${ADB_USE_REST}" == true ]; then
         if [ "${ADB_USE_SSL}" == true ]; then
             ADB_PORT=443
@@ -96,20 +96,23 @@ setup_database() {
     local ADB_HOST
     local ADB_VERIFY_HOSTNAME
     if [ -n "${DB_HOST_PRIVATE:-}" ]; then
-        ADB_HOST="${DB_HOST_PRIVATE}"
+        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PRIVATE --default "")
         ADB_VERIFY_HOSTNAME=false
     elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
-        ADB_HOST="${DB_HOST_PUBLIC}"
-        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC --default "")
+        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
     elif [ -z "${DB_HOST:-}" ]; then
         ADB_HOST="localhost"
         ADB_VERIFY_HOSTNAME=false
-    elif [ "${DB_HOST}" == "localhost" ] || [ "${DB_HOST}" == "127.0.0.1" ] || [ "${DB_HOST}" == "::1" ]; then
-        ADB_HOST="${DB_HOST}"
-        ADB_VERIFY_HOSTNAME=false
     else
-        ADB_HOST="${DB_HOST}"
-        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+        local DB_HOST_VAL=$(/app/wf_argparse.py --type hostname --envar DB_HOST --default "")
+        if [ "${DB_HOST_VAL}" == "localhost" ] || [ "${DB_HOST_VAL}" == "127.0.0.1" ] || [ "${DB_HOST_VAL}" == "::1" ]; then
+            ADB_HOST="${DB_HOST_VAL}"
+            ADB_VERIFY_HOSTNAME=false
+        else
+            ADB_HOST="${DB_HOST_VAL}"
+            ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
+        fi
     fi
 
     local params=()
@@ -124,7 +127,8 @@ setup_database() {
     fi
 
     if [ -n "${CA_CERT:-}" ]; then
-        params+=(--ca-cert $CA_CERT)
+        local CA_CERT_VAL=$(/app/wf_argparse.py --type file_path --envar CA_CERT --default "")
+        params+=(--ca-cert $CA_CERT_VAL)
     fi
 
     adb config create default \
@@ -160,7 +164,7 @@ app_error() {
 run_app() {
     trap app_error ERR
 
-    if [ "${USERLOG_MSG:-true}" == true ]; then
+    if [ "${USERLOG_MSG}" == true ]; then
         python3 userlog.py --info "Starting App ${APP_NAME} - Run: ${RUN_NAME}."
     fi
 
@@ -179,13 +183,21 @@ run_app() {
 
     GRAFANA_END_TIME=$(($(date '+%s') * 1000))
 
-    local DB_HOST_PUBLIC=${DB_HOST_PUBLIC:-${DB_HOST:-"localhost"}}
+    # Get DB_HOST_PUBLIC for Grafana URL
+    local DB_HOST_PUBLIC
+    if [ -n "${DB_HOST_PUBLIC:-}" ]; then
+        DB_HOST_PUBLIC=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC --default "localhost")
+    elif [ -n "${DB_HOST:-}" ]; then
+        DB_HOST_PUBLIC=$(/app/wf_argparse.py --type hostname --envar DB_HOST --default "localhost")
+    else
+        DB_HOST_PUBLIC="localhost"
+    fi
     GRAFANA_URL="https://${DB_HOST_PUBLIC}/grafana/d/mPHHiqbnk/aperturedb-connectivity-status?from=${GRAFANA_START_TIME}&to=${GRAFANA_END_TIME}&refresh=5s"
 
     adb utils execute summary >> db_summary_after.log
     diff db_summary_before.log db_summary_after.log >> db_summary_diff.log || true
 
-    if [ "${USERLOG_MSG:-true}" == true ]; then
+    if [ "${USERLOG_MSG}" == true ]; then
         python3 userlog.py --info "Done App ${APP_NAME} - Run: ${RUN_NAME}."
     fi
 
@@ -199,7 +211,7 @@ run_app() {
 
 # Upload results to S3
 upload_to_s3() {
-    if [ "${PUSH_TO_S3:-false}" != true ]; then
+    if [ "${PUSH_TO_S3}" != true ]; then
         echo "Not uploading results to S3."
         echo "=================== APP LOG ==================="
         cat $APPLOG
@@ -207,26 +219,40 @@ upload_to_s3() {
         return 0
     fi
 
+    # Validate and sanitize AWS credentials
+    local AWS_ACCESS_KEY_ID_VAL=""
+    local AWS_SECRET_ACCESS_KEY_VAL=""
+    
     if ([ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS:-}" ]; then
         echo "Using WF_LOGS_AWS_CREDENTIALS"
-        AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS})
-        AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS})
+        local WF_LOGS_AWS_CREDENTIALS_VAL=$(/app/wf_argparse.py --type json --envar WF_LOGS_AWS_CREDENTIALS --default "" --hidden)
+        
+        # Extract values from JSON
+        local EXTRACTED_ACCESS_KEY=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
+        local EXTRACTED_SECRET_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
+        
+        # Validate extracted values
+        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --value "${EXTRACTED_ACCESS_KEY}" --default "" --hidden)
+        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --value "${EXTRACTED_SECRET_KEY}" --default "" --hidden)
+    else
+        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --envar AWS_ACCESS_KEY_ID --default "" --hidden)
+        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --envar AWS_SECRET_ACCESS_KEY --default "" --hidden)
     fi
 
-    if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    if [ -z "${AWS_ACCESS_KEY_ID_VAL}" ] || [ -z "${AWS_SECRET_ACCESS_KEY_VAL}" ]; then
         echo "No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY, skipping S3 upload"
         return 0
     fi
     
     echo "Configuring AWS credentials to upload logs to S3"
-    aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-    aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+    aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID_VAL}
+    aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY_VAL}
     aws configure set default.region us-west-2
 
     declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io)
 
-    local FILE_STASH_DOMAIN=${FILE_STASH_DOMAIN:-${domains[$ENVIRONMENT]}}
-    local LOGS_BUCKET=${WF_LOGS_AWS_BUCKET:-"aperturedata-${ENVIRONMENT}-iris-workflows-logs"}
+    local FILE_STASH_DOMAIN=$(/app/wf_argparse.py --type hostname --envar FILE_STASH_DOMAIN --default "${domains[$ENVIRONMENT]}")
+    local LOGS_BUCKET=$(/app/wf_argparse.py --type aws_bucket_name --envar WF_LOGS_AWS_BUCKET --default "aperturedata-${ENVIRONMENT}-iris-workflows-logs")
     local DATE=$(date '+%Y-%m-%d')
     local TIMESTAMP=$(date '+%s')
     local SUFFIX=$DATE/${APP_NAME}/${TIMESTAMP}_${RUN_NAME}/
@@ -254,12 +280,13 @@ upload_to_s3() {
 post_to_slack() {
     local exit_code=$1
     
-    if [ "${POST_TO_SLACK:-false}" != true ]; then
+    if [ "${POST_TO_SLACK}" != true ]; then
         return 0
     fi
 
-    local SLACK_CHANNEL=${SLACK_CHANNEL:-"cronjobs"}
-    local SLACK_CHANNEL_FAILED=${SLACK_CHANNEL_FAILED:-"alerts-${ENVIRONMENT}"}
+    # Validate and sanitize Slack configuration
+    local SLACK_CHANNEL=$(/app/wf_argparse.py --type slack_channel --envar SLACK_CHANNEL --default "cronjobs")
+    local SLACK_CHANNEL_FAILED=$(/app/wf_argparse.py --type slack_channel --envar SLACK_CHANNEL_FAILED --default "alerts-${ENVIRONMENT}")
     local RESULTS="<$URL|Results>" # URL may not be available if PUSH_TO_S3 is false
     local GRAFANA="<$GRAFANA_URL|Dashboards>"
 
