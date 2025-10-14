@@ -4,7 +4,7 @@ from typing import Optional
 from rag import QAChain
 from llm import load_llm
 from fastapi.staticfiles import StaticFiles
-from wf_argparse import ArgumentParser
+from wf_argparse import ArgumentParser, validate
 import logging
 import time
 import json
@@ -27,7 +27,6 @@ APP_PATH = "/rag"
 SLEEP_TIME = 3  # seconds to wait before checking if the app is ready
 
 ready = False
-allowed_origins = ""
 
 start_time = time.time()
 startup_time = None
@@ -125,7 +124,9 @@ async def redirect_to_rag():
 
 # This is the main app for the RAG API
 app = FastAPI(root_path=APP_PATH)
-allowed_origins = os.getenv("WF_ALLOWED_ORIGINS", "").split(",")
+
+allowed_origins = validate("origin", envar="WF_ALLOWED_ORIGINS", default="", sep=",")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -309,12 +310,14 @@ async def config(request: Request):
     # calculate number of descriptors in the descriptorset
     count = retriever.count() if retriever else 0
 
+    db_host = validate("hostname", envar="DB_HOST", default="")
+    
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
         "input": args.input,
         "n_documents": args.n_documents,
-        "host": os.getenv("DB_HOST", ""),
+        "host": db_host,
         # "startup_time": startup_time,  # Debugging, but confusing to user
         "count": count,
         "ready": True,
@@ -469,10 +472,6 @@ def get_args(argv=[]):
                      help='The number of documents to return from the retriever',
                      default=4,
                      type=int)
-
-    obj.add_argument('--allowed-origins',
-                     help='Comma-separated list of allowed origins for CORS',
-                     default="http://localhost")
 
     obj.add_argument('--aimon-api-key',
                      help='API key for AIMON',

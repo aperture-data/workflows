@@ -264,6 +264,42 @@ def validate_web_url(v, *, force_string=False) -> URL:
     return parsed
 
 
+def validate_origin(v, *, force_string=False) -> str:
+    """
+    Checks a web origin (scheme + host + port, no path/query/fragment).
+    Expects a string like "https://www.example.com" or "http://localhost:3000".
+    Returns an origin string.
+    
+    An origin is used for CORS and consists of:
+    - scheme (http or https)
+    - hostname (validated)
+    - optional port
+    
+    No path, query, or fragment is allowed (or only "/" path is accepted and removed).
+    """
+    v = v.strip()
+    parsed = URL._make(urlparse(v))
+    
+    # Origins must not have path (except "/"), query, or fragment
+    if parsed.path and parsed.path != "/":
+        raise argparse.ArgumentTypeError(f"Origin must not include a path")
+    if parsed.query:
+        raise argparse.ArgumentTypeError(f"Origin must not include a query string")
+    if parsed.fragment:
+        raise argparse.ArgumentTypeError(f"Origin must not include a fragment")
+    
+    # Origins should not have username/password
+    if parsed.username or parsed.password:
+        raise argparse.ArgumentTypeError(f"Origin must not include username or password")
+    
+    # Use validate_web_url to do the rest of the validation
+    validated_url = validate_web_url(v, force_string=False)
+    
+    # Return origin as scheme://host[:port] (strip path/query/fragment)
+    origin = f"{validated_url.scheme}://{validated_url.netloc}"
+    return origin
+
+
 # Hostname regex: alphanumeric labels separated by dots, no leading/trailing dots or hyphens
 # Each label: starts and ends with alphanumeric, can have hyphens in middle
 # Minimum 2 characters total, maximum 253 (DNS limit)
@@ -386,6 +422,10 @@ SLACK_CHANNEL_RE = re.compile(r"^[a-z0-9_-]{1,80}$")
 AWS_ACCESS_KEY_ID_RE = re.compile(r"^(AKIA|ASIA)[A-Z0-9]{16}$")
 # AWS Secret Access Key: 40 chars, base64 (A-Za-z0-9/+)
 AWS_SECRET_ACCESS_KEY_RE = re.compile(r"^[A-Za-z0-9/+]{40}$")
+# SQL identifier: alphanumeric (upper/lower), underscore. Must start with letter or underscore (PostgreSQL unquoted identifier rules)
+SQL_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+# TODO: Update this to be more specific to the actual token format.
+AUTH_TOKEN_RE = re.compile(r"^\S{4,}$")
 
 ENVIRONMENT_CHOICES = {'develop', 'main'}
 CLIP_MODEL_NAME_CHOICES = {'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'} # TODO: get from clip.available_models()
@@ -395,6 +435,7 @@ VALIDATORS = {
     "log_level": validate_log_level,
     "bool": validate_bool,
     "web_url": validate_web_url,
+    "origin": validate_origin,
     "hostname": validate_hostname,
     # ints
     "positive_int": lambda v, **kwargs: validate_int_in_range(v, min=1, **kwargs),
@@ -414,6 +455,8 @@ VALIDATORS = {
     'slack_channel': lambda v, **kwargs: validate_string(v, regex=SLACK_CHANNEL_RE, **kwargs),
     'aws_access_key_id': lambda v, **kwargs: validate_string(v, regex=AWS_ACCESS_KEY_ID_RE, **kwargs),
     'aws_secret_access_key': lambda v, **kwargs: validate_string(v, regex=AWS_SECRET_ACCESS_KEY_RE, **kwargs),
+    'sql_identifier': lambda v, **kwargs: validate_string(v, regex=SQL_IDENTIFIER_RE, **kwargs),
+    'auth_token': lambda v, **kwargs: validate_string(v, regex=AUTH_TOKEN_RE, **kwargs),
     # JSON
     'json': validate_json,
 }
@@ -421,7 +464,7 @@ VALIDATORS = {
 
 def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=None, 
     default:Optional[str]=None, hidden:bool=False, raise_errors:bool=True, 
-    force_string:bool=False):
+    force_string:bool=False, sep=None):
     """
     Validate and sanitize a value using the specified validator.
     
@@ -434,18 +477,20 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         hidden: Whether to hide value in error messages
         raise_errors: Whether to raise ArgumentTypeError on validation failure
         force_string: Forces return value to be a string or stringifiable type
+        sep: Separator to split value into a list. Can be a string or regex pattern.
+            If provided, returns a list of validated values instead of a single value.
         
     Returns:
-        Validated and sanitized value
+        Validated and sanitized value, or list of values if sep is provided
         
     Raises:
         argparse.ArgumentTypeError: If validation fails and raise_errors is True
         ValueError: If validator_type is unknown or no value is provided
     """
     if hidden:
-        logger.info(f"type={validator_type}, envar={envar}, value=**HIDDEN**, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
+        logger.info(f"type={validator_type}, envar={envar}, value=**HIDDEN**, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}, sep={sep}")
     else:
-        logger.info(f"type={validator_type}, envar={envar}, value={value}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}")
+        logger.info(f"type={validator_type}, envar={envar}, value={value}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}, sep={sep}")
     validator = VALIDATORS.get(validator_type)
     if validator is None:
         raise ValueError(f"Unknown validator type: {validator_type}. Use one of: {', '.join(VALIDATORS.keys())}")
@@ -467,6 +512,33 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
     else:
         logger.info(f"Using value from command line: {'**HIDDEN**' if hidden else value}")
 
+    # Split value if separator is provided
+    if sep and value is not None:
+        if isinstance(sep, str):
+            values = value.split(sep)
+        elif isinstance(sep, re.Pattern):
+            values = sep.split(value)
+        else:
+            raise ValueError(f"Invalid separator: {sep}")
+        
+        # Validate each value in the list
+        try:
+            result = [validator(v, force_string=force_string) for v in values if v.strip()]
+            logger.info(f"Validated values: {'**HIDDEN**' if hidden else result}")
+            return result
+        except argparse.ArgumentTypeError as e:
+            if hidden:
+                error_msg = f"Type {validator_type}: {str(e)}"
+            else:
+                error_msg = f"Type {validator_type}: Value {value}: {str(e)}"
+
+            if raise_errors:
+                raise argparse.ArgumentTypeError(error_msg)
+            else:
+                # Return the original value if not raising errors
+                logging.error(f"Ignoring invalid {envar or 'value'}: {error_msg}")
+                return value
+    
     try:
         result = validator(value, force_string=force_string)
         logger.info(f"Validated value: {'**HIDDEN**' if hidden else result}")
@@ -516,6 +588,11 @@ def main():
         default=None,
     )
     parser.add_argument(
+        "--sep",
+        help="Separator to split value into a list (e.g., ',' for comma-separated values). Output will be comma-separated string.",
+        default=None,
+    )
+    parser.add_argument(
         "--hidden",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -552,8 +629,13 @@ def main():
             hidden=args.hidden,
             raise_errors=args.raise_errors,
             force_string=True,
+            sep=args.sep,
         )
-        print(result)
+        # If result is a list, convert to comma-separated string for CLI output
+        if isinstance(result, list):
+            print(",".join(str(item) for item in result))
+        else:
+            print(result)
         sys.exit(EXIT_SUCCESS)
     except ValueError as e:
         logging.error(str(e))

@@ -32,7 +32,9 @@ def load_aperturedb_env(path="/app/aperturedb.env"):
 def get_log_level() -> int:
     """Get the log level from the environment variable."""
     load_aperturedb_env()
-    log_level = os.getenv("WF_LOG_LEVEL", "WARNING").upper()
+    sys.path.insert(0, '/app')
+    from wf_argparse import validate
+    log_level = validate("log_level", envar="WF_LOG_LEVEL", default="WARNING")
     return getattr(logging, log_level, logging.WARNING)
 
 
