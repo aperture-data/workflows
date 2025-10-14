@@ -126,9 +126,9 @@ setup_database() {
         params+=(--use-rest)
     fi
 
-    if [ -n "${CA_CERT:-}" ]; then
-        local CA_CERT_VAL=$(/app/wf_argparse.py --type file_path --envar CA_CERT --default "")
-        params+=(--ca-cert $CA_CERT_VAL)
+    if [[ -n "${CA_CERT:-}" ]]; then
+        local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT)
+        params+=(--ca-cert "$CA_CERT")
     fi
 
     adb config create default \

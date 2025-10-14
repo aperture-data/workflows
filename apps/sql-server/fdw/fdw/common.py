@@ -35,7 +35,7 @@ def get_log_level() -> int:
     sys.path.insert(0, '/app')
     from wf_argparse import validate
     log_level = validate("log_level", envar="WF_LOG_LEVEL", default="WARNING")
-    return getattr(logging, log_level, logging.WARNING)
+    return log_level
 
 
 # Mapping from ApertureDB types to PostgreSQL types.

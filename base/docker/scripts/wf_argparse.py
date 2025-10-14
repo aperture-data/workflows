@@ -611,9 +611,9 @@ def main():
     )
     parser.add_argument(
         "--log-level",
-        default="WARNING",
+        default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Logging verbosity level (default: WARNING)."
+        help="Logging verbosity level (default: INFO)."
     )
 
     args = parser.parse_args()
