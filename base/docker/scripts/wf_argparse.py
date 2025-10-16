@@ -7,7 +7,7 @@ import re
 from urllib.parse import urlparse, urlunparse, ParseResult
 import ipaddress
 import sys
-from typing import Union, Optional
+from typing import Union, Optional, Callable, Any
 from collections.abc import Container
 
 
@@ -468,7 +468,7 @@ VALIDATORS = {
 
 def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=None, 
     default:Optional[str]=None, hidden:bool=False, raise_errors:bool=True, 
-    force_string:bool=False, sep=None):
+    force_string:bool=False, sep=None, allow_unset:bool=False):
     """
     Validate and sanitize a value using the specified validator.
     
@@ -478,12 +478,13 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         envar: Environment variable name to read value from
         default: Default value if value/envar is not set. 
             Default for default is None, meaning unset.
+            If set, the value will be validated regardless of whether value or envar is provided.
         hidden: Whether to hide value in error messages
         raise_errors: Whether to raise ArgumentTypeError on validation failure
         force_string: Forces return value to be a string or stringifiable type
         sep: Separator to split value into a list. Can be a string or regex pattern.
             If provided, returns a list of validated values instead of a single value.
-        
+        allow_unset: Whether to allow unset value. If set, the value will be allowed to be unset and None will be returned.
     Returns:
         Validated and sanitized value, or list of values if sep is provided
         
@@ -495,18 +496,20 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         logger.info(f"type={validator_type}, envar={envar}, value=**HIDDEN**, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}, sep={sep}")
     else:
         logger.info(f"type={validator_type}, envar={envar}, value={value}, default={default}, hidden={hidden}, raise_errors={raise_errors}, force_string={force_string}, sep={sep}")
-    validator = VALIDATORS.get(validator_type)
-    if validator is None:
-        raise ValueError(f"Unknown validator type: {validator_type}. Use one of: {', '.join(VALIDATORS.keys())}")
 
     # Determine value
+    using_default = False
     if value is None or value == "":
         if envar:
             value = os.getenv(envar)
             if value is None or value == "":
                 if default is not None:
+                    using_default = True
                     logger.info(f"Using default value: {'**HIDDEN**' if hidden else default}")
                     value = default
+                elif allow_unset:
+                    logger.info(f"Returning None for {envar} because allow_unset is set.")
+                    return None
                 else:
                     raise ValueError(f"Environment variable {envar} is not set.")
             else:
@@ -516,33 +519,75 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
     else:
         logger.info(f"Using value from command line: {'**HIDDEN**' if hidden else value}")
 
+    if default is not None and not using_default:
+        # We need to validate the default value to avoid latent errors,
+        # even though we're not using it.
+        try:
+            default_result = _validate(validator_type, value=default, hidden=hidden, sep=sep)
+            logger.info(f"Validated default value: {'**HIDDEN**' if hidden else default_result}")
+        except argparse.ArgumentTypeError as e:
+            if raise_errors:
+                raise argparse.ArgumentTypeError(f"Invalid default value for {validator_type} {envar or 'value'}: {e}")
+            else:
+                logger.error(f"Invalid default value for {validator_type} {envar or 'value'}: {e}")
+
+    # This is where we honor `raise_errors`
+    try:
+        result = _validate(validator_type, value=value, hidden=hidden, force_string=force_string, sep=sep)
+        logger.info(f"Validated {envar or 'value'}: {'**HIDDEN**' if hidden else result}")
+        return result
+    except argparse.ArgumentTypeError as e:
+        if raise_errors:
+            raise argparse.ArgumentTypeError(f"Invalid value for {validator_type} {envar or 'value'}: {e}")
+        else:
+            logger.error(f"Invalid value for {validator_type} {envar or 'value'}: {e}")
+            return value
+
+
+def _validate_list(validator_type: str, value: str, hidden: bool=False, force_string: bool=False, sep: str|re.Pattern=None) -> Any:
+    """Split the value into a list and validate each value."""
+    if isinstance(sep, str):
+        values = value.split(sep)
+    elif isinstance(sep, re.Pattern):
+        values = sep.split(value)
+    else:
+        raise ValueError(f"Invalid separator: {sep}")
+    
+    # Validate each value in the list
+    try:
+        result = [_validate(validator_type, value=v, hidden=hidden,force_string=force_string) 
+            for v in values]
+        logger.info(f"Validated values: {'**HIDDEN**' if hidden else result}")
+        if force_string and len(result) > 1:
+            if isinstance(sep, str):
+                return sep.join(result)
+            elif sep == SEP_WHITESPACE:
+                return " ".join(result)
+            else:
+                # The CLI only supports literal separators, not regex patterns.
+                raise ValueError(f"I don't know how to turn a list into a string with separator: {sep}")
+        else:
+            return result
+    except argparse.ArgumentTypeError as e:
+        if hidden:
+            error_msg = f"Type {validator_type}: {str(e)}"
+        else:
+            error_msg = f"Type {validator_type}: Value {value}: {str(e)}"
+
+        raise argparse.ArgumentTypeError(error_msg)
+
+
+def _validate(validator_type: str, value: str, hidden: bool=False, force_string: bool=False, sep: Optional[str|re.Pattern]=None) -> Any:
+    """This is the function that invokes the validator"""
+    
     # Split value if separator is provided
     if sep and value is not None:
-        if isinstance(sep, str):
-            values = value.split(sep)
-        elif isinstance(sep, re.Pattern):
-            values = sep.split(value)
-        else:
-            raise ValueError(f"Invalid separator: {sep}")
-        
-        # Validate each value in the list
-        try:
-            result = [validator(v, force_string=force_string) for v in values if v.strip()]
-            logger.info(f"Validated values: {'**HIDDEN**' if hidden else result}")
-            return result
-        except argparse.ArgumentTypeError as e:
-            if hidden:
-                error_msg = f"Type {validator_type}: {str(e)}"
-            else:
-                error_msg = f"Type {validator_type}: Value {value}: {str(e)}"
+        return _validate_list(validator, value, hidden, force_string, sep)
+   
+    validator = VALIDATORS.get(validator_type)
+    if validator is None:
+        raise ValueError(f"Unknown validator type: {validator_type}. Use one of: {', '.join(VALIDATORS.keys())}")
 
-            if raise_errors:
-                raise argparse.ArgumentTypeError(error_msg)
-            else:
-                # Return the original value if not raising errors
-                logging.error(f"Ignoring invalid {envar or 'value'}: {error_msg}")
-                return value
-    
     try:
         result = validator(value, force_string=force_string)
         logger.info(f"Validated value: {'**HIDDEN**' if hidden else result}")
@@ -553,12 +598,7 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         else:
             error_msg = f"Type {validator_type}: Value {value}: {str(e)}"
 
-        if raise_errors:
-            raise argparse.ArgumentTypeError(error_msg)
-        else:
-            # Return the original value if not raising errors
-            logging.error(f"Ignoring invalid {envar or 'value'}: {error_msg}")
-            return value
+        raise argparse.ArgumentTypeError(error_msg)
 
 
 EXIT_SUCCESS = 0
@@ -610,6 +650,12 @@ def main():
         help="Raise on validation error (use --no-raise to always exit 0)."
     )
     parser.add_argument(
+        "--allow-unset",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Allow unset value. If true, the value will be allowed to be unset and an empty string will be returned.",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -634,11 +680,9 @@ def main():
             raise_errors=args.raise_errors,
             force_string=True,
             sep=args.sep,
+            allow_unset=args.allow_unset,
         )
-        # If result is a list, convert to comma-separated string for CLI output
-        if isinstance(result, list):
-            print(",".join(str(item) for item in result))
-        else:
+        if result is not None:
             print(result)
         sys.exit(EXIT_SUCCESS)
     except ValueError as e:

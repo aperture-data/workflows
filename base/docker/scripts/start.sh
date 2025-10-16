@@ -75,13 +75,13 @@ setup_database() {
     local ADB_USE_SSL=$(/app/wf_argparse.py --type bool --envar USE_SSL --default true)
     local ADB_USE_REST=$(/app/wf_argparse.py --type bool --envar USE_REST --default false)
     local VERIFY_HOSTNAME_DEFAULT=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
-    local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT --default "")
+    local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT --allow-unset)
     
     # Initialize ADB_PORT
     local ADB_PORT
     local DB_PORT_VAL=""
     if [ -n "${DB_PORT:-}" ]; then
-        DB_PORT_VAL=$(/app/wf_argparse.py --type port --envar DB_PORT --default "")
+        DB_PORT_VAL=$(/app/wf_argparse.py --type port --envar DB_PORT --allow-unset)
         ADB_PORT="${DB_PORT_VAL}"
     elif [ "${ADB_USE_REST}" == true ]; then
         if [ "${ADB_USE_SSL}" == true ]; then
@@ -97,16 +97,16 @@ setup_database() {
     local ADB_HOST
     local ADB_VERIFY_HOSTNAME
     if [ -n "${DB_HOST_PRIVATE:-}" ]; then
-        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PRIVATE --default "")
+        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PRIVATE)
         ADB_VERIFY_HOSTNAME=false
     elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
-        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC --default "")
+        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC)
         ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
     elif [ -z "${DB_HOST:-}" ]; then
         ADB_HOST="localhost"
         ADB_VERIFY_HOSTNAME=false
     else
-        local DB_HOST_VAL=$(/app/wf_argparse.py --type hostname --envar DB_HOST --default "")
+        local DB_HOST_VAL=$(/app/wf_argparse.py --type hostname --envar DB_HOST )
         if [ "${DB_HOST_VAL}" == "localhost" ] || [ "${DB_HOST_VAL}" == "127.0.0.1" ] || [ "${DB_HOST_VAL}" == "::1" ]; then
             ADB_HOST="${DB_HOST_VAL}"
             ADB_VERIFY_HOSTNAME=false
@@ -226,18 +226,18 @@ upload_to_s3() {
     
     if ([ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS:-}" ]; then
         echo "Using WF_LOGS_AWS_CREDENTIALS"
-        local WF_LOGS_AWS_CREDENTIALS_VAL=$(/app/wf_argparse.py --type json --envar WF_LOGS_AWS_CREDENTIALS --default "" --hidden)
+        local WF_LOGS_AWS_CREDENTIALS_VAL=$(/app/wf_argparse.py --type json --envar WF_LOGS_AWS_CREDENTIALS --allow-unset --hidden)
         
         # Extract values from JSON
         local EXTRACTED_ACCESS_KEY=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
         local EXTRACTED_SECRET_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
         
         # Validate extracted values
-        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --value "${EXTRACTED_ACCESS_KEY}" --default "" --hidden)
-        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --value "${EXTRACTED_SECRET_KEY}" --default "" --hidden)
+        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --value "${EXTRACTED_ACCESS_KEY}" --allow-unset --hidden)
+        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --value "${EXTRACTED_SECRET_KEY}" --allow-unset --hidden)
     else
-        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --envar AWS_ACCESS_KEY_ID --default "" --hidden)
-        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --envar AWS_SECRET_ACCESS_KEY --default "" --hidden)
+        AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --envar AWS_ACCESS_KEY_ID --allow-unset --hidden)
+        AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --envar AWS_SECRET_ACCESS_KEY --allow-unset --hidden)
     fi
 
     if [ -z "${AWS_ACCESS_KEY_ID_VAL}" ] || [ -z "${AWS_SECRET_ACCESS_KEY_VAL}" ]; then

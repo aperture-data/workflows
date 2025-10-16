@@ -39,6 +39,7 @@ final_banner() {
   fi
 }
 
+trap 'echo "ERROR on line $LINENO: $BASH_COMMAND"' ERR
 trap 'ret=$?; cleanup; final_banner $ret ; exit $ret' EXIT
 
 run_pytest() {
