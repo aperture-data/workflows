@@ -1,15 +1,22 @@
 # if length of command line arguments is 0, then print usage
 CI_RUN=${CI_RUN:-0}
+RUNNER_NAME="${RUNNER_NAME:-runner}"
+# remove spaces from RUNNER_NAME
+RUNNER_NAME="${RUNNER_NAME// /}"
+# convert to lowercase (a restriction of docker compose)
+RUNNER_NAME="${RUNNER_NAME,,}"
+
 export BIN_DIR=$PWD
 export ROOT_DIR=$BIN_DIR/../..
-COMPOSE_PROJECT_NAME=$(basename $BIN_DIR)
+COMPOSE_PROJECT_NAME="$(basename $BIN_DIR)"
+SANDBOXED_COMPOSE_PROJECT_NAME="${RUNNER_NAME}-${COMPOSE_PROJECT_NAME}"
 
 
 COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
 COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
 
-COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME -f $COMPOSE_MAIN"
+COMMAND="$COMPOSE_SCRIPT -v -p $SANDBOXED_COMPOSE_PROJECT_NAME -f $COMPOSE_MAIN"
 # Check if test directory exists
 if [ -d "$BIN_DIR/test" ]; then
   COMPOSE_TEST="$BIN_DIR/test/docker-compose.yml"
@@ -25,8 +32,7 @@ export DB_TCP_CN="lenz"
 export DB_HTTP_CN="nginx"
 
 cleanup() {
-  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
-    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+  $COMMAND down --remove-orphans || true
 }
 
 final_banner() {
@@ -51,7 +57,7 @@ run_pytest() {
   if [ $CI_RUN -eq 0 ]; then
     $COMMAND build base
   fi
-  
+
   if [ $BUILD_WORKFLOW -eq 1 ]; then
     $COMMAND build test-base $COMPOSE_PROJECT_NAME
   else

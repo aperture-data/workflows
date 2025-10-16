@@ -152,12 +152,15 @@ jobs:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+          RUNNER_NAME: ${{ runner.name }}
+          WORKFLOW_VERSION: $VERSION
+          CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
+            bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
+            bash ../build.sh
           fi
 
       - name: Push to docker (on main)
@@ -180,8 +183,7 @@ jobs:
         ]
 
     runs-on:
-      - deployer
-      - self-hosted
+      - gcp
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
 
@@ -207,12 +209,15 @@ jobs:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+          RUNNER_NAME: ${{ runner.name }}
+          WORKFLOW_VERSION: $VERSION
+          CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
           if [ -f "test.sh" ]; then
-            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash test.sh
+            bash test.sh
           else
-            WORKFLOW_VERSION=$VERSION CI_RUN=1 bash ../build.sh
+            bash ../build.sh
           fi
 
       - name: Push to docker (on main)

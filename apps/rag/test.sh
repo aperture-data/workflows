@@ -3,6 +3,11 @@ set -x
 set -euo pipefail
 
 WORKFLOW="rag"
+RUNNER_NAME="${RUNNER_NAME:-runner}"
+# remove spaces from RUNNER_NAME
+RUNNER_NAME="${RUNNER_NAME// /}"
+# convert to lowercase (a restriction of docker compose)
+RUNNER_NAME="${RUNNER_NAME,,}"
 
 # Get the directory this script is in
 export BIN_DIR=$(dirname "$(readlink -f "$0")")
@@ -16,6 +21,7 @@ cd $BIN_DIR
 
 COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
 COMPOSE_PROJECT_NAME="${WORKFLOW}-tests"
+SANDBOXED_COMPOSE_PROJECT_NAME="${RUNNER_NAME}-${COMPOSE_PROJECT_NAME}"
 COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
 export DB_HOST DB_PASS
@@ -24,18 +30,19 @@ DB_PASS="${DB_PASS:-admin}"
 export DB_PORT=55551
 export DB_TCP_CN="lenz"
 
+COMMAND="$COMPOSE_SCRIPT -v -p $SANDBOXED_COMPOSE_PROJECT_NAME \
+  -f $COMPOSE_MAIN"
+
 # ---- cleanup on exit ----
 cleanup() {
-  $COMPOSE_SCRIPT -p "$COMPOSE_PROJECT_NAME" \
-    -f "$COMPOSE_MAIN" down -v --remove-orphans || true
+  $COMMAND down -v --remove-orphans || true
 }
 trap cleanup EXIT
 
 # ---- run tests ----
 echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
-COMMAND="$COMPOSE_SCRIPT -v -p $COMPOSE_PROJECT_NAME \
-  -f $COMPOSE_MAIN"
+
 
 if [ ${CI_RUN:-0} -eq 0 ]; then
   $COMMAND build base
@@ -56,9 +63,9 @@ $COMMAND up -d $WORKFLOW $WORKFLOW
 ret=$?
 sleep 20
 
-docker logs rag-tests-crawl-website-1
-docker logs rag-tests-text-extraction-1
-docker logs rag-tests-text-embeddings-1
-docker logs rag-tests-$WORKFLOW-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-crawl-website-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-text-extraction-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-text-embeddings-1
+docker logs ${SANDBOXED_COMPOSE_PROJECT_NAME}-$WORKFLOW-1
 
 exit $ret
