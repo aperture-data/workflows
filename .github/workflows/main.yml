@@ -183,8 +183,7 @@ jobs:
         ]
 
     runs-on:
-      - deployer
-      - self-hosted
+      - gcp
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
 
