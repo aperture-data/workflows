@@ -125,7 +125,7 @@ async def redirect_to_rag():
 # This is the main app for the RAG API
 app = FastAPI(root_path=APP_PATH)
 
-allowed_origins = validate("origin", envar="WF_ALLOWED_ORIGINS", default="", sep=",")
+allowed_origins = validate("origin", envar="WF_ALLOWED_ORIGINS", default="http://localhost", sep=",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -474,16 +474,13 @@ def get_args(argv=[]):
                      type=int)
 
     obj.add_argument('--aimon-api-key',
-                     help='API key for AIMON',
-                     default="")
+                     help='API key for AIMON')
 
     obj.add_argument('--aimon-app-name',
-                     help='Name of the AIMON app',
-                     default="")
+                     help='Name of the AIMON app')
 
     obj.add_argument('--aimon-llm-model-name',
-                     help='Name of the LLM model',
-                     default="")
+                     help='Name of the LLM model')
 
     obj.add_argument('--rewrite-query',
                      help='Whether to rewrite the query using the LLM',

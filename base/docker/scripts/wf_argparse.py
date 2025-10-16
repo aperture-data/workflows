@@ -9,7 +9,7 @@ import ipaddress
 import sys
 from typing import Union, Optional, Callable, Any
 from collections.abc import Container
-
+from contextlib import contextmanager
 
 # This class wraps argparse.ArgumentParser and adds a number of additional features:
 # 
@@ -84,13 +84,34 @@ SEP_WHITESPACE = re.compile(r"\s+")
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def temporary_logging(level=logging.INFO, stream=sys.stderr, fmt="%(levelname)s: %(message)s"):
+    """
+    Context manager to temporarily enable minimal logging during parsing.
+    Restores prior handlers and levels afterward.
+    """
+    root = logging.getLogger()
+    old_handlers = list(root.handlers)
+    old_level = root.level
+    try:
+        # Clear handlers and apply minimal setup
+        for h in old_handlers:
+            root.removeHandler(h)
+        logging.basicConfig(level=level, format=fmt, stream=stream)
+        yield
+    finally:
+        # Restore previous configuration
+        root.handlers = old_handlers
+        root.setLevel(old_level)
+
+
 class ArgumentParser:
     def __init__(self, *args, support_legacy_envars=False, **kwargs):
         self.parser = argparse.ArgumentParser(*args, **kwargs)
         self.envars_used = set()
         self.support_legacy_envars = support_legacy_envars
 
-    def add_argument(self, *names, required=False, type=None, default=None, sep=None,
+    def add_argument(self, *names, required=False, type=None, default=None, sep=None, hidden=False,
                      **kwargs):
         # Force bool and str into validated types
         if type is bool:
@@ -98,17 +119,19 @@ class ArgumentParser:
         elif type in (str, None):
             type = "string"
 
-        if isinstance(type, str):
-            assert type in VALIDATORS, f"Unknown type: {type}"
-            type = VALIDATORS[type]
-
         action = 'append' if sep else None
         name = names[0]
         default = self.get_default(name, default, sep)
         required = required and default is None
 
+        if isinstance(type, str):
+            validator = lambda v: validate(type, v, hidden=hidden, default=default, sep=sep)
+            validator.__name__ = type # for error messages
+        else:
+            validator = type
+
         self.parser.add_argument(
-            *names, type=type, default=default, action=action, required=required, **kwargs)
+            *names, type=validator, default=default, action=action, required=required, **kwargs)
 
     def _envar_name(self, name: str):
         while name.startswith('-'):
@@ -153,9 +176,10 @@ class ArgumentParser:
             ", ".join(unused_envars)
 
     def parse_args(self, *args, **kwargs):
-        self.check_envars()
-        result = self.parser.parse_args(*args, **kwargs)
-        return result
+        with temporary_logging(level=logging.DEBUG):
+            self.check_envars()
+            result = self.parser.parse_args(*args, **kwargs)
+            return result
 
     # proxy additional methods to self.parser
     def __getattr__(self, name):
@@ -534,11 +558,16 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
         logger.info(f"Validated {envar or 'value'}: {'**HIDDEN**' if hidden else result}")
         return result
     except argparse.ArgumentTypeError as e:
-        if raise_errors:
-            raise argparse.ArgumentTypeError(f"Invalid value for {validator_type} {envar or 'value'}: {e}")
+        if hidden:
+            error_msg = f"Invalid value for {validator_type} {envar or 'value'}: {str(e)}"
         else:
-            logger.error(f"Invalid value for {validator_type} {envar or 'value'}: {e}")
-            return value
+            error_msg = f"Invalid value for {validator_type} {envar or 'value'}: {value}: {str(e)}"
+
+        if raise_errors:
+            raise argparse.ArgumentTypeError(error_msg)
+        else:
+            logger.error(error_msg)
+            return None
 
 
 def _validate_list(validator_type: str, value: str, hidden: bool=False, force_string: bool=False, sep: str|re.Pattern=None) -> Any:
@@ -579,7 +608,7 @@ def _validate(validator_type: str, value: str, hidden: bool=False, force_string:
     
     # Split value if separator is provided
     if sep and value is not None:
-        return _validate_list(validator, value, hidden, force_string, sep)
+        return _validate_list(validator_type, value, hidden=hidden, force_string=force_string, sep=sep)
    
     validator = VALIDATORS.get(validator_type)
     if validator is None:
