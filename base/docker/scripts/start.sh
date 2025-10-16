@@ -246,8 +246,8 @@ upload_to_s3() {
     fi
     
     echo "Configuring AWS credentials to upload logs to S3"
-    aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID_VAL}
-    aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY_VAL}
+    aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID_VAL}"
+    aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY_VAL}"
     aws configure set default.region us-west-2
 
     declare -A domains=([develop]=aperturedata.dev [main]=aperturedata.io)
