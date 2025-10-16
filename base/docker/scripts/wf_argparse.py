@@ -425,7 +425,7 @@ SLACK_CHANNEL_RE = re.compile(r"^[a-z0-9_-]{1,80}$")
 # AWS Access Key ID: 20 chars, starts with AKIA (long-term) or ASIA (temporary/STS), all uppercase alphanumeric
 AWS_ACCESS_KEY_ID_RE = re.compile(r"^(AKIA|ASIA)[A-Z0-9]{16}$")
 # AWS Secret Access Key: 40 chars, base64 (A-Za-z0-9/+)
-AWS_SECRET_ACCESS_KEY_RE = re.compile(r"^[A-Za-z0-9/+]{40}$")
+AWS_SECRET_ACCESS_KEY_RE = re.compile(r"^[A-Za-z0-9/+=]{40}$")
 # SQL identifier: alphanumeric (upper/lower), underscore. Must start with letter or underscore (PostgreSQL unquoted identifier rules)
 SQL_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 # TODO: Update this to be more specific to the actual token format.
