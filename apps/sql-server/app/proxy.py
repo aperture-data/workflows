@@ -16,7 +16,6 @@ import logging
 import os
 import traceback
 import sys
-sys.path.insert(0, '/app')
 from wf_argparse import validate
 
 log_level = validate("log_level", envar="WF_LOG_LEVEL", default="INFO")

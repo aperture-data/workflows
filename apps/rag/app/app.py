@@ -310,15 +310,15 @@ async def config(request: Request):
     # calculate number of descriptors in the descriptorset
     count = retriever.count() if retriever else 0
 
-    db_host = validate("hostname", envar="DB_HOST", default="")
+    db_host = validate("hostname", envar="DB_HOST", allow_unset=True)
     
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
         "input": args.input,
         "n_documents": args.n_documents,
-        "host": db_host,
-        # "startup_time": startup_time,  # Debugging, but confusing to user
+        **({"host": db_host} if db_host else {}),
+        # "startup_time": startup_time,  # Useful for debugging, but confusing to user
         "count": count,
         "ready": True,
     }
