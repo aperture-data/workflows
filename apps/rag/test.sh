@@ -4,7 +4,9 @@ set -euo pipefail
 
 WORKFLOW="rag"
 RUNNER_NAME="${RUNNER_NAME:-runner}"
+# remove spaces from RUNNER_NAME
 RUNNER_NAME="${RUNNER_NAME// /}"
+# convert to lowercase (a restriction of docker compose)
 RUNNER_NAME="${RUNNER_NAME,,}"
 
 # Get the directory this script is in
