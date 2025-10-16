@@ -10,6 +10,7 @@ import sys
 from typing import Union, Optional, Callable, Any
 from collections.abc import Container
 from contextlib import contextmanager
+import itertools
 
 # This class wraps argparse.ArgumentParser and adds a number of additional features:
 # 
@@ -110,6 +111,7 @@ class ArgumentParser:
         self.parser = argparse.ArgumentParser(*args, **kwargs)
         self.envars_used = set()
         self.support_legacy_envars = support_legacy_envars
+        self.list_args = set()
 
     def add_argument(self, *names, required=False, type=None, default=None, sep=None, hidden=False,
                      **kwargs):
@@ -130,8 +132,13 @@ class ArgumentParser:
         else:
             validator = type
 
-        self.parser.add_argument(
+        result = self.parser.add_argument(
             *names, type=validator, default=default, action=action, required=required, **kwargs)
+
+        if sep is not None:
+            self.list_args.add(result.dest)
+
+        return result
 
     def _envar_name(self, name: str):
         while name.startswith('-'):
@@ -179,6 +186,11 @@ class ArgumentParser:
         with temporary_logging(level=logging.DEBUG):
             self.check_envars()
             result = self.parser.parse_args(*args, **kwargs)
+            for name in self.list_args:
+                if hasattr(result, name):
+                    result.__dict__[name] = list(itertools.chain.from_iterable(result.__dict__[name]))
+                else:
+                    result.__dict__[name] = []
             return result
 
     # proxy additional methods to self.parser
@@ -502,6 +514,7 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
             If set, the value will be validated regardless of whether value or envar is provided.
         hidden: Whether to hide value in error messages
         raise_errors: Whether to raise ArgumentTypeError on validation failure
+            Note that ValueError may still be raised even if raise_errors is false.
         force_string: Forces return value to be a string or stringifiable type
         sep: Separator to split value into a list. Can be a string or regex pattern.
             If provided, returns a list of validated values instead of a single value.
@@ -531,12 +544,18 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
                 elif allow_unset:
                     logger.info(f"Returning None for {envar} because allow_unset is set.")
                     return None
-                else:
+                elif value is None or raise_errors:
                     raise ValueError(f"Environment variable {envar} is not set.")
+                else:
+                    logger.warning(f"Returning None for {envar} because raise_errors is false")
+                    return None
             else:
                 logger.info(f"Using value from environment variable {envar}: {'**HIDDEN**' if hidden else value}")
-        else:
+        elif value is None or raise_errors:
             raise ValueError("Must provide either value or envar (or both).")
+        else:
+            logger.warning(f"Returning None for {envar} because value is None and raise_errors is false.")
+            return None
     else:
         logger.info(f"Using value from command line: {'**HIDDEN**' if hidden else value}")
 
