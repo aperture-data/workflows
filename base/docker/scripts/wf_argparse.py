@@ -92,10 +92,11 @@ class ArgumentParser:
 
     def add_argument(self, *names, required=False, type=None, default=None, sep=None,
                      **kwargs):
+        # Force bool and str into validated types
         if type is bool:
             type = "bool"
         elif type in (str, None):
-            type = self.trim
+            type = "string"
 
         if isinstance(type, str):
             assert type in VALIDATORS, f"Unknown type: {type}"
@@ -139,10 +140,6 @@ class ArgumentParser:
                 raise ValueError(f"Invalid separator: {sep}")
 
         return result
-
-    @staticmethod
-    def trim(s):
-        return s.strip()
 
     def check_envars(self):
         unused_envars = set()
