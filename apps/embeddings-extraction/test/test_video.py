@@ -20,7 +20,7 @@ def run_query(db_connection):
                 "_ref": 2,
                 "is_connected_to": {"ref": 1},
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 },
             }
         },
@@ -29,7 +29,7 @@ def run_query(db_connection):
                 "set": "wf_embeddings_clip_video",
                 "is_connected_to": {"ref": 2},
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 },
             }
         }
