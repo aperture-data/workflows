@@ -13,12 +13,13 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n Video Queries for video processing
     """
 
-    def __init__(self, pool, embedder, done_property: str, sample_rate_fps: int = 1):
+    def __init__(self, pool, embedder, done_property: str, sample_rate_fps: int = 1, embedder_batch_size: int = 250):
 
         self.pool = pool
         self.embedder = embedder
         self.done_property = done_property
         self.sample_rate_fps = sample_rate_fps
+        self.embedder_batch_size = embedder_batch_size
 
         query = [{
             "FindVideo": {
@@ -93,10 +94,21 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
 
         try:
             # Generate embeddings
-            embeddings = self.embedder.embed_images(frames)
+            all_embeddings = []
+            batch_size = self.embedder_batch_size
+            for i in range(0, len(frames), batch_size):
+                logger.info(f"Generating embeddings for batch {i/batch_size+1}")
+                batch = frames[i:i+batch_size]
+                # Passing all frames at once to the embedder
+                # caused memory issues. Splitting into batches.
+                # batch size of 1000 = 250 * 4 workers = 1000 images works here
+                # because we have images of size 224x224.
+                # TODO : put a dynamic batcher in embedder.embed_images()
+                embeddings = self.embedder.embed_images(batch)
+                all_embeddings.extend(embeddings)
 
             # Convert to bytes
-            embedding_bytes = [embedding.tobytes() for embedding in embeddings]
+            embedding_bytes = [embedding.tobytes() for embedding in all_embeddings]
 
             logger.info(f"Generated {len(embedding_bytes)} embeddings from {len(frames)} frames")
             return embedding_bytes
