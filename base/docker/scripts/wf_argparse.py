@@ -112,6 +112,7 @@ class ArgumentParser:
         self.envars_used = set()
         self.support_legacy_envars = support_legacy_envars
         self.list_args = set()
+        self.hidden_args = set()
 
     def add_argument(self, *names, required=False, type=None, default=None, sep=None, hidden=False,
                      **kwargs):
@@ -121,7 +122,7 @@ class ArgumentParser:
         elif type in (str, None):
             type = "string"
 
-        action = 'append' if sep else None
+        action = 'append' if sep is not None else None
         name = names[0]
         default = self.get_default(name, default, sep)
         required = required and default is None
@@ -137,6 +138,9 @@ class ArgumentParser:
 
         if sep is not None:
             self.list_args.add(result.dest)
+
+        if hidden:
+            self.hidden_args.add(result.dest)
 
         return result
 
@@ -186,11 +190,19 @@ class ArgumentParser:
         with temporary_logging(level=logging.DEBUG):
             self.check_envars()
             result = self.parser.parse_args(*args, **kwargs)
+            # Fix up list args so they don't have two levels of nesting
             for name in self.list_args:
-                if hasattr(result, name):
-                    result.__dict__[name] = list(itertools.chain.from_iterable(result.__dict__[name]))
-                else:
-                    result.__dict__[name] = []
+                if hasattr(result, name) and isinstance(result.__dict__[name], list):
+                    # Conditionally flatten list of lists into list of values
+                    items = []
+                    for item in result.__dict__[name]:
+                        if isinstance(item, list):
+                            items.extend(item)
+                        else:
+                            items.append(item)
+                    result.__dict__[name] = items
+            display_args = {k: v if k not in self.hidden_args else '**HIDDEN**' for k,v in result.__dict__.items()}
+            logger.info(f"Parsed arguments: {display_args}")
             return result
 
     # proxy additional methods to self.parser
@@ -591,7 +603,9 @@ def validate(validator_type:str, value:Optional[str]=None, envar:Optional[str]=N
 
 def _validate_list(validator_type: str, value: str, hidden: bool=False, force_string: bool=False, sep: str|re.Pattern=None) -> Any:
     """Split the value into a list and validate each value."""
-    if isinstance(sep, str):
+    if value is None or value == "":
+        return []
+    elif isinstance(sep, str):
         values = value.split(sep)
     elif isinstance(sep, re.Pattern):
         values = sep.split(value)
@@ -626,7 +640,7 @@ def _validate(validator_type: str, value: str, hidden: bool=False, force_string:
     """This is the function that invokes the validator"""
     
     # Split value if separator is provided
-    if sep and value is not None:
+    if sep is not None:
         return _validate_list(validator_type, value, hidden=hidden, force_string=force_string, sep=sep)
    
     validator = VALIDATORS.get(validator_type)
