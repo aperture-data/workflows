@@ -122,6 +122,7 @@ jobs:
           sql-server,
           label-studio,
           ocr-extraction,
+          caption-image,
         ]
     runs-on:
       - ubuntu-latest
