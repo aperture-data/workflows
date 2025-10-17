@@ -81,8 +81,10 @@ def main(args):
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if "DB_HOST_PUBLIC" in os.environ:
+            from wf_argparse import validate
+            db_host_public = validate("hostname", envar="DB_HOST_PUBLIC")
             # generate path for cloud
-            full_path = "https://{}/labelstudio".format(os.environ['DB_HOST_PUBLIC'])
+            full_path = "https://{}/labelstudio".format(db_host_public)
             logger.info(f"Set url from DB_HOST_PUBLIC: {full_path}")
         if args.label_studio_url_path is not None:
             if full_path is not None:

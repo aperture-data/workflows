@@ -220,6 +220,16 @@ jobs:
             bash ../build.sh
           fi
 
+     # ⬇️ Upload logs even if the tests fail
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.app }}
+          path: |
+            apps/${{ matrix.app }}/test.log
+          if-no-files-found: ignore
+          
       - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time

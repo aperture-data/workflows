@@ -5,8 +5,17 @@ set -o errexit -o nounset -o pipefail
 # Dump log file on error
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
 
+# Validate and sanitize all external inputs
 WF_LOG_LEVEL=$(/app/wf_argparse.py --type log_level --envar WF_LOG_LEVEL --default WARNING)
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
+
+WF_AUTH_TOKEN=$(/app/wf_argparse.py --type auth_token --envar WF_AUTH_TOKEN --hidden)
+SQL_NAME=$(/app/wf_argparse.py --type sql_identifier --envar SQL_NAME --default aperturedb)
+SQL_USER=$(/app/wf_argparse.py --type sql_identifier --envar SQL_USER --default aperturedb)
+SQL_PORT=$(/app/wf_argparse.py --type port --envar SQL_PORT --default 5432)
+SQL_PASS="${WF_AUTH_TOKEN}"
+POSTGRES_VERSION=$(/app/wf_argparse.py --type positive_int --envar POSTGRES_VERSION --default 17)
+UVICORN_WORKERS=$(/app/wf_argparse.py --type positive_int --envar UVICORN_WORKERS --default 1)
 
 # Start proxy server
 echo "Starting ApertureDB proxy server..."
@@ -20,39 +29,6 @@ fi
 UVICORN_LOG_LEVEL=${WF_LOG_LEVEL,,}
 uvicorn proxy:app --uds "$SOCK" --log-level "${UVICORN_LOG_LEVEL}" &
 PROXY_PID=$!
-
-
-# Check if WF_AUTH_TOKEN is set
-if [ -z "$WF_AUTH_TOKEN" ]; then
-  echo "Error: WF_AUTH_TOKEN environment variable is not set."
-  exit 1
-fi
-
-SQL_NAME=${SQL_NAME:-aperturedb}
-if [[ ! "$SQL_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-  echo "Error: SQL_NAME contains invalid characters. Only letters, numbers, underscore, and dash are allowed."
-  exit 1
-fi
-
-SQL_USER=${SQL_USER:-aperturedb}
-if [[ ! "$SQL_USER" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-  echo "Error: SQL_USER contains invalid characters. Only letters, numbers, underscore, and dash are allowed."
-  exit 1
-fi
-
-SQL_PORT=${SQL_PORT:-5432}
-if [[ ! "$SQL_PORT" =~ ^[0-9]+$ ]]; then
-  echo "Error: SQL_PORT must be numeric."
-  exit 1
-fi
-
-SQL_PASS=${WF_AUTH_TOKEN:-test}
-
-POSTGRES_VERSION=${POSTGRES_VERSION:-17}
-if [[ ! "${POSTGRES_VERSION:-}" =~ ^[0-9]+$ ]]; then
-    echo "Error: POSTGRES_VERSION must be numeric (e.g., 17)"
-    exit 1
-fi
 
 # Make Postgres use the provided certificates if they exist and are readable by the current user
 CERTS_DIR="/etc/tls/certs"
@@ -130,11 +106,6 @@ tail -n 1000 -f "/var/log/postgresql/postgresql-${POSTGRES_VERSION}-main.log" /t
 TAIL_PID=$!
 
 PORT=80
-UVICORN_WORKERS=${UVICORN_WORKERS:-1}
-if [[ ! "${UVICORN_WORKERS:-}" =~ ^[0-9]+$ ]]; then
-    echo "Error: UVICORN_WORKERS must be numeric."
-    exit 1
-fi
 
 # Run app.py with uvicorn, exit if it crashes
 echo "Starting FastAPI server..."
