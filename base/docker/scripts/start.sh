@@ -92,48 +92,52 @@ setup_database() {
         ADB_PORT=55555
     fi
 
-    # Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
-    local ADB_HOST
-    local ADB_VERIFY_HOSTNAME
-    if [ -n "${DB_HOST_PRIVATE:-}" ]; then
-        ADB_HOST="${DB_HOST_PRIVATE}"
-        ADB_VERIFY_HOSTNAME=false
-    elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
-        ADB_HOST="${DB_HOST_PUBLIC}"
-        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
-    elif [ -z "${DB_HOST:-}" ]; then
-        ADB_HOST="localhost"
-        ADB_VERIFY_HOSTNAME=false
-    elif [ "${DB_HOST}" == "localhost" ] || [ "${DB_HOST}" == "127.0.0.1" ] || [ "${DB_HOST}" == "::1" ]; then
-        ADB_HOST="${DB_HOST}"
-        ADB_VERIFY_HOSTNAME=false
-    else
-        ADB_HOST="${DB_HOST}"
-        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+    if [ -z "${APERTUREDB_KEY:-}" ]; then
+        # Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
+        local ADB_HOST
+        local ADB_VERIFY_HOSTNAME
+        if [ -n "${DB_HOST_PRIVATE:-}" ]; then
+            ADB_HOST="${DB_HOST_PRIVATE}"
+            ADB_VERIFY_HOSTNAME=false
+        elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
+            ADB_HOST="${DB_HOST_PUBLIC}"
+            ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+        elif [ -z "${DB_HOST:-}" ]; then
+            ADB_HOST="localhost"
+            ADB_VERIFY_HOSTNAME=false
+        elif [ "${DB_HOST}" == "localhost" ] || [ "${DB_HOST}" == "127.0.0.1" ] || [ "${DB_HOST}" == "::1" ]; then
+            ADB_HOST="${DB_HOST}"
+            ADB_VERIFY_HOSTNAME=false
+        else
+            ADB_HOST="${DB_HOST}"
+            ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME:-true}"
+        fi
+
+        local params=()
+        if [ "${ADB_USE_SSL}" == false ]; then
+            params+=(--no-use-ssl)
+        elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
+            params+=(--no-verify-hostname)
+        fi
+
+        if [ "${ADB_USE_REST}" == true ]; then
+            params+=(--use-rest)
+        fi
+
+        if [ -n "${CA_CERT:-}" ]; then
+            params+=(--ca-cert $CA_CERT)
+        fi
+
+        adb config create default \
+            --host=$ADB_HOST \
+            --port=$ADB_PORT \
+            --username=$ADB_USER \
+            --password=$ADB_PASS \
+            "${params[@]}" \
+            --no-interactive
     fi
 
-    local params=()
-    if [ "${ADB_USE_SSL}" == false ]; then
-        params+=(--no-use-ssl)
-    elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
-        params+=(--no-verify-hostname)
-    fi
-
-    if [ "${ADB_USE_REST}" == true ]; then
-        params+=(--use-rest)
-    fi
-
-    if [ -n "${CA_CERT:-}" ]; then
-        params+=(--ca-cert $CA_CERT)
-    fi
-
-    adb config create default \
-        --host=$ADB_HOST \
-        --port=$ADB_PORT \
-        --username=$ADB_USER \
-        --password=$ADB_PASS \
-        "${params[@]}" \
-        --no-interactive
+    ADB_HOST=$(adb config get .host)
 
     echo "Verifying connectivity to ${ADB_HOST}..." | tee -a $LOGFILE
     adb utils execute status 2>&1 | tee -a $LOGFILE
