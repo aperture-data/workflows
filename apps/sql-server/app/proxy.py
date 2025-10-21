@@ -15,8 +15,10 @@ from pydantic import BaseModel, Field, model_validator, ValidationError
 import logging
 import os
 import traceback
+import sys
+from wf_argparse import validate
 
-log_level = os.getenv("WF_LOG_LEVEL", "INFO").upper()
+log_level = validate("log_level", envar="WF_LOG_LEVEL", default="INFO")
 logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 

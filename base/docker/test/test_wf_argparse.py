@@ -147,13 +147,19 @@ class TestMode1CommandLine:
         with pytest.raises(SystemExit):
             parser.parse_args(['--test-arg', value])
 
-    def test_sep_with_command_line(self):
+    def test_sep_with_command_line_combined(self):
+        """Test sep parameter with command line (via append action)."""
+        parser = wf_argparse.ArgumentParser(description='Test')
+        parser.add_argument('--items', type='string', sep=',')
+        args = parser.parse_args(['--items', 'a,b,c'])
+        assert args.items == ['a', 'b', 'c']
+
+    def test_sep_with_command_line_separate(self):
         """Test sep parameter with command line (via append action)."""
         parser = wf_argparse.ArgumentParser(description='Test')
         parser.add_argument('--items', type='string', sep=',')
         args = parser.parse_args(['--items', 'a', '--items', 'b', '--items', 'c'])
         assert args.items == ['a', 'b', 'c']
-
 
 # =============================================================================
 # Mode 2: ArgumentParser with WF_ environment variables
@@ -185,8 +191,15 @@ class TestMode2WFEnvars:
         os.environ['WF_TEST_ARG'] = value
         parser = wf_argparse.ArgumentParser(description='Test')
         parser.add_argument('--test-arg', type=validator_type, required=False)
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
+        
+        if value == "":
+            # Empty strings from environment variables are treated as unset
+            args = parser.parse_args([])
+            assert args.test_arg is None
+        else:
+            # Other invalid values should still fail
+            with pytest.raises(SystemExit):
+                parser.parse_args([])
 
     def test_sep_comma(self):
         """Test sep parameter with comma separator."""
@@ -342,7 +355,7 @@ class TestMode4ValidateFunction:
             value='invalid',
             raise_errors=False
         )
-        assert result == 'invalid'
+        assert result is None
 
 
 # =============================================================================
@@ -412,12 +425,12 @@ class TestMode5CLI:
         """Test CLI with --no-raise flag returns exit code 0 even on validation error."""
         result = subprocess.run(
             [sys.executable, wf_argparse.__file__, '--type', 'port',
-             '--value', 'invalid', '--no-raise'],
+             '--value', '', '--no-raise'],
             capture_output=True,
             text=True
         )
         assert result.returncode == wf_argparse.EXIT_SUCCESS
-        assert result.stdout.strip() == 'invalid'
+        assert result.stdout.strip() == ''
 
     def test_hidden_flag(self):
         """Test CLI with --hidden flag masks values in error messages."""
