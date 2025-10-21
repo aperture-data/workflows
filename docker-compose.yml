@@ -327,7 +327,7 @@ services:
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
-            WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+            WF_CSS_SELECTOR: "${WF_CSS_SELECTOR}"
         volumes:
             - ./ca:/ca
 

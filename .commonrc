@@ -40,7 +40,7 @@ final_banner() {
 }
 
 trap 'echo "ERROR on line $LINENO: $BASH_COMMAND"' ERR
-trap 'ret=$?; cleanup; final_banner $ret ; exit $ret' EXIT
+trap 'ret=$?; cleanup; final_banner $ret ; sleep 10; exit $ret' EXIT
 
 run_pytest() {
   BUILD_WORKFLOW=${BUILD_WORKFLOW:-1}
