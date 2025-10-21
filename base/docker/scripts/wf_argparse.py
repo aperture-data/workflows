@@ -158,14 +158,15 @@ class ArgumentParser:
             f"name: {name}, envar_name: {envar_name}, legacy_envar_name: {legacy_envar_name}")
         if envar_name in os.environ:
             result = os.environ.get(envar_name)
-            # Treat empty strings as if the environment variable is not set
+            # Treat empty strings from environment variables as unset
+            # This handles cases where infrastructure sets env vars to empty strings
             if result == "":
                 result = default
             else:
                 logging.info(f"Using {envar_name} from environment -> {result}")
         elif self.support_legacy_envars and legacy_envar_name in os.environ:
             result = os.environ.get(legacy_envar_name)
-            # Treat empty strings as if the environment variable is not set
+            # Treat empty strings from environment variables as unset
             if result == "":
                 result = default
             else:

@@ -191,8 +191,15 @@ class TestMode2WFEnvars:
         os.environ['WF_TEST_ARG'] = value
         parser = wf_argparse.ArgumentParser(description='Test')
         parser.add_argument('--test-arg', type=validator_type, required=False)
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
+        
+        if value == "":
+            # Empty strings from environment variables are treated as unset
+            args = parser.parse_args([])
+            assert args.test_arg is None
+        else:
+            # Other invalid values should still fail
+            with pytest.raises(SystemExit):
+                parser.parse_args([])
 
     def test_sep_comma(self):
         """Test sep parameter with comma separator."""
