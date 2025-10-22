@@ -1,5 +1,12 @@
 #!/bin/bash
-set -e
+set -x
+set -euo pipefail
+cd $(dirname "$(readlink -f "$0")")
+source ../../.commonrc
 
-bash ../build.sh
-echo "This is manually tested for now."
+if [ $CI_RUN -eq 0 ]; then
+  $COMMAND build base
+fi
+
+$COMMAND build jupyterlab
+# $COMMAND up --exit-code-from ${COMPOSE_PROJECT_NAME} ${COMPOSE_PROJECT_NAME}

@@ -143,6 +143,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
         image: aperturedata/workflows-embeddings-extraction:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         # Don't let this service kill your dev box
         # It's OK, but lets' not over compensate for it.
         deploy:
@@ -196,6 +199,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
         image: aperturedata/workflows-jupyterlab:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         ports:
             - "8888:8888"
         environment:
