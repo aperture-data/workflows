@@ -9,4 +9,8 @@ if [ $CI_RUN -eq 0 ]; then
 fi
 
 $COMMAND build jupyterlab
-# $COMMAND up --exit-code-from ${COMPOSE_PROJECT_NAME} ${COMPOSE_PROJECT_NAME}
+
+$COMMAND up -d --wait ${COMPOSE_PROJECT_NAME}
+ret=$?
+
+exit $ret

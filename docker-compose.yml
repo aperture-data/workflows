@@ -7,6 +7,7 @@ x-definitions:
         BUILD_DATE: ${BUILD_DATE}
         DESCRIPTION: ${DESCRIPTION}
         SOURCE_URL: ${SOURCE_URL}
+        WORKFLOW_VERSION: ${VERSION}
     common-env: &common-env
         DB_HOST: ${DB_HOST:-}
         DB_PASS: ${DB_PASS:-}
@@ -204,10 +205,21 @@ services:
                 condition: service_started
         ports:
             - "8888:8888"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8888/login"]
+            interval: 3s
+            timeout: 3s
+            retries: 10
+            start_period: 20s
         environment:
             <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
+            DB_HOST: blah
+            HAS_DB_INFO: false
+        volumes:
+            - ./ca:/ca
+
     label-studio:
         build:
             context: ./apps/label-studio
