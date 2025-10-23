@@ -7,6 +7,7 @@ x-definitions:
         BUILD_DATE: ${BUILD_DATE}
         DESCRIPTION: ${DESCRIPTION}
         SOURCE_URL: ${SOURCE_URL}
+        WORKFLOW_VERSION: ${VERSION}
     common-env: &common-env
         DB_HOST: ${DB_HOST:-}
         DB_PASS: ${DB_PASS:-}
@@ -143,6 +144,9 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
         image: aperturedata/workflows-embeddings-extraction:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         # Don't let this service kill your dev box
         # It's OK, but lets' not over compensate for it.
         deploy:
@@ -196,12 +200,26 @@ services:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
         image: aperturedata/workflows-jupyterlab:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
         ports:
             - "8888:8888"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8888/login"]
+            interval: 3s
+            timeout: 3s
+            retries: 10
+            start_period: 20s
         environment:
             <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
+            DB_HOST: blah
+            HAS_DB_INFO: false
+        volumes:
+            - ./ca:/ca
+
     label-studio:
         build:
             context: ./apps/label-studio
@@ -327,7 +345,7 @@ services:
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_OUTPUT: "${WF_OUTPUT:-crawl-to-rag}"
             WF_CLEAN: "${WF_CLEAN:-true}"
-            WF_CSS_SELECTOR: "${WF_CSS_SELECTOR:-}"
+            WF_CSS_SELECTOR: "${WF_CSS_SELECTOR}"
         volumes:
             - ./ca:/ca
 

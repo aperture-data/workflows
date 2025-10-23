@@ -7,6 +7,7 @@ RUNNER_NAME="${RUNNER_NAME// /}"
 RUNNER_NAME="${RUNNER_NAME,,}"
 
 export BIN_DIR=$PWD
+TEST_LOG=$BIN_DIR/test.log
 export ROOT_DIR=$BIN_DIR/../..
 COMPOSE_PROJECT_NAME="$(basename $BIN_DIR)"
 SANDBOXED_COMPOSE_PROJECT_NAME="${RUNNER_NAME}-${COMPOSE_PROJECT_NAME}"
@@ -32,6 +33,7 @@ export DB_TCP_CN="lenz"
 export DB_HTTP_CN="nginx"
 
 cleanup() {
+  $COMMAND logs | tee -a $TEST_LOG
   $COMMAND down --remove-orphans || true
 }
 
@@ -45,7 +47,8 @@ final_banner() {
   fi
 }
 
-trap 'ret=$?; cleanup; final_banner $ret ; exit $ret' EXIT
+trap 'echo "ERROR on line $LINENO: $BASH_COMMAND"' ERR
+trap 'ret=$?; cleanup; final_banner $ret ; sleep 10; exit $ret' EXIT
 
 run_pytest() {
   BUILD_WORKFLOW=${BUILD_WORKFLOW:-1}
@@ -65,7 +68,6 @@ run_pytest() {
   fi
 
   # This log file is useful for debugging test failures
-  TEST_LOG=$BIN_DIR/test.log
   echo "Writing logs to $TEST_LOG"
   (
     sleep 5

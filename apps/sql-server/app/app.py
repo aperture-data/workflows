@@ -9,6 +9,7 @@ import os
 import logging
 import json
 from status_tools import StatusUpdater, WorkflowStatus
+from wf_argparse import validate
 
 
 app = FastAPI(
@@ -19,12 +20,14 @@ app = FastAPI(
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
-LOG_LEVEL = os.getenv("WF_LOG_LEVEL", "WARNING").upper()
+# Validate and sanitize all environment variable inputs
+LOG_LEVEL = validate("log_level", envar="WF_LOG_LEVEL", default="WARNING")
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-AUTH_TOKEN = os.getenv("WF_AUTH_TOKEN")  # checked in app.sh
+AUTH_TOKEN = validate("auth_token", envar="WF_AUTH_TOKEN", hidden=True)
 
+# These are hardcoded, not read from environment
 DB_DATABASE = "aperturedb"
 DB_USER = "aperturedb"
 DB_PASSWORD = AUTH_TOKEN  # Same key for both
