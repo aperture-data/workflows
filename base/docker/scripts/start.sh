@@ -332,8 +332,8 @@ trap cleanup EXIT
 main() {
     setup_logging
     start_status_server
-    if [ -z "${APERTUREDB_KEY:-}" ] && [ -z "${DB_PASS:-}" ]; then
-        echo "No ApertureDB key or DB password provided. Running app.sh directly."
+    if [ -z "${APERTUREDB_KEY:-}" ] && ( [ -z "${DB_PASS:-}" ] || [ -z "${DB_USER:-}" ] ); then
+        echo "No ApertureDB key or DB password or DB user provided. Running app.sh directly."
         bash app.sh |& tee -a $APPLOG
     else
         setup_database
