@@ -12,6 +12,7 @@ APP_NAME=$(/app/wf_argparse.py --type shell_safe --envar APP_NAME --default "uns
 USERLOG_MSG=$(/app/wf_argparse.py --type bool --envar USERLOG_MSG --default true)
 PUSH_TO_S3=$(/app/wf_argparse.py --type bool --envar PUSH_TO_S3 --default false)
 POST_TO_SLACK=$(/app/wf_argparse.py --type bool --envar POST_TO_SLACK --default false)
+HAS_DB_INFO=$(/app/wf_argparse.py --type bool --envar HAS_DB_INFO --default true)
 
 # Global variables
 OUTPUT="output"
@@ -58,7 +59,7 @@ start_status_server() {
     # Start fastapi-based status server
     # This is used to provide a status endpoint for the workflow.
     HOSTNAME=${STATUS_SERVER_HOSTNAME} PORT=${STATUS_SERVER_PORT} PROMETHEUS_PORT=${PROMETHEUS_PORT} python3 status_server.py &
-    
+
     # Wait for the status server to start
     while [ -z "$(lsof -i:8080)" ]; do
         echo "Waiting for Status Server to start on port 8080..."
@@ -76,7 +77,7 @@ setup_database() {
     local ADB_USE_REST=$(/app/wf_argparse.py --type bool --envar USE_REST --default false)
     local VERIFY_HOSTNAME_DEFAULT=$(/app/wf_argparse.py --type bool --envar VERIFY_HOSTNAME --default true)
     local CA_CERT=$(/app/wf_argparse.py --type file_path --envar CA_CERT --allow-unset)
-    
+
     # Initialize ADB_PORT
     local ADB_PORT
     local DB_PORT_VAL=""
@@ -152,11 +153,11 @@ app_error() {
     # Try to get error message from status server, but don't fail if we can't
     local error_message
     error_message=$(curl -s http://${STATUS_SERVER_HOSTNAME}:${STATUS_SERVER_PORT}/status | jq -r '.error_message // empty' 2>/dev/null || echo "")
-    
+
     if [ -z "$error_message" ]; then
         error_message="App failed"
     fi
-    
+
     python $STATUS_SCRIPT --completed 0 --error-message "${error_message}. Failed with exit code: ${app_exit_code}" --error-code "workflow_error"
     exit "${app_exit_code}"
 }
@@ -223,15 +224,15 @@ upload_to_s3() {
     # Validate and sanitize AWS credentials
     local AWS_ACCESS_KEY_ID_VAL=""
     local AWS_SECRET_ACCESS_KEY_VAL=""
-    
+
     if ([ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]) && [ -n "${WF_LOGS_AWS_CREDENTIALS:-}" ]; then
         echo "Using WF_LOGS_AWS_CREDENTIALS"
         local WF_LOGS_AWS_CREDENTIALS_VAL=$(/app/wf_argparse.py --type json --envar WF_LOGS_AWS_CREDENTIALS --allow-unset --hidden)
-        
+
         # Extract values from JSON
         local EXTRACTED_ACCESS_KEY=$(jq -r .access_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
         local EXTRACTED_SECRET_KEY=$(jq -r .secret_key <<< ${WF_LOGS_AWS_CREDENTIALS_VAL})
-        
+
         # Validate extracted values
         AWS_ACCESS_KEY_ID_VAL=$(/app/wf_argparse.py --type aws_access_key_id --value "${EXTRACTED_ACCESS_KEY}" --allow-unset --hidden)
         AWS_SECRET_ACCESS_KEY_VAL=$(/app/wf_argparse.py --type aws_secret_access_key --value "${EXTRACTED_SECRET_KEY}" --allow-unset --hidden)
@@ -244,7 +245,7 @@ upload_to_s3() {
         echo "No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY, skipping S3 upload"
         return 0
     fi
-    
+
     echo "Configuring AWS credentials to upload logs to S3"
     aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID_VAL}"
     aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY_VAL}"
@@ -280,7 +281,7 @@ upload_to_s3() {
 # Post notification to Slack
 post_to_slack() {
     local exit_code=$1
-    
+
     if [ "${POST_TO_SLACK}" != true ]; then
         return 0
     fi
@@ -305,7 +306,7 @@ post_to_slack() {
 # Cleanup function to be called on exit
 cleanup() {
     local exit_code=$?
-    
+
     # Upload results and post to Slack even on failure (disable errexit temporarily)
     set +o errexit
     upload_to_s3
@@ -319,7 +320,7 @@ cleanup() {
     local SLEEP_REPORT_TIME=6
     echo "Sleeping for $SLEEP_REPORT_TIME seconds to allow statuses to be reported..."
     sleep $SLEEP_REPORT_TIME
-    
+
     exit "${exit_code}"
 }
 
@@ -332,8 +333,13 @@ trap cleanup EXIT
 main() {
     setup_logging
     start_status_server
-    setup_database
-    run_app
+    if [ "${HAS_DB_INFO}" == true ]; then
+        setup_database
+        run_app
+    else
+        bash app.sh |& tee -a $APPLOG
+    fi
+
 }
 
 # Run main function
