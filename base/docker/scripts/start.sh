@@ -12,7 +12,6 @@ APP_NAME=$(/app/wf_argparse.py --type shell_safe --envar APP_NAME --default "uns
 USERLOG_MSG=$(/app/wf_argparse.py --type bool --envar USERLOG_MSG --default true)
 PUSH_TO_S3=$(/app/wf_argparse.py --type bool --envar PUSH_TO_S3 --default false)
 POST_TO_SLACK=$(/app/wf_argparse.py --type bool --envar POST_TO_SLACK --default false)
-HAS_DB_INFO=$(/app/wf_argparse.py --type bool --envar HAS_DB_INFO --default true)
 
 # Global variables
 OUTPUT="output"
@@ -333,11 +332,12 @@ trap cleanup EXIT
 main() {
     setup_logging
     start_status_server
-    if [ "${HAS_DB_INFO}" == true ]; then
+    if [ -z "${APERTUREDB_KEY:-}" ] && [ -z "${DB_PASS:-}" ]; then
+        echo "No ApertureDB key or DB password provided. Running app.sh directly."
+        bash app.sh |& tee -a $APPLOG
+    else
         setup_database
         run_app
-    else
-        bash app.sh |& tee -a $APPLOG
     fi
 
 }

@@ -212,11 +212,8 @@ services:
             retries: 10
             start_period: 20s
         environment:
-            <<: *common-env
             JUPYTER_TOKEN: "${JUPYTER_TOKEN:-test}"
             PASSWORD: "${PASSWORD:-test}"
-            DB_HOST: blah
-            HAS_DB_INFO: false
         volumes:
             - ./ca:/ca
 
