@@ -13,6 +13,7 @@ USERLOG_MSG=$(/app/wf_argparse.py --type bool --envar USERLOG_MSG --default true
 PUSH_TO_S3=$(/app/wf_argparse.py --type bool --envar PUSH_TO_S3 --default false)
 POST_TO_SLACK=$(/app/wf_argparse.py --type bool --envar POST_TO_SLACK --default false)
 HAS_DB_INFO=$(/app/wf_argparse.py --type bool --envar HAS_DB_INFO --default true)
+APERTUREDB_KEY=$(/app/wf_argparse.py --type shell_safe --envar APERTUREDB_KEY --allow-unset)
 
 # Global variables
 OUTPUT="output"
@@ -94,52 +95,56 @@ setup_database() {
         ADB_PORT=55555
     fi
 
-    # Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
-    local ADB_HOST
-    local ADB_VERIFY_HOSTNAME
-    if [ -n "${DB_HOST_PRIVATE:-}" ]; then
-        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PRIVATE)
-        ADB_VERIFY_HOSTNAME=false
-    elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
-        ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC)
-        ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
-    elif [ -z "${DB_HOST:-}" ]; then
-        ADB_HOST="localhost"
-        ADB_VERIFY_HOSTNAME=false
-    else
-        local DB_HOST_VAL=$(/app/wf_argparse.py --type hostname --envar DB_HOST )
-        if [ "${DB_HOST_VAL}" == "localhost" ] || [ "${DB_HOST_VAL}" == "127.0.0.1" ] || [ "${DB_HOST_VAL}" == "::1" ]; then
-            ADB_HOST="${DB_HOST_VAL}"
+    if [ -z "${APERTUREDB_KEY:-}" ]; then
+        # Initialize ADB_HOST and ADB_VERIFY_HOSTNAME
+        local ADB_HOST
+        local ADB_VERIFY_HOSTNAME
+        if [ -n "${DB_HOST_PRIVATE:-}" ]; then
+            ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PRIVATE)
+            ADB_VERIFY_HOSTNAME=false
+        elif [ -n "${DB_HOST_PUBLIC:-}" ]; then
+            ADB_HOST=$(/app/wf_argparse.py --type hostname --envar DB_HOST_PUBLIC)
+            ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
+        elif [ -z "${DB_HOST:-}" ]; then
+            ADB_HOST="localhost"
             ADB_VERIFY_HOSTNAME=false
         else
-            ADB_HOST="${DB_HOST_VAL}"
-            ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
+            local DB_HOST_VAL=$(/app/wf_argparse.py --type hostname --envar DB_HOST )
+            if [ "${DB_HOST_VAL}" == "localhost" ] || [ "${DB_HOST_VAL}" == "127.0.0.1" ] || [ "${DB_HOST_VAL}" == "::1" ]; then
+                ADB_HOST="${DB_HOST_VAL}"
+                ADB_VERIFY_HOSTNAME=false
+            else
+                ADB_HOST="${DB_HOST_VAL}"
+                ADB_VERIFY_HOSTNAME="${VERIFY_HOSTNAME_DEFAULT}"
+            fi
         fi
+
+        local params=()
+        if [ "${ADB_USE_SSL}" == false ]; then
+            params+=(--no-use-ssl)
+        elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
+            params+=(--no-verify-hostname)
+        fi
+
+        if [ "${ADB_USE_REST}" == true ]; then
+            params+=(--use-rest)
+        fi
+
+        if [[ -n "${CA_CERT:-}" ]]; then
+            echo "Using CA certificate: $CA_CERT"
+            params+=(--ca-cert "$CA_CERT")
+        fi
+
+        adb config create default \
+            --host=$ADB_HOST \
+            --port=$ADB_PORT \
+            --username=$ADB_USER \
+            --password=$ADB_PASS \
+            "${params[@]}" \
+            --no-interactive
     fi
 
-    local params=()
-    if [ "${ADB_USE_SSL}" == false ]; then
-        params+=(--no-use-ssl)
-    elif [ "${ADB_VERIFY_HOSTNAME}" == false ]; then
-        params+=(--no-verify-hostname)
-    fi
-
-    if [ "${ADB_USE_REST}" == true ]; then
-        params+=(--use-rest)
-    fi
-
-    if [[ -n "${CA_CERT:-}" ]]; then
-        echo "Using CA certificate: $CA_CERT"
-        params+=(--ca-cert "$CA_CERT")
-    fi
-
-    adb config create default \
-        --host=$ADB_HOST \
-        --port=$ADB_PORT \
-        --username=$ADB_USER \
-        --password=$ADB_PASS \
-        "${params[@]}" \
-        --no-interactive
+    ADB_HOST=$(adb config get .host)
 
     echo "Verifying connectivity to ${ADB_HOST}..." | tee -a $LOGFILE
     adb utils execute status 2>&1 | tee -a $LOGFILE
