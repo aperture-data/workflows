@@ -1,0 +1,24 @@
+services:
+  test-base:
+    build:
+      context: apps/dataset-ingestion-movies/test
+      dockerfile: Dockerfile
+    image: aperturedata/workflows-dataset-ingestion-movies-tests:${VERSION:-latest}
+    deploy:
+      replicas: 0
+
+  tests:
+    image: aperturedata/workflows-dataset-ingestion-movies-tests:${VERSION:-latest}
+    depends_on:
+      dataset-ingestion-movies:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+    volumes:
+      - ./ca:/ca
+    working_dir: /app
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
