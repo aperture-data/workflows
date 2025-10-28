@@ -46,12 +46,12 @@ class StatusUpdater:
         if accessible is not None:
             wf_status["accessible"] = accessible
         if len(wf_status) > 0:
-            print(f"Updating status: {wf_status}")
             try:
                 update_response = requests.post(
-                        f"http://{os.environ.get('HOSTNAME')}:8080/response",
+                        f"http://localhost:8080/response",
                         json=wf_status
                     )
+                print(f"Updating status: {wf_status}. Got {update_response.status_code}")
             except Exception as e:
                 print(f"Failed to update status: {e}")
 
