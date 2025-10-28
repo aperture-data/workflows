@@ -4,13 +4,14 @@ import json
 import pandas as pd
 from tqdm import tqdm
 
-from movie_record import make_movie_with_all_connections
+from movie_record import make_movie_with_all_connections, create_indexes
 from movie_parser import MovieParser
 
 from aperturedb.ParallelLoader import ParallelLoader
 from aperturedb.CommonLibrary import (
     create_connector
 )
+from aperturedb.Utils import Utils
 
 app = Typer()
 
@@ -58,6 +59,8 @@ def ingest_movies():
 
     parser = MovieParser(collection)
     db = create_connector()
+    utils = Utils(db)
+    create_indexes(utils)
     loader = ParallelLoader(db)
     ParallelLoader.setSuccessStatus([0, 2])
     loader.ingest(parser, batchsize=100, numthreads=8, stats=True)

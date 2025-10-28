@@ -1,5 +1,6 @@
 from typing import List
 from aperturedb.Query import QueryBuilder
+from aperturedb.Utils import Utils
 
 def make_movie_with_all_connections(j: dict) -> List[dict]:
     """
@@ -49,11 +50,11 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
         connection_parameters = dict(src=1, dst=index, properties=dict(
             character=c["character"],
             cast_id=c["cast_id"],
-            name="CAST",
-            uniqueid="CAST"
+            name="HAS_CAST",
+            uniqueid="HAS_CAST"
             )
         )
-        connection_parameters["class"] = "CAST"
+        connection_parameters["class"] = "HAS_CAST"
         connection = QueryBuilder.add_command("_Connection", connection_parameters)
         transaction.append(connection)
         index += 1
@@ -74,12 +75,12 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
             department=c["department"],
             job=c["job"],
             credit_id=c["credit_id"],
-            name="CREW",
-            uniqueid="CREW"
+            name="HAS_CREW",
+            uniqueid="HAS_CREW"
             )
         )
         connection = QueryBuilder.add_command("_Connection", connection_parameters)
-        connection_parameters["class"] = "CREW"
+        connection_parameters["class"] = "HAS_CREW"
         transaction.append(connection)
         index += 1
 
@@ -160,3 +161,15 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
         index += 1
 
     return transaction
+
+def create_indexes(utils: Utils):
+    utils.create_entity_index("MOVIE", "id")
+    utils.create_entity_index("PROFESSIONAL", "id")
+    utils.create_entity_index("GENRE", "id")
+    utils.create_entity_index("PRODUCTION_COMPANY", "id")
+    utils.create_entity_index("KEYWORD", "id")
+    utils.create_entity_index("SPOKEN_LANGUAGE", "iso_639_1")
+
+
+    utils.create_connection_index("CAST", "cast_id")
+    utils.create_connection_index("CREW", "crew_id")
