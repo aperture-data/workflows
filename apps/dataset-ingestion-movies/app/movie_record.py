@@ -1,6 +1,7 @@
 from typing import List
 from aperturedb.Query import QueryBuilder
 from aperturedb.Utils import Utils
+import requests
 
 def make_movie_with_all_connections(j: dict) -> List[dict]:
     """
@@ -16,6 +17,7 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
         List[dict]: A list of commands to be executed in the database.
     """
     transaction = []
+    blobs = []
     movie_parameters = dict(_ref=1, properties=dict(
         id=str(j["tmdb_5000_credits.csv/movie_id"]),
         movie_id=j["tmdb_5000_credits.csv/movie_id"],
@@ -160,7 +162,28 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
         transaction.append(connection)
         index += 1
 
-    return transaction
+    bucket_prefix = "https://storage.googleapis.com/ad-demos-datasets/tmdb/posters"
+    request = requests.get(f"{bucket_prefix}/{movie_parameters['properties']['id']}.jpg")
+    if request.status_code == 200:
+        image_data = request.content
+        image_command = QueryBuilder.add_command("_Image", dict(
+            _ref=index,
+            properties=dict(
+                id=movie_parameters['properties']['id']
+            ), if_not_found=dict(id=["==", movie_parameters['properties']['id']])
+        ))
+        transaction.append(image_command)
+        connection_parameters = dict(src=1, dst=index, properties=dict(
+            name="HAS_IMAGE",
+            uniqueid="HAS_IMAGE"
+        ))
+        connection_parameters["class"] = "HAS_IMAGE"
+        connection = QueryBuilder.add_command("_Connection", connection_parameters)
+        transaction.append(connection)
+        blobs.append(image_data)
+        index += 1
+
+    return transaction, blobs
 
 def create_indexes(utils: Utils):
     utils.create_entity_index("MOVIE", "id")
@@ -169,6 +192,7 @@ def create_indexes(utils: Utils):
     utils.create_entity_index("PRODUCTION_COMPANY", "id")
     utils.create_entity_index("KEYWORD", "id")
     utils.create_entity_index("SPOKEN_LANGUAGE", "iso_639_1")
+    utils.create_entity_index("_Image", "id")
 
 
     utils.create_connection_index("CAST", "cast_id")

@@ -63,7 +63,7 @@ def ingest_movies():
     create_indexes(utils)
     loader = ParallelLoader(db)
     ParallelLoader.setSuccessStatus([0, 2])
-    loader.ingest(parser, batchsize=100, numthreads=8, stats=True)
+    loader.ingest(parser, batchsize=10, numthreads=8, stats=True)
 
 
 if __name__ == "__main__":

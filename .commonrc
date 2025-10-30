@@ -6,6 +6,8 @@ RUNNER_NAME="${RUNNER_NAME// /}"
 # convert to lowercase (a restriction of docker compose)
 RUNNER_NAME="${RUNNER_NAME,,}"
 
+CLEANUP_ON_EXIT=${CLEANUP_ON_EXIT:-1}
+
 export BIN_DIR=$PWD
 TEST_LOG=$BIN_DIR/test.log
 export ROOT_DIR=$BIN_DIR/../..
@@ -48,7 +50,7 @@ final_banner() {
 }
 
 trap 'echo "ERROR on line $LINENO: $BASH_COMMAND"' ERR
-trap 'ret=$?; cleanup; final_banner $ret ; sleep 10; exit $ret' EXIT
+trap 'ret=$?; if [ $CLEANUP_ON_EXIT -eq 1 ]; then cleanup; fi; final_banner $ret ; sleep 10; exit $ret' EXIT
 
 run_pytest() {
   BUILD_WORKFLOW=${BUILD_WORKFLOW:-1}
