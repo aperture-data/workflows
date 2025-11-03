@@ -13,6 +13,8 @@ from aperturedb.CommonLibrary import (
 )
 from aperturedb.Utils import Utils
 
+from embeddings import Embedder, DEFAULT_MODEL
+
 app = Typer()
 
 def deserialize_record(record):
@@ -47,6 +49,13 @@ def ingest_movies():
         left_on="tmdb_5000_credits.csv/movie_id")
 
     collection = []
+    db = create_connector()
+    descriptor_set = "wf_embeddings_clip"
+    embedder = Embedder.from_new_descriptor_set(
+        db, descriptor_set,
+        provider="clip",
+        model_name="ViT-B/16",
+        properties={"type": "text", "source_type": "movie"})
     for record in tqdm(records.iterrows()):
         columns = records.columns
         count = 0
@@ -54,11 +63,13 @@ def ingest_movies():
         for c in columns:
             j[c] = deserialize_record(record[1][c])
         count += 1
-        movie = make_movie_with_all_connections(j)
+        movie = make_movie_with_all_connections(j, embedder)
         collection.append(movie)
 
+
+
     parser = MovieParser(collection)
-    db = create_connector()
+
     utils = Utils(db)
     create_indexes(utils)
     loader = ParallelLoader(db)

@@ -3,7 +3,10 @@ from aperturedb.Query import QueryBuilder
 from aperturedb.Utils import Utils
 import requests
 
-def make_movie_with_all_connections(j: dict) -> List[dict]:
+from embeddings import Embedder
+
+
+def make_movie_with_all_connections(j: dict, embedder: Embedder) -> List[dict]:
     """
     This is where we create the Commands to create Movie and Professional objects
     and the HasCast connection between them.
@@ -183,6 +186,30 @@ def make_movie_with_all_connections(j: dict) -> List[dict]:
         blobs.append(image_data)
         index += 1
 
+    tagline_embedding = embedder.embed_text(movie_parameters['properties']['tagline'])
+    tagline_blob = tagline_embedding.tobytes()
+    tagline_command = QueryBuilder.add_command("_Descriptor", dict(
+        _ref=index,
+        set=embedder.descriptor_set,
+        properties=dict(
+            source_property="tagline",
+            id=movie_parameters['properties']['id']
+        )
+    ))
+    transaction.append(tagline_command)
+    blobs.append(tagline_blob)
+    connection_parameters = dict(src=1, dst=index, properties=dict(
+        name="HAS_TAGLINE_EMBEDDING",
+        uniqueid="HAS_TAGLINE_EMBEDDING"
+    ))
+    connection_parameters["class"] = "HAS_TAGLINE_EMBEDDING"
+    connection = QueryBuilder.add_command("_Connection", connection_parameters)
+    transaction.append(connection)
+
+    index += 1
+
+
+    print(f"Added {index} entities and {len(blobs)} blobs")
     return transaction, blobs
 
 def create_indexes(utils: Utils):
@@ -197,3 +224,8 @@ def create_indexes(utils: Utils):
 
     utils.create_connection_index("CAST", "cast_id")
     utils.create_connection_index("CREW", "crew_id")
+    utils.create_connection_index("HAS_GENRE", "id")
+    # Demo has embeddings
+    utils.create_entity_index("_Descriptor", "_create_txn")
+    utils.create_entity_index("_Descriptor", "id")
+    utils.create_entity_index("_DescriptorSet", "_name")

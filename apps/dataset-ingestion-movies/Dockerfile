@@ -4,6 +4,10 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=dataset-ingestion-movies
 
+# Install dependencies for embeddings
+RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
+RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+
 COPY requirements.txt /
 RUN apt-get update && apt-get install -y \
     git \
