@@ -8,4 +8,4 @@ fastapi
 uvicorn[standard]
 huggingface-hub
 accelerate
-aimon
+aimon>v0.12.0
