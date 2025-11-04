@@ -311,7 +311,7 @@ async def config(request: Request):
     count = retriever.count() if retriever else 0
 
     db_host = validate("hostname", envar="DB_HOST", allow_unset=True)
-    
+
     config = {
         "llm_provider": llm.provider,
         "llm_model": llm.model,
@@ -472,6 +472,11 @@ def get_args(argv=[]):
                      help='The number of documents to return from the retriever',
                      default=4,
                      type=int)
+
+    obj.add_argument('--allowed-origins',
+                     help='The allowed origins for CORS',
+                     default="http://localhost",
+                     type=str)
 
     obj.add_argument('--aimon-api-key',
                      help='API key for AIMON')
