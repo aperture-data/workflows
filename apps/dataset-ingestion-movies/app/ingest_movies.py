@@ -4,16 +4,20 @@ import json
 import pandas as pd
 from tqdm import tqdm
 
-from movie_record import make_movie_with_all_connections, create_indexes
+from movie_record import make_movie_with_all_connections, create_indexes, DATASET_NAME
 from movie_parser import MovieParser
 
 from aperturedb.ParallelLoader import ParallelLoader
 from aperturedb.CommonLibrary import (
-    create_connector
+    create_connector,
+    execute_query
 )
 from aperturedb.Utils import Utils
 
 from embeddings import Embedder, DEFAULT_MODEL
+
+# constants
+CROISSANT_URL = "https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata/croissant/download"
 
 app = Typer()
 
@@ -26,10 +30,35 @@ def deserialize_record(record):
             pass
     return deserialized
 
+def cleanup_movies(db):
+    """
+    Cleanup the movies dataset from ApertureDB.
+    """
+    query = [
+    {
+        "DeleteEntity": {
+            "constraints": {
+                "dataset_name": ["==", DATASET_NAME]
+            }
+        }
+    },
+    {
+        "DeleteDescriptorSet": {
+            "constraints": {
+                "dataset_name": ["==", DATASET_NAME]
+            }
+        }
+    }
+    ]
+    execute_query(db, query=query)
+
 @app.command()
-def ingest_movies():
+def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False):
+    """
+    Ingest the movies dataset into ApertureDB.
+    """
     # Fetch the Croissant JSON-LD
-    croissant_dataset = mlc.Dataset('https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata/croissant/download')
+    croissant_dataset = mlc.Dataset(CROISSANT_URL)
 
     # Get record sets in the dataset
     record_sets = croissant_dataset.metadata.record_sets
@@ -50,12 +79,14 @@ def ingest_movies():
 
     collection = []
     db = create_connector()
+    cleanup_movies(db)
+
     descriptor_set = "wf_embeddings_clip"
     embedder = Embedder.from_new_descriptor_set(
         db, descriptor_set,
         provider="clip",
         model_name="ViT-B/16",
-        properties={"type": "text", "source_type": "movie"})
+        properties={"type": "text", "source_type": "movie", "dataset_name": DATASET_NAME})
     for record in tqdm(records.iterrows()):
         columns = records.columns
         count = 0
@@ -63,7 +94,7 @@ def ingest_movies():
         for c in columns:
             j[c] = deserialize_record(record[1][c])
         count += 1
-        movie = make_movie_with_all_connections(j, embedder)
+        movie = make_movie_with_all_connections(j, embedder, ingest_posters, embed_tagline)
         collection.append(movie)
 
 
