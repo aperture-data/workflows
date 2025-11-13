@@ -417,6 +417,24 @@ services:
             LOAD_CELEBAHQ: "${LOAD_CELEBAHQ:-false}"
             WF_DATA_SOURCE_GCP_BUCKET: "${WF_DATA_SOURCE_GCP_BUCKET:-ad-demos-datasets}"
 
+    dataset-ingestion-movies:
+        build:
+            context: ./apps/dataset-ingestion-movies
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion-movies:${VERSION}"
+        image: aperturedata/workflows-dataset-ingestion-movies:${VERSION}
+        depends_on:
+            lenz:
+                condition: service_started
+        volumes:
+            - ./ca:/ca
+        environment:
+            <<: *common-env
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+
     add-image:
         image: aperturedata/wf-add-image:latest
         depends_on:

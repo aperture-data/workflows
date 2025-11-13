@@ -122,6 +122,7 @@ jobs:
           sql-server,
           label-studio,
           ocr-extraction,
+          dataset-ingestion-movies
         ]
     runs-on:
       - ubuntu-latest
@@ -229,7 +230,7 @@ jobs:
           path: |
             apps/${{ matrix.app }}/test.log
           if-no-files-found: ignore
-          
+
       - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time
