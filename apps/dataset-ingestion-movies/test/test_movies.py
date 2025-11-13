@@ -16,12 +16,12 @@ def db_connection():
 def run_query(db_connection):
     """Get the results of the query."""
     entity_types = [
-        "MOVIE",
-        "GENRE",
-        "PROFESSIONAL",
-        "KEYWORD",
-        "PRODUCTION_COMPANY",
-        "SPOKEN_LANGUAGE"
+        "Movie",
+        "Genre",
+        "Professional",
+        "Keyword",
+        "ProductionCompany",
+        "SpokenLanguage"
         ]
     query = [
         {
@@ -40,12 +40,12 @@ def run_query(db_connection):
 @pytest.fixture(scope="module")
 def run_connection_query(db_connection):
     connection_triples = [
-        ("MOVIE", "HAS_GENRE", "GENRE"),
-        ("MOVIE", "HAS_CAST", "PROFESSIONAL"),
-        ("MOVIE", "HAS_CREW", "PROFESSIONAL"),
-        ("MOVIE", "HAS_KEYWORD", "KEYWORD"),
-        ("MOVIE", "HAS_PRODUCTION_COMPANY", "PRODUCTION_COMPANY"),
-        ("MOVIE", "HAS_SPOKEN_LANGUAGE", "SPOKEN_LANGUAGE")
+        ("Movie", "HasGenre", "Genre"),
+        ("Movie", "HasCast", "Professional"),
+        ("Movie", "HasCrew", "Professional"),
+        ("Movie", "HasKeyword", "Keyword"),
+        ("Movie", "HasProductionCompany", "ProductionCompany"),
+        ("Movie", "HasSpokenLanguage", "SpokenLanguage")
     ]
     query = []
     i = 1
