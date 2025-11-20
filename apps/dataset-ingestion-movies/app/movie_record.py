@@ -28,6 +28,7 @@ HAS_KEYWORD_CONNECTION_LABEL = "HasKeyword"
 HAS_SPOKEN_LANGUAGE_CONNECTION_LABEL = "HasSpokenLanguage"
 HAS_IMAGE_CONNECTION_LABEL = "HasImage"
 HAS_TAGLINE_EMBEDDING_CONNECTION_LABEL = "HasTaglineEmbedding"
+HAS_IMAGE_EMBEDDING_CONNECTION_LABEL = "HasImageEmbedding"
 
 def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters: bool = False, embed_tagline: bool = False) -> List[dict]:
     """
@@ -218,17 +219,41 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             blobs.append(image_data)
             index += 1
 
+            image_descriptor = embedder.embed_image(image_data)
+            image_descriptor_blob = image_descriptor.tobytes()
+            image_descriptor_id = f"image_embedding_{movie_parameters['properties']['id']}"
+            image_descriptor_command = QueryBuilder.add_command(DESCRIPTOR_LABEL, dict(
+                _ref=index,
+                set=embedder.descriptor_set,
+                properties=dict(
+                    source="image",
+                    dataset_name=DATASET_NAME,
+                    id=image_descriptor_id,
+                ), if_not_found=dict(id=["==", image_descriptor_id])
+            ))
+            transaction.append(image_descriptor_command)
+            blobs.append(image_descriptor_blob)
+            connection_parameters = dict(src=index - 1, dst=index, properties=dict(
+                name=HAS_IMAGE_EMBEDDING_CONNECTION_LABEL,
+                uniqueid=HAS_IMAGE_EMBEDDING_CONNECTION_LABEL
+            ))
+            connection_parameters["class"] = HAS_IMAGE_EMBEDDING_CONNECTION_LABEL
+            connection = QueryBuilder.add_command(CONNECTION_LABEL, connection_parameters)
+            transaction.append(connection)
+            index += 1
+
     if embed_tagline:
         tagline_embedding = embedder.embed_text(movie_parameters['properties']['tagline'])
         tagline_blob = tagline_embedding.tobytes()
+        tagline_descriptor_id = f"tagline_embedding_{movie_parameters['properties']['id']}"
         tagline_command = QueryBuilder.add_command(DESCRIPTOR_LABEL, dict(
             _ref=index,
             set=embedder.descriptor_set,
             properties=dict(
-                source_property="tagline",
-                id=movie_parameters['properties']['id'],
+                source="tagline",
+                id=tagline_descriptor_id,
                 dataset_name=DATASET_NAME
-            )
+            ), if_not_found=dict(id=["==", tagline_descriptor_id])
         ))
         transaction.append(tagline_command)
         blobs.append(tagline_blob)
