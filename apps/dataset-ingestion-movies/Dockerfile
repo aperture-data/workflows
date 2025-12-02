@@ -2,7 +2,7 @@
 ARG VERSION=latest
 FROM aperturedata/workflows-base:${VERSION}
 
-ENV APP_NAME=dataset-ingestion-movies
+ENV APP_NAME=workflows-dataset-ingestion-movies
 
 # Install dependencies for embeddings
 RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
