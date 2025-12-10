@@ -93,6 +93,7 @@ docker run \
 Parameters:
 * **`INGEST_POSTERS`**: Add poster images and their embeddings to database.
 * **`EMBED_TAGLINE`**: Add embeddings for the tagline text to the database.
+* **`SAMPLE_COUNT`**: Number of movies to ingest. Defaults to -1 (all).
 
 How dataset ingestion (movies) works:
 
