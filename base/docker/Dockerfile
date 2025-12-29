@@ -48,6 +48,7 @@ COPY scripts/log_processor.py app/
 COPY scripts/text_extraction app/text_extraction/
 COPY scripts/embeddings app/embeddings/
 COPY scripts/sitecustomize.py app/
+COPY scripts/add_width_and_height_to_images.py app/
 
 COPY scripts/start.sh /
 RUN echo "${WORKFLOW_VERSION}" > /app/workflow_version
