@@ -17,7 +17,7 @@ dataset-ingestion-movies adds all the records from TMDB dataset to the ApertureD
 
 ```mermaid
 erDiagram
-    MOVIE {
+    Movie {
         string id
         string movie_id
         string title
@@ -30,22 +30,38 @@ erDiagram
         string dataset_name
         label movie
     }
-    PROFESSIONAL {
+    Professional {
         string name
         int gender
         string dataset_name
     }
-    KEYWORD {
-
+    ProductionCompany {
+        string dataset_name
     }
-    MOVIE }o--o{ PROFESSIONAL : HAS_CAST
-    MOVIE }o--o{ PROFESSIONAL : HAS_CREW
-    MOVIE }o--o{ GENRE : HAS_GENRE
-    MOVIE }o--o{ SPOKEN_LANGUAGE : HAS_SPOKEN_LANGUAGE
-    MOVIE }o--o{ KEYWORD : HAS_KEYWORD
-    MOVIE }o--o{ PRODUCTION_COMPANY : HAS_PRODUCTION_COMPANY
-    MOVIE ||--|| TAGLINE_EMBEDDING : HAS_TAGLINE_EMBEDDING
-    MOVIE |o--|| POSTER: HAS_POSTER
+    SpokenLanguage {
+        string dataset_name
+    }
+    Genre {
+        string dataset_name
+    }
+    Keyword {
+        string dataset_name
+    }
+    Descriptor {
+        string source
+    }
+    Image {
+        string dataset_name
+    }
+    Movie }o--o{ Professional : HasCast
+    Movie }o--o{ Professional : HasCrew
+    Movie }o--o{ Genre : HasGenre
+    Movie }o--o{ SpokenLanguage : HasSpokenLanguage
+    Movie }o--o{ Keyword : HasKeyword
+    Movie }o--o{ ProductionCompany : HasProductionCompany
+    Movie ||--|| Descriptor : HasTaglineEmbedding
+    Movie |o--|| Image: HasPoster
+    Image |o--|| Descriptor: HasPosterEmbedding
 
 ```
 
@@ -53,12 +69,14 @@ erDiagram
 
 After a successful ingestion, the following types of objects are typically added to ApertureDB:
 
-- **MOVIE**
-- **PROFESSIONAL**: Crew and Cast associated with the movie
-- **KEYWORD**: Each data item (e.g., row, record) is stored as an entity.
+- **Movie**
+- **Professional**: Crew and Cast associated with the movie
+- **Keyword**: Each data item (e.g., row, record) is stored as an entity.
 - **Image**: Posters for some of the movies.
-- **SPOKEN_LANGUAGE**
-- **GENRE**
+- **SpokenLanguage**
+- **Genre**
+- **ProductionCompany**
+
 
 
 
@@ -72,7 +90,12 @@ docker run \
            aperturedata/workflows-dataset-ingestion-movies
 ```
 
-How dataset ingestion demos work:
+Parameters:
+* **`INGEST_POSTERS`**: Add poster images and their embeddings to database.
+* **`EMBED_TAGLINE`**: Add embeddings for the tagline text to the database.
+* **`SAMPLE_COUNT`**: Number of movies to ingest. Defaults to -1 (all).
+
+How dataset ingestion (movies) works:
 
 1. **Cleanup**: Removes all objects that have a property called dataset_name, and it's value as 'tmdb_5000'.
 2. **Ingestion**: It changes the flat records from the croissant url of the dbs and stores it in property graph.
@@ -83,12 +106,19 @@ How dataset ingestion demos work:
 
 ## Cleaning up
 
-Executing the [query](https://github.com/aperture-data/workflows/blob/main/apps/ingest-croissant/app/delete_dataset_by_url.json) against the instance of ApertureDB will selectively clean the DB of the ingested Croissant dataset, if the constraint is specified in selection of the DatasetModel Entity. Here's an example:
+Executing the following query will selectively delete all the Objects added to the DB via the workflow.
 
 ```json
 [
     {
         "DeleteEntity": {
+            "constraints": {
+                "dataset_name": ["==", 'tmdb_5000']
+            }
+        }
+    },
+    {
+        "DeleteImage": {
             "constraints": {
                 "dataset_name": ["==", 'tmdb_5000']
             }

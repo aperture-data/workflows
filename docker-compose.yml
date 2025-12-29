@@ -434,6 +434,7 @@ services:
         environment:
             <<: *common-env
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+            SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
 
     add-image:
         image: aperturedata/wf-add-image:latest

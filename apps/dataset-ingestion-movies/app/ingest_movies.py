@@ -43,6 +43,13 @@ def cleanup_movies(db):
         }
     },
     {
+        "DeleteImage": {
+            "constraints": {
+                "dataset_name": ["==", DATASET_NAME]
+            }
+        }
+    },
+    {
         "DeleteDescriptorSet": {
             "constraints": {
                 "dataset_name": ["==", DATASET_NAME]
@@ -53,7 +60,7 @@ def cleanup_movies(db):
     execute_query(db, query=query)
 
 @app.command()
-def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False):
+def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sample_count: int = -1):
     """
     Ingest the movies dataset into ApertureDB.
     """
@@ -77,6 +84,9 @@ def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False):
         right_on="tmdb_5000_movies.csv/id",
         left_on="tmdb_5000_credits.csv/movie_id")
 
+    if sample_count > 0:
+        records = records.head(sample_count)
+
     collection = []
     db = create_connector()
     cleanup_movies(db)
@@ -96,8 +106,6 @@ def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False):
         count += 1
         movie = make_movie_with_all_connections(j, embedder, ingest_posters, embed_tagline)
         collection.append(movie)
-
-
 
     parser = MovieParser(collection)
 
