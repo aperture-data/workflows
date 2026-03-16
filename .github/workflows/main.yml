@@ -5,9 +5,9 @@ on:
     branches:
       - main
 
-  # Daily build
+  # Weekly build (Wednesdays at 02:00 UTC)
   schedule:
-  - cron: "0 2 * * 3"
+    - cron: "0 2 * * 3"
 
   push:
     branches:
