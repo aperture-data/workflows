@@ -1,2 +1,2 @@
 pytest
-aperturedb
+aperturedb==0.4.58

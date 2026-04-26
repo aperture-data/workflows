@@ -10,7 +10,7 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
 
 
 RUN pip3 install --upgrade pip && \
-    pip3 install aperturedb
+    pip3 install aperturedb==0.4.58
 
 
 
