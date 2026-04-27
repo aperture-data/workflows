@@ -29,6 +29,8 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /
+# Bust cache when a new version of aperturedb is published to PyPI
+ADD "https://pypi.org/pypi/aperturedb/json" /tmp/aperturedb_version.json
 RUN pip3 install --upgrade pip && \
     pip3 install --no-cache-dir -r /requirements.txt
 

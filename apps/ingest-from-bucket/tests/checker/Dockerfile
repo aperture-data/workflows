@@ -9,6 +9,8 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
+# Bust cache when a new version of aperturedb is published to PyPI
+ADD "https://pypi.org/pypi/aperturedb/json" /tmp/aperturedb_version.json
 RUN pip3 install --upgrade pip && \
     pip3 install aperturedb
 
