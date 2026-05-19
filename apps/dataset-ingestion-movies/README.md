@@ -60,8 +60,8 @@ erDiagram
     Movie }o--o{ Keyword : HasKeyword
     Movie }o--o{ ProductionCompany : HasProductionCompany
     Movie ||--|| Descriptor : HasTaglineEmbedding
-    Movie |o--|| Image: HasPoster
-    Image |o--|| Descriptor: HasPosterEmbedding
+    Movie |o--|| Image : HasPoster
+    Image |o--|| Descriptor : HasPosterEmbedding
 
 ```
 
@@ -97,7 +97,7 @@ Parameters:
 
 How dataset ingestion (movies) works:
 
-1. **Cleanup**: Removes all objects that have a property called dataset_name, and it's value as 'tmdb_5000'.
+1. **Cleanup**: Removes all objects that have a property called dataset_name, and its value as 'tmdb_5000'.
 2. **Ingestion**: It changes the flat records from the croissant url of the dbs and stores it in property graph.
 3. **Completion**: Once complete, the dataset is available in the database for querying and further processing.
 

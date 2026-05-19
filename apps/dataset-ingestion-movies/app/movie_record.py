@@ -26,9 +26,9 @@ HAS_GENRE_CONNECTION_LABEL = "HasGenre"
 HAS_PRODUCTION_COMPANY_CONNECTION_LABEL = "HasProductionCompany"
 HAS_KEYWORD_CONNECTION_LABEL = "HasKeyword"
 HAS_SPOKEN_LANGUAGE_CONNECTION_LABEL = "HasSpokenLanguage"
-HAS_IMAGE_CONNECTION_LABEL = "HasPoster"
+HAS_POSTER_CONNECTION_LABEL = "HasPoster"
 HAS_TAGLINE_EMBEDDING_CONNECTION_LABEL = "HasTaglineEmbedding"
-HAS_IMAGE_EMBEDDING_CONNECTION_LABEL = "HasPosterEmbedding"
+HAS_POSTER_EMBEDDING_CONNECTION_LABEL = "HasPosterEmbedding"
 
 def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters: bool = False, embed_tagline: bool = False) -> List[dict]:
     """
@@ -210,10 +210,10 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             ))
             transaction.append(image_command)
             connection_parameters = dict(src=1, dst=index, properties=dict(
-                name=HAS_IMAGE_CONNECTION_LABEL,
-                uniqueid=HAS_IMAGE_CONNECTION_LABEL
+                name=HAS_POSTER_CONNECTION_LABEL,
+                uniqueid=HAS_POSTER_CONNECTION_LABEL
             ))
-            connection_parameters["class"] = HAS_IMAGE_CONNECTION_LABEL
+            connection_parameters["class"] = HAS_POSTER_CONNECTION_LABEL
             connection = QueryBuilder.add_command(CONNECTION_LABEL, connection_parameters)
             transaction.append(connection)
             blobs.append(image_data)
@@ -234,10 +234,10 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             transaction.append(image_descriptor_command)
             blobs.append(image_descriptor_blob)
             connection_parameters = dict(src=index - 1, dst=index, properties=dict(
-                name=HAS_IMAGE_EMBEDDING_CONNECTION_LABEL,
-                uniqueid=HAS_IMAGE_EMBEDDING_CONNECTION_LABEL
+                name=HAS_POSTER_EMBEDDING_CONNECTION_LABEL,
+                uniqueid=HAS_POSTER_EMBEDDING_CONNECTION_LABEL
             ))
-            connection_parameters["class"] = HAS_IMAGE_EMBEDDING_CONNECTION_LABEL
+            connection_parameters["class"] = HAS_POSTER_EMBEDDING_CONNECTION_LABEL
             connection = QueryBuilder.add_command(CONNECTION_LABEL, connection_parameters)
             transaction.append(connection)
             index += 1
