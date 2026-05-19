@@ -71,6 +71,8 @@ common+=( -e "WF_INGEST_IMAGES=True")
 common+=( -e "WF_INGEST_VIDEOS=True")
 common+=( -e "WF_INGEST_PDFS=True")
 common+=( -e "DB_HOST=${DB_NAME}" )
+common+=( -e "VERIFY_HOSTNAME=False" )
+common+=( -e "APERTUREDB_JSON={\"host\": \"${DB_NAME}\", \"port\": 55555, \"username\": \"admin\", \"password\": \"admin\", \"use_ssl\": true, \"verify_hostname\": false}" )
 common+=( --network ${NW_NAME} )
 
 checker_opts=()
