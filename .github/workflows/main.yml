@@ -150,6 +150,8 @@ jobs:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+          WF_INGEST_BUCKET_AWS_CREDS: ${{ secrets.WF_INGEST_BUCKET_AWS_CREDS }}
+          WF_INGEST_BUCKET_GCP_CREDS: ${{ secrets.WF_INGEST_BUCKET_GCP_CREDS }}
           RUNNER_NAME: ${{ runner.name }}
           WORKFLOW_VERSION: $VERSION
           CI_RUN: 1
@@ -206,6 +208,8 @@ jobs:
           CLEANUP: "true"
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
+          WF_INGEST_BUCKET_AWS_CREDS: ${{ secrets.WF_INGEST_BUCKET_AWS_CREDS }}
+          WF_INGEST_BUCKET_GCP_CREDS: ${{ secrets.WF_INGEST_BUCKET_GCP_CREDS }}
           RUNNER_NAME: ${{ runner.name }}
           WORKFLOW_VERSION: $VERSION
           CI_RUN: 1

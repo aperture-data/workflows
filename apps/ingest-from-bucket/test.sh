@@ -3,21 +3,14 @@
 set -x
 set -euo pipefail
 
-# Unblock the CI.
-echo "TODO: Need to run this with correct credentials : https://github.com/aperture-data/workflows/issues/160"
-bash ../build.sh
-exit $?
-### End of Unblock
+[ -f test.env ] && . test.env || true
 
-. test.env
-# ensure required environment variables are set
-
-if [ -z "${WF_INGEST_BUCKET_AWS_CREDS}" ]; then
+if [ -z "${WF_INGEST_BUCKET_AWS_CREDS:-}" ]; then
     echo "missing AWS credentials; fail."
     exit 1
 fi
 
-if [ -z "${WF_INGEST_BUCKET_GCP_CREDS}" ]; then
+if [ -z "${WF_INGEST_BUCKET_GCP_CREDS:-}" ]; then
     echo "missing GCP credentials; fail."
     exit 1
 fi
