@@ -120,13 +120,16 @@ class FDW(ForeignDataWrapper):
             for name, col in fdw_columns.items()}
         logger.info(f"FDW {self._options.table_name} initialized")
 
-    def execute(self, quals: List[Qual], columns: Set[str]) -> Iterable[dict]:
+    def execute(self, quals: List[Qual], columns: Set[str], sortkeys: Optional[List[Any]] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Iterable[dict]:
         """ Execute the FDW query with the given quals and columns.
 
         Args:
             quals (list): List of conditions to filter the results.
                 Note that filtering is optional because PostgreSQL will also filter the results.
             columns (set): List of columns to return in the results.
+            sortkeys (list): List of sort keys.
+            limit (int): Limit the number of results.
+            offset (int): Offset the results.
         """
 
         start_time = datetime.now()
@@ -135,7 +138,7 @@ class FDW(ForeignDataWrapper):
 
         self._check_quals(quals, columns)
 
-        query, get_result_objects = self._get_query(quals, columns)
+        query, get_result_objects = self._get_query(quals, columns, sortkeys)
 
         query_blobs = self._get_query_blobs(quals, columns)
 
@@ -198,6 +201,7 @@ class FDW(ForeignDataWrapper):
     def _get_query(self,
                    quals: List[Qual],
                    columns: Set[str],
+                   sortkeys: Optional[List[Any]] = None,
                    ) -> List[dict]:
         """
         Construct the query to execute against ApertureDB.
@@ -215,6 +219,18 @@ class FDW(ForeignDataWrapper):
         constraints = self._generate_constraints(quals, columns)
         if constraints:
             command_body["constraints"] = constraints
+
+        # apply sorting
+        if sortkeys:
+            sort_list = []
+            for sk in sortkeys:
+                if sk.attname in self._columns and not self._columns[sk.attname].is_blob:
+                    sort_list.append({
+                        "key": sk.attname,
+                        "order": "descending" if sk.is_reversed else "ascending"
+                    })
+            if sort_list:
+                command_body["sort"] = sort_list
 
         # Apply column modifications
         for qual in quals:
@@ -568,6 +584,19 @@ class FDW(ForeignDataWrapper):
                 f"Single batch found for query: {query} -> {response[:10]}")
             return None
 
+    def can_sort(self, sortkeys: List[Any]) -> List[Any]:
+        """
+        Indicate which of the requested sort keys this FDW can push down.
+        """
+        # ApertureDB can sort by any property column, but typically not by _uniqueid or blobs.
+        # But we will just return all sortkeys because ApertureDB `sort` parameter
+        # accepts keys as strings.
+        valid_keys = []
+        for key in sortkeys:
+            if key.attname in self._columns and not self._columns[key.attname].is_blob:
+                valid_keys.append(key)
+        return valid_keys
+
     def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
         """
         Generate an EXPLAIN statement for the FDW query.
@@ -583,7 +612,9 @@ class FDW(ForeignDataWrapper):
         result["quals"] = [[qual.field_name, qual.operator, qual.value]
                            for qual in quals]
         result["columns"] = list(columns)
-        result["aql"] = self._get_query(quals, columns)[0]
+        if sortkeys:
+            result["sortkeys"] = [{"attname": sk.attname, "is_reversed": sk.is_reversed} for sk in sortkeys]
+        result["aql"] = self._get_query(quals, columns, sortkeys)[0]
         # This part isn't verbose, but can be much slower
         if verbose:
             query_blobs = self._get_query_blobs(quals, columns)
