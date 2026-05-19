@@ -3,8 +3,9 @@
 set -x
 set -euo pipefail
 
-[ -f test.env ] && . test.env || true
+if [ -f test.env ]; then . test.env; fi
 
+set +x
 if [ -z "${WF_INGEST_BUCKET_AWS_CREDS:-}" ]; then
     echo "missing AWS credentials; fail."
     exit 1
@@ -15,11 +16,9 @@ if [ -z "${WF_INGEST_BUCKET_GCP_CREDS:-}" ]; then
     exit 1
 fi
 
-echo "CREDS [ ${WF_INGEST_BUCKET_AWS_CREDS} ] "
-R=$(echo ${WF_INGEST_BUCKET_AWS_CREDS} | jq -r .access_key)
-echo $R
 AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
+set -x
 
 bash ../build.sh
 
