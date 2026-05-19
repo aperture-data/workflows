@@ -71,7 +71,6 @@ common+=( -e "WF_INGEST_IMAGES=True")
 common+=( -e "WF_INGEST_VIDEOS=True")
 common+=( -e "WF_INGEST_PDFS=True")
 common+=( -e "DB_HOST=${DB_NAME}" )
-common+=( -e "USE_SSL=False" )
 common+=( --network ${NW_NAME} )
 
 checker_opts=()
