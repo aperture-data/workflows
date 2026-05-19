@@ -46,8 +46,8 @@ class CelebA(Subscriptable):
         df = pd.DataFrame(self.collection)
 
         df ['filename'] = df['image_id'].apply(lambda x: os.path.join(self.images_align_root, x))
-        df ['image_id'] = df['image_id'].apply(lambda x: f"cropped_{os.path.splitext(x)[0]}")
         df ['constraint_image_id'] = df['image_id']
+        df ['image_id'] = df['image_id'].apply(lambda x: f"cropped_{os.path.splitext(x)[0]}")
         cols = df.columns.tolist()
         cols.remove('filename')
         cols.insert(0, 'filename')
