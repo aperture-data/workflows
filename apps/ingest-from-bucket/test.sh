@@ -20,7 +20,9 @@ AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 set -x
 
-docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls
+docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://wf-ingest-from-bucket-test-data || true
+docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://demo-workflows-ingest-from-s3 || true
+
 bash ../build.sh
 
 CHECKER_NAME="aperturedata-internal/workflow-ingest-from-bucket-checker"
