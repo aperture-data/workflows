@@ -71,6 +71,7 @@ common+=( -e "WF_INGEST_IMAGES=True")
 common+=( -e "WF_INGEST_VIDEOS=True")
 common+=( -e "WF_INGEST_PDFS=True")
 common+=( -e "DB_HOST=${DB_NAME}" )
+common+=( -e "USE_SSL=False" )
 common+=( --network ${NW_NAME} )
 
 checker_opts=()
@@ -89,7 +90,7 @@ set -x
 # check data
 docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
 # remove data
-adb utils execute remove_all --force
+docker run --rm "${common[@]}" aperturedata/workflows-${WORKFLOW_NAME} adb utils execute remove_all --force
 
 gcp=()
 gcp+=( -e "WF_CLOUD_PROVIDER=gs" )
