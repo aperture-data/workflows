@@ -27,10 +27,10 @@ CHECKER_NAME="aperturedata-internal/workflow-ingest-from-bucket-checker"
 
 export WORKFLOW_NAME="ingest-from-bucket"
 RUNNER_NAME="$(whoami)"
-PREFIX="${WORKFLOW_NAME}_${RUNNER_NAME}"
+PREFIX="${WORKFLOW_NAME}-${RUNNER_NAME}"
 
 NW_NAME="${PREFIX}"
-DB_NAME="${PREFIX}_aperturedb"
+DB_NAME="${PREFIX}-aperturedb"
 
 # both providers use the same bucket name
 BUCKET_NAME="wf-ingest-from-bucket-test-data"
@@ -84,19 +84,19 @@ aws+=( -e "WF_AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" )
 aws+=( -e "WF_AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" )
 
 set +x
-docker run --rm  ${common[@]} ${aws[@]} aperturedata/workflows-${WORKFLOW_NAME}
+docker run --rm  "${common[@]}" "${aws[@]}" aperturedata/workflows-${WORKFLOW_NAME}
 set -x
 # check data
-docker run --rm ${common[@]} ${checker_opts[@]} ${CHECKER_NAME}
+docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
 # remove data
 adb utils execute remove_all --force
 
 gcp=()
 gcp+=( -e "WF_CLOUD_PROVIDER=gs" )
-gcp+=( -e "WF_GCP_SERVICE_ACCOUNT_KEY=\"$WF_INGEST_BUCKET_GCP_CREDS\"" )
+gcp+=( -e "WF_GCP_SERVICE_ACCOUNT_KEY=$WF_INGEST_BUCKET_GCP_CREDS" )
 set +x
-docker run --rm  ${common[@]} ${aws[@]} aperturedata/workflows-${WORKFLOW_NAME}
+docker run --rm  "${common[@]}" "${gcp[@]}" aperturedata/workflows-${WORKFLOW_NAME}
 set -x
 
 # check data
-docker run --rm ${common[@]} ${checker_opts[@]} ${CHECKER_NAME}
+docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
