@@ -75,6 +75,7 @@ def main(args):
     set_state(LabelStudioPhase.SETUP,completeness=0)
     def add_common_vars( env ):
 
+        env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb,gcs,s3"
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
         env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
         env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]= "TRUE" if args.label_studio_handle_untagged else "FALSE"
