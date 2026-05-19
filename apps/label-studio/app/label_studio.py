@@ -121,6 +121,7 @@ def main(args):
             env["LABEL_STUDIO_APERTUREDB_DEFAULT_LIMIT"] = str(args.label_studio_default_storage_limit)
         env["LABEL_STUDIO_APERTUREDB_RO_PREDS"] = str(args.label_studio_storage_annotations_ro)
         env["LABEL_STUDIO_APERTUREDB_DEFAULT_LOAD_PREDS"] = str(args.label_studio_default_import_annotations)
+        env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"] = "aperturedb,gcs,s3"
 
 
     logger.info("Preparing for Label Studio configuration.")
@@ -166,7 +167,6 @@ def main(args):
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
-        ls_env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb,gcs,s3" 
         logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
