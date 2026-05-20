@@ -128,8 +128,6 @@ class FDW(ForeignDataWrapper):
                 Note that filtering is optional because PostgreSQL will also filter the results.
             columns (set): List of columns to return in the results.
             sortkeys (list): List of sort keys.
-            limit (int): Limit the number of results.
-            offset (int): Offset the results.
         """
 
         start_time = datetime.now()
