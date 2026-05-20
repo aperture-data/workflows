@@ -47,7 +47,7 @@ def test_order_by_asc(sql_connection):
         results = cur.fetchall()
         assert len(results) > 0
         ids = [r[0] for r in results]
-        assert ids == sorted(ids)
+        assert ids == sorted(ids, key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
 
 def test_order_by_desc(sql_connection):
     with sql_connection.cursor() as cur:
@@ -75,4 +75,4 @@ def test_order_by_desc(sql_connection):
         results = cur.fetchall()
         assert len(results) > 0
         ids = [r[0] for r in results]
-        assert ids == sorted(ids, reverse=True)
+        assert ids == sorted(ids, key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')], reverse=True)
