@@ -36,7 +36,7 @@ NW_NAME="${PREFIX}"
 DB_NAME="${PREFIX}-aperturedb"
 
 # both providers use the same bucket name
-BUCKET_NAME="wf-ingest-from-bucket-test-data"
+BUCKET_NAME="demo-workflows-ingest-from-s3"
 
 docker stop ${DB_NAME}   || true
 docker rm ${DB_NAME}  || true
