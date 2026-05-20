@@ -35,7 +35,7 @@ NW_NAME="${PREFIX}"
 DB_NAME="${PREFIX}-aperturedb"
 
 # both providers use the same bucket name
-BUCKET_NAME="ad-demos-datasets"
+BUCKET_NAME="wf-ingest-from-bucket-test-data"
 
 docker stop ${DB_NAME}   || true
 docker rm ${DB_NAME}  || true
