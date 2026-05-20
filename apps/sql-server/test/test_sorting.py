@@ -22,9 +22,26 @@ def test_order_by_asc(sql_connection):
         # E.g. entities from system."Entity"
         cur.execute('EXPLAIN (FORMAT JSON) SELECT _uniqueid FROM system."Entity" ORDER BY _uniqueid ASC LIMIT 10')
         explain_plan = cur.fetchone()[0]
-        explain_str = json.dumps(explain_plan)
-        assert '"sort"' in explain_str
-        assert '"order": "ascending"' in explain_str
+        
+        # Extract Multicorn JSON from the plan
+        plan = explain_plan[0]["Plan"]
+        # In a limit query, the Foreign Scan might be under "Plans"
+        if "Plans" in plan and "Multicorn" in plan["Plans"][0]:
+            multicorn_str = plan["Plans"][0]["Multicorn"]
+        else:
+            multicorn_str = plan.get("Multicorn", "{}")
+            
+        multicorn_plan = json.loads(multicorn_str)
+        aql = multicorn_plan.get("aql", [])
+        
+        # Check if any operation in AQL has 'sort'
+        has_sort = False
+        for op in aql:
+            op_body = list(op.values())[0]
+            if "sort" in op_body:
+                has_sort = True
+                assert op_body["sort"][0]["order"] == "ascending"
+        assert has_sort, "Sort pushdown not found in AQL"
 
         cur.execute('SELECT _uniqueid FROM system."Entity" ORDER BY _uniqueid ASC LIMIT 10')
         results = cur.fetchall()
@@ -36,9 +53,23 @@ def test_order_by_desc(sql_connection):
     with sql_connection.cursor() as cur:
         cur.execute('EXPLAIN (FORMAT JSON) SELECT _uniqueid FROM system."Entity" ORDER BY _uniqueid DESC LIMIT 10')
         explain_plan = cur.fetchone()[0]
-        explain_str = json.dumps(explain_plan)
-        assert '"sort"' in explain_str
-        assert '"order": "descending"' in explain_str
+        
+        plan = explain_plan[0]["Plan"]
+        if "Plans" in plan and "Multicorn" in plan["Plans"][0]:
+            multicorn_str = plan["Plans"][0]["Multicorn"]
+        else:
+            multicorn_str = plan.get("Multicorn", "{}")
+            
+        multicorn_plan = json.loads(multicorn_str)
+        aql = multicorn_plan.get("aql", [])
+        
+        has_sort = False
+        for op in aql:
+            op_body = list(op.values())[0]
+            if "sort" in op_body:
+                has_sort = True
+                assert op_body["sort"][0]["order"] == "descending"
+        assert has_sort, "Sort pushdown not found in AQL"
 
         cur.execute('SELECT _uniqueid FROM system."Entity" ORDER BY _uniqueid DESC LIMIT 10')
         results = cur.fetchall()
