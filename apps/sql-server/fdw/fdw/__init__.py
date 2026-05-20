@@ -120,7 +120,7 @@ class FDW(ForeignDataWrapper):
             for name, col in fdw_columns.items()}
         logger.info(f"FDW {self._options.table_name} initialized")
 
-    def execute(self, quals: List[Qual], columns: Set[str], sortkeys: Optional[List[Any]] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Iterable[dict]:
+    def execute(self, quals: List[Qual], columns: Set[str], sortkeys: Optional[List[Any]] = None) -> Iterable[dict]:
         """ Execute the FDW query with the given quals and columns.
 
         Args:
@@ -202,7 +202,7 @@ class FDW(ForeignDataWrapper):
                    quals: List[Qual],
                    columns: Set[str],
                    sortkeys: Optional[List[Any]] = None,
-                   ) -> List[dict]:
+                   ) -> Tuple[List[dict], Callable]:
         """
         Construct the query to execute against ApertureDB.
         This is used to build the query based on the columns and options.
@@ -224,7 +224,7 @@ class FDW(ForeignDataWrapper):
         if sortkeys:
             sort_list = []
             for sk in sortkeys:
-                if sk.attname in self._columns and not self._columns[sk.attname].is_blob:
+                if sk.attname in self._columns and self._columns[sk.attname].type != "blob":
                     sort_list.append({
                         "key": sk.attname,
                         "order": "descending" if sk.is_reversed else "ascending"
@@ -589,11 +589,10 @@ class FDW(ForeignDataWrapper):
         Indicate which of the requested sort keys this FDW can push down.
         """
         # ApertureDB can sort by any property column, but typically not by _uniqueid or blobs.
-        # But we will just return all sortkeys because ApertureDB `sort` parameter
-        # accepts keys as strings.
+        # We return the sortkeys that aren't blobs.
         valid_keys = []
         for key in sortkeys:
-            if key.attname in self._columns and not self._columns[key.attname].is_blob:
+            if key.attname in self._columns and self._columns[key.attname].type != "blob":
                 valid_keys.append(key)
         return valid_keys
 
