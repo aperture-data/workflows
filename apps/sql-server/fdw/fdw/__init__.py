@@ -222,7 +222,7 @@ class FDW(ForeignDataWrapper):
         if sortkeys:
             sort_list = []
             for sk in sortkeys:
-                if sk.attname in self._columns and self._columns[sk.attname].type != "blob":
+                if sk.attname in self._columns and self._columns[sk.attname].type != "blob" and self._columns[sk.attname].listable:
                     sort_list.append({
                         "key": sk.attname,
                         "order": "descending" if sk.is_reversed else "ascending"
@@ -587,10 +587,10 @@ class FDW(ForeignDataWrapper):
         Indicate which of the requested sort keys this FDW can push down.
         """
         # ApertureDB can sort by any property column, but typically not by _uniqueid or blobs.
-        # We return the sortkeys that aren't blobs.
+        # We return the sortkeys that aren't blobs and are listable.
         valid_keys = []
         for key in sortkeys:
-            if key.attname in self._columns and self._columns[key.attname].type != "blob":
+            if key.attname in self._columns and self._columns[key.attname].type != "blob" and self._columns[key.attname].listable:
                 valid_keys.append(key)
         return valid_keys
 
