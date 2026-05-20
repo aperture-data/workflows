@@ -1,11 +1,10 @@
 #!/bin/bash
 # test.sh - test ingest-from-bucket
-set -x
 set -euo pipefail
 
+set +x
 if [ -f test.env ]; then . test.env; fi
 
-set +x
 if [ -z "${WF_INGEST_BUCKET_AWS_CREDS:-}" ]; then
     echo "missing AWS credentials; fail."
     exit 1
@@ -18,10 +17,11 @@ fi
 
 AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
-set -x
 
 docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://wf-ingest-from-bucket-test-data || true
 docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://demo-workflows-ingest-from-s3 || true
+
+set -x
 
 bash ../build.sh
 
@@ -83,12 +83,12 @@ checker_opts+=( -e "IMAGE_COUNT=7500")
 checker_opts+=( -e "VIDEO_COUNT=5")
 checker_opts+=( -e "PDF_COUNT=10")
 
+set +x
 aws=()
 aws+=( -e "WF_CLOUD_PROVIDER=s3" )
 aws+=( -e "WF_AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" )
 aws+=( -e "WF_AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" )
 
-set +x
 docker run --rm  "${common[@]}" "${aws[@]}" aperturedata/workflows-${WORKFLOW_NAME}
 set -x
 # check data
@@ -96,10 +96,10 @@ docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
 # remove data
 docker run --rm "${common[@]}" aperturedata/workflows-${WORKFLOW_NAME} adb utils execute remove_all --force
 
+set +x
 gcp=()
 gcp+=( -e "WF_CLOUD_PROVIDER=gs" )
 gcp+=( -e "WF_GCP_SERVICE_ACCOUNT_KEY=$WF_INGEST_BUCKET_GCP_CREDS" )
-set +x
 docker run --rm  "${common[@]}" "${gcp[@]}" aperturedata/workflows-${WORKFLOW_NAME}
 set -x
 
