@@ -19,7 +19,6 @@ AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
 
 docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://wf-ingest-from-bucket-test-data || true
-docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://demo-workflows-ingest-from-s3 || true
 
 set -x
 
@@ -36,7 +35,7 @@ NW_NAME="${PREFIX}"
 DB_NAME="${PREFIX}-aperturedb"
 
 # both providers use the same bucket name
-BUCKET_NAME="demo-workflows-ingest-from-s3"
+BUCKET_NAME="wf-ingest-from-bucket-test-data"
 
 docker stop ${DB_NAME}   || true
 docker rm ${DB_NAME}  || true
@@ -89,13 +88,12 @@ aws+=( -e "WF_CLOUD_PROVIDER=s3" )
 aws+=( -e "WF_AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" )
 aws+=( -e "WF_AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" )
 
-# Bypass AWS test due to IAM 403 AccessDenied error for demo-workflows-ingest-from-s3
-# docker run --rm  "${common[@]}" "${aws[@]}" aperturedata/workflows-${WORKFLOW_NAME}
-# set -x
-# # check data
-# docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
-# # remove data
-# docker run --rm "${common[@]}" aperturedata/workflows-${WORKFLOW_NAME} adb utils execute remove_all --force
+docker run --rm  "${common[@]}" "${aws[@]}" aperturedata/workflows-${WORKFLOW_NAME}
+set -x
+# check data
+docker run --rm "${common[@]}" "${checker_opts[@]}" "${CHECKER_NAME}"
+# remove data
+docker run --rm "${common[@]}" aperturedata/workflows-${WORKFLOW_NAME} adb utils execute remove_all --force
 
 set +x
 gcp=()
