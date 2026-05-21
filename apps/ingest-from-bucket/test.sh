@@ -18,7 +18,7 @@ fi
 AWS_ACCESS_KEY_ID=$(jq -r .access_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
 AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< "${WF_INGEST_BUCKET_AWS_CREDS}")
 
-docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://wf-ingest-from-bucket-test-data || true
+docker run --rm -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" amazon/aws-cli s3 ls s3://ad-demos-datasets || true
 
 set -x
 
@@ -35,7 +35,7 @@ NW_NAME="${PREFIX}"
 DB_NAME="${PREFIX}-aperturedb"
 
 # both providers use the same bucket name
-BUCKET_NAME="wf-ingest-from-bucket-test-data"
+BUCKET_NAME="ad-demos-datasets"
 
 docker stop ${DB_NAME}   || true
 docker rm ${DB_NAME}  || true
