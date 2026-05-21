@@ -48,7 +48,23 @@ if [ ${CI_RUN:-0} -eq 0 ]; then
   $COMMAND build base
 fi
 
-$COMMAND build crawl-website text-extraction text-embeddings
+if [ ${CI_RUN:-0} -eq 0 ]; then
+  $COMMAND build crawl-website text-extraction text-embeddings
+else
+  if [ -n "${VERSION:-}" ]; then
+    for app in crawl-website text-extraction text-embeddings rag; do
+      echo "Pre-building aperturedata/workflows-${app}:${VERSION}"
+      docker build -t aperturedata/workflows-${app}:${VERSION} \
+        --build-arg VERSION=${VERSION} \
+        --build-arg GITHUB_SHA_FULL=${GITHUB_SHA_FULL:-} \
+        --build-arg BUILD_DATE=${BUILD_DATE:-} \
+        --build-arg DESCRIPTION="${DESCRIPTION:-}" \
+        --build-arg SOURCE_URL=${SOURCE_URL:-} \
+        --build-arg WORKFLOW_VERSION=${VERSION} \
+        -f ../${app}/Dockerfile ../${app}
+    done
+  fi
+fi
 
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log

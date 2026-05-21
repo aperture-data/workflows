@@ -55,8 +55,20 @@ cd "$DIR"
 
 
 source ../../.commonrc
-if [ $CI_RUN -eq 0 ]; then
+if [ ${CI_RUN:-0} -eq 0 ]; then
   $COMMAND build base
 fi
 
-$COMMAND build ${COMPOSE_PROJECT_NAME} ${COMPOSE_PROJECT_NAME}
+if [ -n "${VERSION:-}" ] && [ ${CI_RUN:-0} -eq 1 ]; then
+  echo "Pre-building aperturedata/workflows-${COMPOSE_PROJECT_NAME}:${VERSION}"
+  docker build -t aperturedata/workflows-${COMPOSE_PROJECT_NAME}:${VERSION} \
+    --build-arg VERSION=${VERSION} \
+    --build-arg GITHUB_SHA_FULL=${GITHUB_SHA_FULL:-} \
+    --build-arg BUILD_DATE=${BUILD_DATE:-} \
+    --build-arg DESCRIPTION="${DESCRIPTION:-}" \
+    --build-arg SOURCE_URL=${SOURCE_URL:-} \
+    --build-arg WORKFLOW_VERSION=${VERSION} \
+    -f Dockerfile .
+else
+  $COMMAND build ${COMPOSE_PROJECT_NAME} ${COMPOSE_PROJECT_NAME}
+fi
