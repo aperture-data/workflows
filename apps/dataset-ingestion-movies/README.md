@@ -97,7 +97,7 @@ Parameters:
 
 How dataset ingestion (movies) works:
 
-1. **Cleanup**: Removes all objects that have a property called dataset_name, and its value as 'tmdb_5000'.
+1. **Cleanup**: Removes all objects that have a property called dataset_name, and its value as "tmdb_5000".
 2. **Ingestion**: It changes the flat records from the croissant url of the dbs and stores it in property graph.
 3. **Completion**: Once complete, the dataset is available in the database for querying and further processing.
 
@@ -113,21 +113,21 @@ Executing the following query will selectively delete all the Objects added to t
     {
         "DeleteEntity": {
             "constraints": {
-                "dataset_name": ["==", 'tmdb_5000']
+                "dataset_name": ["==", "tmdb_5000"]
             }
         }
     },
     {
         "DeleteImage": {
             "constraints": {
-                "dataset_name": ["==", 'tmdb_5000']
+                "dataset_name": ["==", "tmdb_5000"]
             }
         }
     },
     {
         "DeleteDescriptorSet": {
             "constraints": {
-                "dataset_name": ["==", 'tmdb_5000']
+                "dataset_name": ["==", "tmdb_5000"]
             }
         }
     }
