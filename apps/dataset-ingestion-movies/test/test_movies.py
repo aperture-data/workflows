@@ -1,4 +1,5 @@
 import pytest
+import os
 from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
 
@@ -78,18 +79,36 @@ def run_connection_query(db_connection):
 
 def test_count_entities(run_query):
     response = run_query
-    assert response[0]['FindEntity']['count'] == 4803
-    assert response[1]['FindEntity']['count'] == 20
-    assert response[2]['FindEntity']['count'] == 104842
-    assert response[3]['FindEntity']['count'] == 9813
-    assert response[4]['FindEntity']['count'] == 5047
-    assert response[5]['FindEntity']['count'] == 87
+    sample_count = int(os.environ.get("SAMPLE_COUNT", "-1"))
+    if sample_count == 10:
+        assert response[0]['FindEntity']['count'] == 10
+        assert response[1]['FindEntity']['count'] == 9
+        assert response[2]['FindEntity']['count'] == 1746
+        assert response[3]['FindEntity']['count'] == 119
+        assert response[4]['FindEntity']['count'] == 25
+        assert response[5]['FindEntity']['count'] == 5
+    else:
+        assert response[0]['FindEntity']['count'] == 4803
+        assert response[1]['FindEntity']['count'] == 20
+        assert response[2]['FindEntity']['count'] == 104842
+        assert response[3]['FindEntity']['count'] == 9813
+        assert response[4]['FindEntity']['count'] == 5047
+        assert response[5]['FindEntity']['count'] == 87
 
 def test_count_connections(run_connection_query):
     response = run_connection_query
-    assert response[1]['FindEntity']['count'] == 20
-    assert response[3]['FindEntity']['count'] == 54588
-    assert response[5]['FindEntity']['count'] == 52885
-    assert response[7]['FindEntity']['count'] == 9813
-    assert response[9]['FindEntity']['count'] == 5047
-    assert response[11]['FindEntity']['count'] == 87
+    sample_count = int(os.environ.get("SAMPLE_COUNT", "-1"))
+    if sample_count == 10:
+        assert response[1]['FindEntity']['count'] == 9
+        assert response[3]['FindEntity']['count'] == 804
+        assert response[5]['FindEntity']['count'] == 954
+        assert response[7]['FindEntity']['count'] == 119
+        assert response[9]['FindEntity']['count'] == 25
+        assert response[11]['FindEntity']['count'] == 5
+    else:
+        assert response[1]['FindEntity']['count'] == 20
+        assert response[3]['FindEntity']['count'] == 54588
+        assert response[5]['FindEntity']['count'] == 52885
+        assert response[7]['FindEntity']['count'] == 9813
+        assert response[9]['FindEntity']['count'] == 5047
+        assert response[11]['FindEntity']['count'] == 87

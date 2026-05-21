@@ -18,6 +18,7 @@ services:
       DB_USER: admin
       DB_PASS: admin
       CA_CERT: /ca/ca.crt
+      SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
     volumes:
       - ./ca:/ca
     working_dir: /app
