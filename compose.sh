@@ -51,5 +51,27 @@ DOCKERFILE_URL="${SOURCE_URL}/${SOURCE_PATH_REL}/Dockerfile"
 export DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VERSION}${DESCRIPTION_SUFFIX}"
 echo "Description: ${DESCRIPTION}"
 
+# Workaround for docker compose build failing on older buildx versions
+if [[ " $* " == *" build "* ]]; then
+    NEEDS_UPDATE=false
+    if ! docker buildx version >/dev/null 2>&1; then
+        NEEDS_UPDATE=true
+    else
+        BUILDX_VER=$(docker buildx version | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | sed 's/v//')
+        if [ -n "$BUILDX_VER" ]; then
+            if [ "$(printf '%s\n' "0.17.0" "$BUILDX_VER" | sort -V | head -n1)" = "$BUILDX_VER" ] && [ "$BUILDX_VER" != "0.17.0" ]; then
+                NEEDS_UPDATE=true
+            fi
+        fi
+    fi
+
+    if [ "$NEEDS_UPDATE" = "true" ]; then
+        echo "Workaround: Updating docker-buildx plugin to 0.17.1 to fix compose build issues."
+        mkdir -p ~/.docker/cli-plugins
+        curl -sSLo ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.linux-amd64"
+        chmod +x ~/.docker/cli-plugins/docker-buildx
+    fi
+fi
+
 # Forward all args to docker compose
 exec docker compose "$@"
