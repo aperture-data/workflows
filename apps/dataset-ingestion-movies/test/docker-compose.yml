@@ -7,10 +7,28 @@ services:
     deploy:
       replicas: 0
 
+  dataset-ingestion-movies-sample:
+    image: aperturedata/workflows-dataset-ingestion-movies:${VERSION:-latest}
+    depends_on:
+      dataset-ingestion-movies:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+      SAMPLE_COUNT: "10"
+      DATASET_NAME: "tmdb_5000_sample"
+    volumes:
+      - ./ca:/ca
+
   tests:
     image: aperturedata/workflows-dataset-ingestion-movies-tests:${VERSION:-latest}
     depends_on:
       dataset-ingestion-movies:
+        condition: service_completed_successfully
+      dataset-ingestion-movies-sample:
         condition: service_completed_successfully
     environment:
       DB_HOST: lenz

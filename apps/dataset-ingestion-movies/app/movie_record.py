@@ -3,9 +3,11 @@ from aperturedb.Query import QueryBuilder
 from aperturedb.Utils import Utils
 import requests
 
+import os
+
 from embeddings import Embedder
 
-DATASET_NAME = "tmdb_5000"
+DATASET_NAME = os.getenv("DATASET_NAME", "tmdb_5000")
 
 # Entity Labels
 MOVIE_ENTITY_LABEL = "Movie"
