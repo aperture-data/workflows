@@ -61,7 +61,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
         ## Adding this as there is not way to get the class from entities in ADB.
         label=MOVIE_ENTITY_LABEL,
         uniqueid=str(j["tmdb_5000_credits.csv/title"]).capitalize()
-    ), if_not_found=dict(id=["==", str(j["tmdb_5000_credits.csv/movie_id"])]))
+    ), if_not_found=dict(id=["==", str(j["tmdb_5000_credits.csv/movie_id"])], dataset_name=["==", DATASET_NAME]))
 
     movie = QueryBuilder.add_command(MOVIE_ENTITY_LABEL, movie_parameters)
     transaction.append(movie)
@@ -76,7 +76,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=PROFESSIONAL_ENTITY_LABEL,
             uniqueid=c["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(id=["==", c["id"]]))
+        ), if_not_found=dict(id=["==", c["id"]], dataset_name=["==", DATASET_NAME]))
         professional = QueryBuilder.add_command(PROFESSIONAL_ENTITY_LABEL, cast_parameters)
         transaction.append(professional)
 
@@ -101,7 +101,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=PROFESSIONAL_ENTITY_LABEL,
             uniqueid=c["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(id=["==", c["id"]]))
+        ), if_not_found=dict(id=["==", c["id"]], dataset_name=["==", DATASET_NAME]))
         professional = QueryBuilder.add_command(PROFESSIONAL_ENTITY_LABEL, crew_parameters)
         transaction.append(professional)
 
@@ -125,7 +125,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=GENRE_ENTITY_LABEL,
             uniqueid=genre["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(id=["==", genre["id"]]))
+        ), if_not_found=dict(id=["==", genre["id"]], dataset_name=["==", DATASET_NAME]))
         genre_command = QueryBuilder.add_command(GENRE_ENTITY_LABEL, genre_parameters)
         transaction.append(genre_command)
 
@@ -145,7 +145,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=PRODUCTION_COMPANY_ENTITY_LABEL,
             uniqueid=production_company["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(id=["==", production_company["id"]]))
+        ), if_not_found=dict(id=["==", production_company["id"]], dataset_name=["==", DATASET_NAME]))
         company_command = QueryBuilder.add_command(PRODUCTION_COMPANY_ENTITY_LABEL, company_parameters)
         transaction.append(company_command)
 
@@ -165,7 +165,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=KEYWORD_ENTITY_LABEL,
             uniqueid=keyword["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(id=["==", keyword["id"]]))
+        ), if_not_found=dict(id=["==", keyword["id"]], dataset_name=["==", DATASET_NAME]))
         keyword_command = QueryBuilder.add_command(KEYWORD_ENTITY_LABEL, keyword_parameters)
         transaction.append(keyword_command)
 
@@ -185,7 +185,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
             label=SPOKEN_LANGUAGE_ENTITY_LABEL,
             uniqueid=spoken_language["name"].capitalize(),
             dataset_name=DATASET_NAME
-        ), if_not_found=dict(iso_639_1=["==", spoken_language["iso_639_1"]]))
+        ), if_not_found=dict(iso_639_1=["==", spoken_language["iso_639_1"]], dataset_name=["==", DATASET_NAME]))
         language_command = QueryBuilder.add_command(SPOKEN_LANGUAGE_ENTITY_LABEL, language_parameters)
         transaction.append(language_command)
 
@@ -208,7 +208,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
                 properties=dict(
                     id=movie_parameters['properties']['id'],
                     dataset_name=DATASET_NAME
-                ), if_not_found=dict(id=["==", movie_parameters['properties']['id']])
+                ), if_not_found=dict(id=["==", movie_parameters['properties']['id']], dataset_name=["==", DATASET_NAME])
             ))
             transaction.append(image_command)
             connection_parameters = dict(src=1, dst=index, properties=dict(
@@ -231,7 +231,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
                     source="image",
                     dataset_name=DATASET_NAME,
                     id=image_descriptor_id,
-                ), if_not_found=dict(id=["==", image_descriptor_id])
+                ), if_not_found=dict(id=["==", image_descriptor_id], dataset_name=["==", DATASET_NAME])
             ))
             transaction.append(image_descriptor_command)
             blobs.append(image_descriptor_blob)
@@ -255,7 +255,7 @@ def make_movie_with_all_connections(j: dict, embedder: Embedder, ingest_posters:
                 source="tagline",
                 id=tagline_descriptor_id,
                 dataset_name=DATASET_NAME
-            ), if_not_found=dict(id=["==", tagline_descriptor_id])
+            ), if_not_found=dict(id=["==", tagline_descriptor_id], dataset_name=["==", DATASET_NAME])
         ))
         transaction.append(tagline_command)
         blobs.append(tagline_blob)
