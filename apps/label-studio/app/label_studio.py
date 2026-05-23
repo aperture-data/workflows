@@ -167,7 +167,6 @@ def main(args):
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
-        logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
         set_state(LabelStudioPhase.SERVING,completeness=70)
