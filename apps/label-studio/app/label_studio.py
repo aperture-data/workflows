@@ -75,6 +75,7 @@ def main(args):
     set_state(LabelStudioPhase.SETUP,completeness=0)
     def add_common_vars( env ):
 
+        env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb,gcs,s3"
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
         env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
         env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]= "TRUE" if args.label_studio_handle_untagged else "FALSE"
@@ -110,7 +111,7 @@ def main(args):
             # strip trailing /
             if subpath[-1:] == '/':
                 logger.debug("Subpath had trailing slash, stripped.") 
-                subpath = sub_path[:-1]
+                subpath = subpath[:-1]
 
             logger.debug(f"Path is {full_path} and {subpath}")
             
@@ -166,8 +167,6 @@ def main(args):
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
-        ls_env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb gcs s3" 
-        logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
         set_state(LabelStudioPhase.SERVING,completeness=70)

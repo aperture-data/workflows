@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /
 RUN pip3 install --upgrade pip && \
+    APERTUREDB_VERSION="$(python3 -c "import json, urllib.request; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/aperturedb/json'))['info']['version'])")" && \
+    echo "Latest aperturedb version: ${APERTUREDB_VERSION}" && \
     pip3 install --no-cache-dir -r /requirements.txt
 
 
