@@ -68,8 +68,29 @@ if [[ " $* " == *" build "* ]]; then
     if [ "$NEEDS_UPDATE" = "true" ]; then
         echo "Workaround: Updating docker-buildx plugin to 0.17.1 to fix compose build issues."
         mkdir -p ~/.docker/cli-plugins
-        curl -sSLo ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.linux-amd64"
-        chmod +x ~/.docker/cli-plugins/docker-buildx
+        OS=$(uname -s | tr "[:upper:]" "[:lower:]")
+        ARCH=$(uname -m)
+        case "$ARCH" in
+            x86_64|amd64) ARCH="amd64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+            *) ARCH="" ;;
+        esac
+        if [ -n "$ARCH" ]; then
+            TMP_DIR=$(mktemp -d)
+            curl -fsSL "https://github.com/docker/buildx/releases/download/v0.17.1/checksums.txt" -o "$TMP_DIR/checksums.txt"
+            curl -fsSL "https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.${OS}-${ARCH}" -o "$TMP_DIR/buildx"
+            if cd "$TMP_DIR" && grep "buildx-v0.17.1.${OS}-${ARCH}$" checksums.txt | sed "s/buildx-v0.17.1.${OS}-${ARCH}/buildx/" | sha256sum --check --status; then
+                mv "$TMP_DIR/buildx" ~/.docker/cli-plugins/docker-buildx
+                chmod +x ~/.docker/cli-plugins/docker-buildx
+            else
+                echo "Error: Checksum validation failed for docker-buildx."
+                rm -rf "$TMP_DIR"
+                exit 1
+            fi
+            rm -rf "$TMP_DIR"
+        else
+            echo "Skipping buildx update: unsupported architecture $(uname -m)"
+        fi
     fi
 fi
 
