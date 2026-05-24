@@ -1,6 +1,7 @@
 import io
 import math
 import logging
+import threading
 
 from PIL import Image
 
@@ -14,13 +15,16 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded globals
 _processor = None
 _model = None
+_model_lock = threading.Lock()
 
 def get_model_and_processor():
     global _processor, _model
     if _processor is None or _model is None:
-        _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-        _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-        _model.eval()
+        with _model_lock:
+            if _processor is None or _model is None:
+                _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+                _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+                _model.eval()
     return _processor, _model
 
 
@@ -95,8 +99,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         except:
             logger.exception(f"error: {response}")
             return 0
-
-        desc_blobs = []
 
         captions = []
         processor, model = get_model_and_processor()
