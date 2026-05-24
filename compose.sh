@@ -51,49 +51,6 @@ DOCKERFILE_URL="${SOURCE_URL}/${SOURCE_PATH_REL}/Dockerfile"
 export DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VERSION}${DESCRIPTION_SUFFIX}"
 echo "Description: ${DESCRIPTION}"
 
-# Workaround for docker compose build failing on older buildx versions
-if [[ " $* " == *" build "* ]] || [[ " $* " == *" --build "* ]]; then
-    NEEDS_UPDATE=false
-    if ! docker buildx version >/dev/null 2>&1; then
-        NEEDS_UPDATE=true
-    else
-        BUILDX_VER=$(docker buildx version | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | sed 's/v//')
-        if [ -n "$BUILDX_VER" ]; then
-            if [ "$(printf '%s\n' "0.17.0" "$BUILDX_VER" | sort -V | head -n1)" = "$BUILDX_VER" ] && [ "$BUILDX_VER" != "0.17.0" ]; then
-                NEEDS_UPDATE=true
-            fi
-        fi
-    fi
-
-    if [ "$NEEDS_UPDATE" = "true" ]; then
-        echo "Workaround: Updating docker-buildx plugin to 0.17.1 to fix compose build issues."
-        DOCKER_PLUGIN_DIR="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
-        mkdir -p "$DOCKER_PLUGIN_DIR"
-        OS=$(uname -s | tr "[:upper:]" "[:lower:]")
-        ARCH=$(uname -m)
-        case "$ARCH" in
-            x86_64|amd64) ARCH="amd64" ;;
-            aarch64|arm64) ARCH="arm64" ;;
-            *) ARCH="" ;;
-        esac
-        if [ -n "$ARCH" ]; then
-            TMP_DIR=$(mktemp -d)
-            curl -fsSL "https://github.com/docker/buildx/releases/download/v0.17.1/checksums.txt" -o "$TMP_DIR/checksums.txt"
-            curl -fsSL "https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.${OS}-${ARCH}" -o "$TMP_DIR/buildx"
-            if cd "$TMP_DIR" && grep "buildx-v0.17.1.${OS}-${ARCH}$" checksums.txt | sed "s/buildx-v0.17.1.${OS}-${ARCH}/buildx/" | sha256sum --check --status; then
-                mv "$TMP_DIR/buildx" "$DOCKER_PLUGIN_DIR/docker-buildx"
-                chmod +x "$DOCKER_PLUGIN_DIR/docker-buildx"
-            else
-                echo "Error: Checksum validation failed for docker-buildx."
-                rm -rf "$TMP_DIR"
-                exit 1
-            fi
-            rm -rf "$TMP_DIR"
-        else
-            echo "Skipping buildx update: unsupported architecture $(uname -m)"
-        fi
-    fi
-fi
 
 # Forward all args to docker compose
 exec docker compose "$@"
