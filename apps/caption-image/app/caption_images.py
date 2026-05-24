@@ -1,3 +1,4 @@
+import os
 import logging
 
 from typer import Typer
@@ -11,11 +12,11 @@ CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 
 @app.command()
 def caption_images(
-    num_workers:int = 1,
-    batch_size:int = 1,
-    log_level:str = "WARNING"
+    num_workers:int = int(os.environ.get("NUM_WORKERS", 1)),
+    batch_size:int = int(os.environ.get("BATCH_SIZE", 1)),
+    log_level:str = os.environ.get("LOG_LEVEL", "WARNING")
 ):
-    logging.basicConfig(level=logging.getLevelName(log_level))
+    logging.basicConfig(level=log_level.upper(), force=True)
     pool = ConnectionPool()
     data = FindImageQueryGenerator(
         pool,

@@ -5,9 +5,8 @@ import logging
 from PIL import Image
 
 from aperturedb import QueryGenerator
-from connection_pool import ConnectionPool
 
-from PIL import Image
+import torch
 from transformers import AutoProcessor, BlipForConditionalGeneration
 
 logger = logging.getLogger(__name__)
@@ -21,6 +20,7 @@ def get_model_and_processor():
     if _processor is None or _model is None:
         _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
         _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+        _model.eval()
     return _processor, _model
 
 
@@ -38,7 +38,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         query = [{
             "FindImage": {
                 "constraints": {
-                    self.caption_image_property: ["==", None]
+                    self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
                     "count": True
@@ -76,9 +76,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    self.caption_image_property: ["==", None]
+                    self.caption_image_property + "_done": ["!=", True]
                 },
-                "limit": self.batch_size,
+                "batch": {"batch_size": self.batch_size, "batch_id": idx},
                 "results": {
                     "list": ["_uniqueid"]
                 }
@@ -104,7 +104,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             image = Image.open(io.BytesIO(b))
             text = "A picture of"
             inputs = processor(images=image, text=text, return_tensors="pt")
-            output = model.generate(**inputs)
+            with torch.no_grad():
+                output = model.generate(**inputs)
             caption = processor.decode(output[0], skip_special_tokens=True)
             captions.append(caption)
 
@@ -124,11 +125,14 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": i + 1,
                     "properties": {
-                        self.caption_image_property: captions[i]
+                        self.caption_image_property: captions[i],
+                        self.caption_image_property + "_done": True
                     },
                 }
             })
 
 
 
-        self.pool.execute_query(query)
+        status, r, _ = self.pool.execute_query(query)
+        if status != 0:
+            logger.error(f"Query failed: {r}")
