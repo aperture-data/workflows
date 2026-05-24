@@ -52,7 +52,7 @@ export DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VER
 echo "Description: ${DESCRIPTION}"
 
 # Workaround for docker compose build failing on older buildx versions
-if [[ " $* " == *" build "* ]]; then
+if [[ " $* " == *" build "* ]] || [[ " $* " == *" --build "* ]]; then
     NEEDS_UPDATE=false
     if ! docker buildx version >/dev/null 2>&1; then
         NEEDS_UPDATE=true
