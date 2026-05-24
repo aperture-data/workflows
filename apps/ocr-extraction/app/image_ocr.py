@@ -114,14 +114,6 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                             "_uniqueid": ["==", uid]
                         },
                     }
-                },
-                {
-                    "UpdateImage": {
-                        "ref": image_ref,
-                        "properties": {
-                            self.done_property: True
-                        },
-                    }
                 }])
 
             text = self.ocr.bytes_to_text(b)
@@ -192,6 +184,27 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 logger.warning(f"No text found for image {uid}")
 
         status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
+        assert status == 0, f"Query failed: {r}"
+
+        done_query = []
+        done_query.append({
+            "FindImage": {
+                "_ref": 1,
+                "constraints": {
+                    "_uniqueid": ["in", uniqueids]
+                },
+            }
+        })
+        done_query.append({
+            "UpdateImage": {
+                "ref": 1,
+                "properties": {
+                    self.done_property: True,
+                },
+            }
+        })
+
+        status, r, _ = self.pool.execute_query(done_query)
         assert status == 0, f"Query failed: {r}"
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
