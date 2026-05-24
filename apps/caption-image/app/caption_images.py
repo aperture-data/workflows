@@ -19,6 +19,7 @@ def caption_images(
     pool = ConnectionPool()
     data = FindImageQueryGenerator(
         pool,
+        batch_size=batch_size,
         caption_image_property=CAPTION_IMAGE_PROPERTY)
 
     print("Running Caption Image...")

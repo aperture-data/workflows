@@ -10,10 +10,18 @@ from connection_pool import ConnectionPool
 from PIL import Image
 from transformers import AutoProcessor, BlipForConditionalGeneration
 
-processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-
 logger = logging.getLogger(__name__)
+
+# Lazy-loaded globals
+_processor = None
+_model = None
+
+def get_model_and_processor():
+    global _processor, _model
+    if _processor is None or _model is None:
+        _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+        _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    return _processor, _model
 
 
 class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
@@ -22,7 +30,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, caption_image_property: str):
+    def __init__(self, pool, caption_image_property: str, batch_size: int = 32):
 
         self.pool = pool
         self.caption_image_property = caption_image_property
@@ -51,7 +59,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         logger.info(f"Total images to process: {total_images}")
 
-        self.batch_size = 32
+        self.batch_size = batch_size
         self.total_batches = int(math.ceil(total_images / self.batch_size))
 
         self.len = self.total_batches
@@ -70,10 +78,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "constraints": {
                     self.caption_image_property: ["==", None]
                 },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
+                "limit": self.batch_size,
                 "results": {
                     "list": ["_uniqueid"]
                 }
@@ -94,6 +99,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         desc_blobs = []
 
         captions = []
+        processor, model = get_model_and_processor()
         for b in r_blobs:
             image = Image.open(io.BytesIO(b))
             text = "A picture of"
