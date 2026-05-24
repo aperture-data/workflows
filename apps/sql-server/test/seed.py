@@ -225,10 +225,65 @@ def load_blobs_testdata(client):
         query.append({
             "AddBlob": {
             }
-        })        
+        })
 
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
+
+def load_generic_connection_testdata(client):
+    # See https://github.com/aperture-data/athena/issues/757
+    query = [
+        {
+            "AddEntity": {
+                "_ref": 1,
+                "class": "Person"
+            }
+        },
+        {
+            "AddEntity": {
+                "_ref": 2,
+                "class": "School",
+                "connect": {
+                    "ref": 1
+                }
+            }
+        },
+        {
+            "AddEntity": {
+                "class": "Sport",
+                "connect": {
+                    "ref": 2
+                }
+            }
+        },
+        {
+            "AddEntity": {
+                "_ref": 3,
+                "class": "College",
+                "connect": {
+                    "ref": 1,
+                    "class": "ReusedConnection"
+                }
+            }
+        },
+        {
+            "AddEntity": {
+                "class": "Athletics",
+                "connect": {
+                    "ref": 3,
+                    "class": "ReusedConnection"
+                }
+            }
+        }
+    ]
+
+    status, _, _ = execute_query(client, query)
+    assert status == 0
+
+
+def str_to_bool(s):
+    """Convert a string to a boolean."""
+    return s.lower() in ["true", "1", "yes", "y"]
 
 
 def db_connection():
@@ -242,8 +297,9 @@ def db_connection():
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
-
+    CA_CERT = os.getenv("CA_CERT", None)
+    USE_SSL = str_to_bool(os.getenv("USE_SSL", "true"))
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT, use_ssl=USE_SSL)
 
 
 if __name__ == "__main__":
@@ -254,6 +310,7 @@ if __name__ == "__main__":
     load_text_descriptors_testdata(client)
     load_images_testdata(client)
     load_blobs_testdata(client)
+    load_generic_connection_testdata(client)
     print("Test data loaded successfully.")
 
     _, results, _ = execute_query(client, [{"GetSchema": {}}])

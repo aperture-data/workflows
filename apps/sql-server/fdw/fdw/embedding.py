@@ -51,6 +51,7 @@ def embed_texts(
 ) -> List[bytes]:
     logger.debug(
         f"Embedding {len(texts)} texts using {provider}/{model}/{corpus}")
+    assert len(texts) > 0, "At least one text must be provided"
     payload = {
         "provider": provider,
         "model": model,
@@ -72,6 +73,7 @@ def embed_images(
         f"Embedding {len(images)} images using {provider}/{model}/{corpus}")
     assert all(isinstance(i, bytes)
                for i in images), "All images must be bytes"
+    assert len(images) > 0, "At least one image must be provided"
     payload = {
         "provider": provider,
         "model": model,

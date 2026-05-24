@@ -1,0 +1,17 @@
+services:
+  # Test image based on base workflow image
+  test-base:
+    build:
+      context: base/docker/test
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+    image: aperturedata/workflows-base-tests:${VERSION:-latest}
+    working_dir: /app
+    deploy:
+      replicas: 0
+
+  tests:
+    image: aperturedata/workflows-base-tests:${VERSION:-latest}
+    command: ["pytest", "-vv", "-s", "-rA", "/app/"]
+

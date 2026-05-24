@@ -1,0 +1,7 @@
+aperturedb
+pytest
+pytest-asyncio
+fastmcp
+pillow
+numpy
+

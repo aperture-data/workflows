@@ -1,7 +1,6 @@
 from typing import List, Optional
 import logging
 from enum import Enum as PyEnum
-from typer import Typer
 import os
 import requests
 
@@ -47,36 +46,38 @@ class StatusUpdater:
         if accessible is not None:
             wf_status["accessible"] = accessible
         if len(wf_status) > 0:
-            print(f"Updating status: {wf_status}")
             try:
                 update_response = requests.post(
-                        f"http://{os.environ.get('HOSTNAME')}:8080/response",
+                        f"http://localhost:8080/response",
                         json=wf_status
                     )
+                print(f"Updating status: {wf_status}. Got {update_response.status_code}")
             except Exception as e:
                 print(f"Failed to update status: {e}")
 
-app = Typer()
-
-@app.command()
-def shell_updater(
-    completed: Optional[float] = None,
-    phases: Optional[List[str]] = None,
-    phase: Optional[str] = None,
-    status: Optional[WorkflowStatus] = None,
-    error_message: Optional[str] = None,
-    error_code: Optional[WorkFlowError] = None,
-    accessible: Optional[bool] = None,
-):
-    updater = StatusUpdater()
-    updater.post_update(
-        completed=completed,
-        phases=phases,
-        phase=phase,
-        status=status,
-        error_message=error_message,
-        error_code=error_code,
-        accessible=accessible)
-
 if __name__ == "__main__":
+    # protect this import because this module is used by sitecustomize.py
+    from typer import Typer
+    app = Typer()
+
+    @app.command()
+    def shell_updater(
+        completed: Optional[float] = None,
+        phases: Optional[List[str]] = None,
+        phase: Optional[str] = None,
+        status: Optional[WorkflowStatus] = None,
+        error_message: Optional[str] = None,
+        error_code: Optional[WorkFlowError] = None,
+        accessible: Optional[bool] = None,
+    ):
+        updater = StatusUpdater()
+        updater.post_update(
+            completed=completed,
+            phases=phases,
+            phase=phase,
+            status=status,
+            error_message=error_message,
+            error_code=error_code,
+            accessible=accessible)
+
     app()

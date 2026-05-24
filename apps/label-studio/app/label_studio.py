@@ -75,13 +75,17 @@ def main(args):
     set_state(LabelStudioPhase.SETUP,completeness=0)
     def add_common_vars( env ):
 
+        env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb,gcs,s3"
         env["LABEL_STUDIO_DEBUG"]="FALSE" 
         env["LABEL_STUDIO_APERTUREDB_KEY"]=db.config.deflate()
+        env["LABEL_STUDIO_APERTUREDB_UNTAGGED_IMAGES"]= "TRUE" if args.label_studio_handle_untagged else "FALSE"
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if "DB_HOST_PUBLIC" in os.environ:
+            from wf_argparse import validate
+            db_host_public = validate("hostname", envar="DB_HOST_PUBLIC")
             # generate path for cloud
-            full_path = "https://{}/labelstudio".format(os.environ['DB_HOST_PUBLIC'])
+            full_path = "https://{}/labelstudio".format(db_host_public)
             logger.info(f"Set url from DB_HOST_PUBLIC: {full_path}")
         if args.label_studio_url_path is not None:
             if full_path is not None:
@@ -107,7 +111,7 @@ def main(args):
             # strip trailing /
             if subpath[-1:] == '/':
                 logger.debug("Subpath had trailing slash, stripped.") 
-                subpath = sub_path[:-1]
+                subpath = subpath[:-1]
 
             logger.debug(f"Path is {full_path} and {subpath}")
             
@@ -163,8 +167,6 @@ def main(args):
         ls_env["WORKFLOW_NAME"]="label-studio"
         ls_env["WORKFLOW_SPEC_ID"]=args.spec_id 
         ls_env["WORKFLOW_RUN_ID"]=str(run_id)
-        ls_env["LABEL_STUDIO_CONFIGURED_STORAGE_BACKENDS"]="aperturedb gcs s3" 
-        logger.error(f" ENV FOR MAIN IS: {ls_env}")
 
         logger.info("Preparing to start Label Studio.")
         set_state(LabelStudioPhase.SERVING,completeness=70)
@@ -198,6 +200,8 @@ def get_args():
     obj.add_argument("--label-studio-token",type=str,default=None, help="User token for label studio") 
     obj.add_argument("--label-studio-user",type=str,default=None,required=True, help="User for label studio") 
     obj.add_argument("--label-studio-password",type=str,default=None,required=True, help="User password for label studio") 
+    obj.add_argument("--label-studio-handle-untagged",type=bool,default=False,
+            help="Enables code to allow import of images without dimension properties") 
 
     # workflow options
     obj.add_argument("--spec-id",type=str,default=None,

@@ -17,7 +17,7 @@ def compute_bleu(candidate: str, reference: str) -> Optional[float]:
     """Compute BLEU score between candidate and reference text."""
     if candidate is None or reference is None:
         return None
-    
+
     # case-fold and extract alphanumeric tokens
     candidate = candidate.lower()
     reference = reference.lower()
@@ -40,7 +40,7 @@ def compute_character_level_bleu(candidate: str, reference: str) -> Optional[flo
     """Compute character-level BLEU score between candidate and reference text."""
     if candidate is None or reference is None:
         return None
-    
+
     # case-fold
     candidate = candidate.lower()
     reference = reference.lower()
@@ -62,7 +62,7 @@ def compute_levenshtein_distance(s1: str, s2: str) -> Optional[int]:
     """Compute the Levenshtein distance between two strings."""
     if s1 is None or s2 is None:
         return None
-    
+
     return edit_distance(s1, s2)
 
 
@@ -70,7 +70,7 @@ def compute_jaccard_distance(s1: str, s2: str) -> Optional[float]:
     """Compute the Jaccard distance between two strings."""
     if s1 is None or s2 is None:
         return None
-    
+
     set1 = set(s1)
     set2 = set(s2)
     try:
@@ -86,8 +86,8 @@ def db_connection():
     DB_PORT = int(os.getenv("DB_PORT", "55555"))
     DB_USER = os.getenv("DB_USER", "admin")
     DB_PASS = os.getenv("DB_PASS", "admin")
-    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS)
-
+    CA_CERT = os.getenv("CA_CERT", None)
+    return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT)
 
 @pytest.fixture(scope="session", autouse=True)
 def print_schema(db_connection):
@@ -136,14 +136,14 @@ def calculate_text_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # Log calculated scores
     logger.info("calculated scores:\n%s", df.to_json(orient='records'))
-    
+
     # Calculate summary statistics
     means = df.melt(id_vars=["corpus"],
-                    value_vars=["bleu_score", "char_bleu_score", "levenshtein_distance", 
+                    value_vars=["bleu_score", "char_bleu_score", "levenshtein_distance",
                 "jaccard_distance"], var_name="metric", value_name="score").groupby(["corpus", "metric"]).agg([
         "mean", "std", "min", "max"]).reset_index()
     logger.info("means:\n%s", means.to_string())
-    
+
     return df
 
 

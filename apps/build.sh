@@ -49,52 +49,14 @@ if [ ! -f "${DIR}/Dockerfile" ]; then
     exit 1
 fi
 
-# Extract the name of the directory
-NAME=$(basename "${DIR}")
-# Build an image name from the directory name
-IMAGE_NAME="aperturedata/workflows-${NAME}"
-echo "Image name: ${IMAGE_NAME}"
 
-TOP=$(git rev-parse --show-toplevel)
-
-# Check for uncommitted changes
-IS_DIRTY=$(git -C "$TOP" status --porcelain)
-if [ -n "$IS_DIRTY" ]; then
-  SHA_SUFFIX="+dirty"
-  DESCRIPTION_SUFFIX=" (with uncommitted changes)"
-  echo "Warning: Uncommitted changes detected in the repository."
-else
-  SHA_SUFFIX=""
-  DESCRIPTION_SUFFIX=""
-fi
 
 cd "$DIR"
 
-# CI should provide these variables, but we need defaults for local builds
-VERSION="${VERSION:-dev}"
-GITHUB_SHA="${GITHUB_SHA:-$(git -C "$TOP" rev-parse HEAD)}"
-GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-aperture-data/workflows}"
 
-GITHUB_SHA_FULL="${GITHUB_SHA}${SHA_SUFFIX}"
-BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SOURCE_PATH_REL=$(realpath --relative-to="$TOP" "$DIR")
-SOURCE_URL="https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_SHA}"
-DOCKERFILE_URL="${SOURCE_URL}/${SOURCE_PATH_REL}/Dockerfile"
-DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VERSION}${DESCRIPTION_SUFFIX}"
-echo "Description: ${DESCRIPTION}"
+source ../../.commonrc
+if [ $CI_RUN -eq 0 ]; then
+  $COMMAND build base
+fi
 
-BASE_IMAGE_NAME="aperturedata/workflows-base"
-BASE_IMAGE_DIR="$DIR/../../base/docker"
-
-docker build --build-arg WORKFLOW_VERSION="$WORKFLOW_VERSION" -t ${BASE_IMAGE_NAME} ${BASE_IMAGE_DIR}
-
-
-# Build the image
-docker build -t "${IMAGE_NAME}" \
-    --label "org.opencontainers.image.version=${VERSION}" \
-    --label "org.opencontainers.image.revision=${GITHUB_SHA_FULL}" \
-    --label "org.opencontainers.image.created=${BUILD_DATE}" \
-    --label "org.opencontainers.image.description=${DESCRIPTION}" \
-    --label "org.opencontainers.image.source=${SOURCE_URL}" \
-    --label "org.opencontainers.image.ref.name=docker.io/${IMAGE_NAME}:${VERSION}" \
-    .
+$COMMAND build ${COMPOSE_PROJECT_NAME} ${COMPOSE_PROJECT_NAME}

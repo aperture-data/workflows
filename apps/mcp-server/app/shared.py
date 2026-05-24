@@ -1,16 +1,12 @@
 import logging
 import os
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastmcp.server.auth import BearerAuthProvider
-from fastapi import Depends, HTTPException, status
-
 from connection_pool import ConnectionPool
 
 
 def configure_logging(log_level):
     logger = logging.getLogger("aperture")  # use a named logger
-    logger.setLevel(log_level.upper())
+    logger.setLevel(log_level)
 
     if not logger.hasHandlers():
         handler = logging.StreamHandler()
@@ -28,12 +24,11 @@ def get_args():
     from wf_argparse import ArgumentParser
     parser = ArgumentParser(
         description="ApertureDB MCP server")
-    parser.add_argument("--input", required=False,
+    parser.add_argument("--input", required=False, type='string',
                         help="Default descriptor set to use for find similar")
-    parser.add_argument("--auth-token", required=True, type=str,
+    parser.add_argument("--auth-token", required=True, type='string',
                         help="Bearer token for authentication")
-    parser.add_argument("--log-level", type=str, default='DEBUG',
-                        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    parser.add_argument("--log-level", type='log_level', default='INFO')
 
     args = parser.parse_args([])  # suppress command line parsing
     return args

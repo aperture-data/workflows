@@ -29,6 +29,8 @@ if [ -n "${VERSION:-}" ]; then
   echo "Using version: $VERSION"
 else
   echo "Building version from git hash: $GITHUB_SHA"
+  echo "This can cause lot of tags being created while developing."
+  echo "Consider using the VERSION environment variable to set the version."
   SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-12)
   VERSION="local-$SHORT_SHA"
   if [ -n "${IS_DIRTY}" ]; then
