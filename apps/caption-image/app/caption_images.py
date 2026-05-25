@@ -12,7 +12,7 @@ CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 @app.command()
 def caption_images(
     num_workers: int = typer.Option(1, envvar="NUM_WORKERS", help="Number of concurrent workers"),
-    batch_size: int = typer.Option(1, envvar="BATCH_SIZE", help="Batch size for fetching images"),
+    batch_size: int = typer.Option(32, envvar="BATCH_SIZE", help="Batch size for fetching images"),
     log_level: str = typer.Option("WARNING", envvar=["WF_LOG_LEVEL", "LOG_LEVEL"], help="Logging level")
 ):
     num_workers = int(num_workers)
