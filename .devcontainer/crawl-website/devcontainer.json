@@ -16,7 +16,6 @@
     },
     "settings": {
         "python.defaultInterpreterPath": "/opt/venv/bin/python",
-        "python.formatting.provider": "black",
         "python.linting.enabled": true,
         "python.linting.pylintEnabled": true,
         "files.exclude": {
