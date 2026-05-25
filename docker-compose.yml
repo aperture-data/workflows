@@ -506,7 +506,7 @@ services:
             <<: *common-env
             NUM_WORKERS: "${NUM_WORKERS:-1}"
             BATCH_SIZE: "${BATCH_SIZE:-1}"
-            LOG_LEVEL: "${LOG_LEVEL:-WARNING}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-WARNING}"
 
     ingest-from-sql:
         image: aperturedata/workflows-ingest-from-sql:${VERSION}
