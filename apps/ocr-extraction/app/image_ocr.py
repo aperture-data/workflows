@@ -104,6 +104,8 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         if not uniqueids:
             return 0
 
+        assert len(uniqueids) == len(r_blobs), f"Mismatch: {len(uniqueids)} images vs {len(r_blobs)} blobs."
+
         desc_blobs = []
         desc_query = []
 
@@ -186,28 +188,27 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             else:
                 logger.warning(f"No text found for image {uid}")
 
+        done_ref = len(desc_query) + 1
+        desc_query.extend([
+            {
+                "FindImage": {
+                    "_ref": done_ref,
+                    "constraints": {
+                        "_uniqueid": ["in", uniqueids]
+                    },
+                }
+            },
+            {
+                "UpdateImage": {
+                    "ref": done_ref,
+                    "properties": {
+                        self.done_property: True,
+                    },
+                }
+            }
+        ])
+
         status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
-        assert status == 0, f"Query failed: {r}"
-
-        done_query = []
-        done_query.append({
-            "FindImage": {
-                "_ref": 1,
-                "constraints": {
-                    "_uniqueid": ["in", uniqueids]
-                },
-            }
-        })
-        done_query.append({
-            "UpdateImage": {
-                "ref": 1,
-                "properties": {
-                    self.done_property: True,
-                },
-            }
-        })
-
-        status, r, _ = self.pool.execute_query(done_query)
         assert status == 0, f"Query failed: {r}"
 
     def segments_to_embeddings(self, segments: Iterable[Segment]) -> List[bytes]:
