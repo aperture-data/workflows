@@ -101,6 +101,9 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             print(f"error: {response}")
             return 0
 
+        if not uniqueids:
+            return 0
+
         desc_blobs = []
         desc_query = []
 
