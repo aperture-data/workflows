@@ -1,21 +1,31 @@
 import os
 import logging
 
-from typer import Typer
+import typer
 
 from images import FindImageQueryGenerator
 from aperturedb import ParallelQuery
 from connection_pool import ConnectionPool
 
-app = Typer()
+app = typer.Typer()
 CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 
 @app.command()
 def caption_images(
-    num_workers:int = int(os.environ.get("NUM_WORKERS", 1)),
-    batch_size:int = int(os.environ.get("BATCH_SIZE", 1)),
-    log_level:str = os.environ.get("WF_LOG_LEVEL", os.environ.get("LOG_LEVEL", "WARNING"))
+    num_workers: int = typer.Option(None, envvar="NUM_WORKERS", help="Number of concurrent workers"),
+    batch_size: int = typer.Option(None, envvar="BATCH_SIZE", help="Batch size for fetching images"),
+    log_level: str = typer.Option("WARNING", envvar=["WF_LOG_LEVEL", "LOG_LEVEL"], help="Logging level")
 ):
+    if num_workers is None:
+        num_workers = 1
+    else:
+        num_workers = int(num_workers)
+
+    if batch_size is None:
+        batch_size = 1
+    else:
+        batch_size = int(batch_size)
+
     logging.basicConfig(level=log_level.upper(), force=True)
     pool = ConnectionPool()
     data = FindImageQueryGenerator(

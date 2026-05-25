@@ -53,16 +53,18 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
 
         status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            logger.error(f"Error executing query to find images: {response}")
+            exit(1)
 
         try:
-            self.unique_ids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-            total_images = len(self.unique_ids)
+            total_images = response[0]["FindImage"]["count"]
         except Exception as e:
             logger.error(f"Error retrieving the images. No images in the db? {e}")
             exit(0)
@@ -84,15 +86,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        start_idx = idx * self.batch_size
-        end_idx = start_idx + self.batch_size
-        batch_ids = self.unique_ids[start_idx:end_idx]
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_ids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
