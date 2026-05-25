@@ -7,6 +7,7 @@ To run these notebooks, you need to have the TMDB dataset ingested into your dat
 
 - [Dataset Ingestion (Movies)](https://github.com/aperture-data/workflows/tree/main/apps/dataset-ingestion-movies) workflow must be executed to populate the database with the schema, cast, and movie data, including embeddings for poster images and taglines.
 - A running ApertureDB instance with Python client configured.
+- `OPENAI_API_KEY` environment variable configured if you intend to run the natural language queries notebook (`tmdb_queries_nl.ipynb`).
 
 ## Notebooks
 
