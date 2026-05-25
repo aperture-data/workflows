@@ -53,7 +53,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
@@ -64,8 +64,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             exit(1)
 
         try:
-            self.unique_ids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-            total_images = len(self.unique_ids)
+            total_images = response[0]["FindImage"]["count"]
         except Exception as e:
             logger.error(f"Error retrieving the images count. No images in the db? {e}")
             exit(0)
@@ -87,15 +86,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        start_idx = idx * self.batch_size
-        end_idx = start_idx + self.batch_size
-        batch_ids = self.unique_ids[start_idx:end_idx]
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_ids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
@@ -118,6 +117,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         
         valid_uniqueids = []
         captions = []
+        failed_uniqueids = []
+        failed_reasons = []
         
         for uid, b in zip(uniqueids, r_blobs):
             try:
@@ -131,16 +132,19 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 captions.append(caption)
             except Exception as e:
                 logger.error(f"Failed to process image {uid}: {e}")
+                failed_uniqueids.append(uid)
+                failed_reasons.append(str(e))
 
-        if not valid_uniqueids:
+        if not valid_uniqueids and not failed_uniqueids:
             return 0
 
         query = []
-        for uniqueid, caption, i in zip(valid_uniqueids, captions, range(len(valid_uniqueids))):
-
+        ref_idx = 1
+        
+        for uniqueid, caption in zip(valid_uniqueids, captions):
             query.append({
                 "FindImage": {
-                    "_ref": i + 1,
+                    "_ref": ref_idx,
                     "constraints": {
                         "_uniqueid": ["==", uniqueid]
                     },
@@ -149,13 +153,36 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
             query.append({
                 "UpdateImage": {
-                    "ref": i + 1,
+                    "ref": ref_idx,
                     "properties": {
                         self.caption_image_property: caption,
                         self.caption_image_property + "_done": True
                     },
                 }
             })
+            ref_idx += 1
+
+        for uniqueid, reason in zip(failed_uniqueids, failed_reasons):
+            query.append({
+                "FindImage": {
+                    "_ref": ref_idx,
+                    "constraints": {
+                        "_uniqueid": ["==", uniqueid]
+                    },
+                }
+            })
+
+            query.append({
+                "UpdateImage": {
+                    "ref": ref_idx,
+                    "properties": {
+                        self.caption_image_property + "_done": True,
+                        self.caption_image_property + "_failed": True,
+                        self.caption_image_property + "_error": reason
+                    },
+                }
+            })
+            ref_idx += 1
 
         status, r, _ = self.pool.execute_query(query)
         if status != 0:
