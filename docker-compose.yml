@@ -108,6 +108,7 @@ services:
             context: ./base/docker
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-base:${VERSION}"
@@ -118,6 +119,7 @@ services:
             context: ./apps/crawl-website
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-website:${VERSION}"
@@ -140,6 +142,7 @@ services:
             context: ./apps/embeddings-extraction
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-embeddings-extraction:${VERSION}"
@@ -170,6 +173,7 @@ services:
             context: ./apps/ocr-extraction
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ocr-extraction:${VERSION}"
@@ -196,6 +200,7 @@ services:
             context: ./apps/jupyterlab
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
@@ -225,6 +230,7 @@ services:
             context: ./apps/label-studio
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-label-studio:${VERSION}"
@@ -252,6 +258,7 @@ services:
             context: ./apps/mcp-server
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-mcp-server:${VERSION}"
@@ -269,6 +276,7 @@ services:
             context: ./apps/rag
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-rag:${VERSION}"
@@ -293,6 +301,7 @@ services:
             context: ./apps/sql-server
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-sql-server:${VERSION}"
@@ -310,6 +319,7 @@ services:
             context: ./apps/text-embeddings
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-embeddings:${VERSION}"
@@ -333,6 +343,7 @@ services:
             context: ./apps/text-extraction
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-text-extraction:${VERSION}"
@@ -355,6 +366,7 @@ services:
             context: ./apps/crawl-to-rag
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-crawl-to-rag:${VERSION}"
@@ -377,6 +389,7 @@ services:
             context: ./apps/ingest-croissant
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-croissant:${VERSION}"
@@ -398,6 +411,7 @@ services:
             context: ./apps/dataset-ingestion
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion:${VERSION}"
@@ -422,6 +436,7 @@ services:
             context: ./apps/dataset-ingestion-movies
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-dataset-ingestion-movies:${VERSION}"
@@ -451,6 +466,7 @@ services:
             context: ./apps/face-detection
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-face-detection:${VERSION}"
@@ -471,6 +487,7 @@ services:
             context: ./apps/object-detection
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-object-detection:${VERSION}"
@@ -492,6 +509,7 @@ services:
             context: ./apps/caption-image
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-caption-image:${VERSION}"
@@ -513,6 +531,7 @@ services:
             context: ./apps/ingest-from-sql
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-sql:${VERSION}"
@@ -523,6 +542,7 @@ services:
             context: ./apps/ingest-from-bucket
             args:
                 <<: *build-args
+                PRELOAD_MODEL: "true"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-ingest-from-bucket:${VERSION}"

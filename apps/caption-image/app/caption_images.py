@@ -14,7 +14,7 @@ CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 def caption_images(
     num_workers:int = int(os.environ.get("NUM_WORKERS", 1)),
     batch_size:int = int(os.environ.get("BATCH_SIZE", 1)),
-    log_level:str = os.environ.get("LOG_LEVEL", "WARNING")
+    log_level:str = os.environ.get("WF_LOG_LEVEL", os.environ.get("LOG_LEVEL", "WARNING"))
 ):
     logging.basicConfig(level=log_level.upper(), force=True)
     pool = ConnectionPool()
@@ -26,7 +26,7 @@ def caption_images(
     print("Running Caption Image...")
     with pool.get_connection() as db:
         querier = ParallelQuery.ParallelQuery(db)
-        querier.query(data, batchsize=batch_size, numthreads=num_workers, stats=True)
+        querier.query(data, batchsize=1, numthreads=num_workers, stats=True)
 
 
 def main():

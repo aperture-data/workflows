@@ -55,12 +55,12 @@ q = [
         {
             "UpdateImage": {
                 "constraints": {
-                    "wf_caption_image": ["!=", null]
+                    "wf_caption_image": ["!=", None]
                 },
-                "remove_props": ["wf_caption_image"]
+                "remove_props": ["wf_caption_image", "wf_caption_image_done"]
             }
         }
     ]
 ```
 
-or manually remove the `wf_caption_image` property from images that have been processed.
+or manually remove the `wf_caption_image` and `wf_caption_image_done` properties from images that have been processed.

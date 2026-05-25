@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 docker build --build-arg WORKFLOW_VERSION=latest -t aperturedata/workflows-base base/docker
 for d in .devcontainer/*/; do
   if [ -d "$d" ]; then

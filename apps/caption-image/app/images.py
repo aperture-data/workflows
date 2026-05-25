@@ -39,13 +39,21 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         self.pool = pool
         self.caption_image_property = caption_image_property
 
+        try:
+            self.batch_size = int(batch_size)
+        except ValueError:
+            raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
+            
+        if self.batch_size <= 0:
+            raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
+
         query = [{
             "FindImage": {
                 "constraints": {
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
@@ -53,8 +61,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         status, response, _ = self.pool.execute_query(query)
 
         try:
-            self.unique_ids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-            total_images = len(self.unique_ids)
+            total_images = response[0]["FindImage"]["count"]
         except Exception as e:
             logger.error(f"Error retrieving the images. No images in the db? {e}")
             exit(0)
@@ -64,7 +71,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         logger.info(f"Total images to process: {total_images}")
 
-        self.batch_size = batch_size
         self.total_batches = int(math.ceil(total_images / self.batch_size))
 
         self.len = self.total_batches
@@ -77,15 +83,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        start_idx = idx * self.batch_size
-        end_idx = start_idx + self.batch_size
-        batch_ids = self.unique_ids[start_idx:end_idx]
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_ids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
@@ -104,19 +110,29 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             logger.exception(f"error: {response}")
             return 0
 
-        captions = []
         processor, model = get_model_and_processor()
-        for b in r_blobs:
-            image = Image.open(io.BytesIO(b))
-            text = "A picture of"
-            inputs = processor(images=image, text=text, return_tensors="pt")
-            with torch.no_grad():
-                output = model.generate(**inputs)
-            caption = processor.decode(output[0], skip_special_tokens=True)
-            captions.append(caption)
+        
+        valid_uniqueids = []
+        captions = []
+        
+        for uid, b in zip(uniqueids, r_blobs):
+            try:
+                image = Image.open(io.BytesIO(b)).convert("RGB")
+                text = "A picture of"
+                inputs = processor(images=image, text=text, return_tensors="pt")
+                with torch.no_grad():
+                    output = model.generate(**inputs)
+                caption = processor.decode(output[0], skip_special_tokens=True)
+                valid_uniqueids.append(uid)
+                captions.append(caption)
+            except Exception as e:
+                logger.error(f"Failed to process image {uid}: {e}")
+
+        if not valid_uniqueids:
+            return 0
 
         query = []
-        for uniqueid, i in zip(uniqueids, range(len(uniqueids))):
+        for uniqueid, caption, i in zip(valid_uniqueids, captions, range(len(valid_uniqueids))):
 
             query.append({
                 "FindImage": {
@@ -131,13 +147,11 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": i + 1,
                     "properties": {
-                        self.caption_image_property: captions[i],
+                        self.caption_image_property: caption,
                         self.caption_image_property + "_done": True
                     },
                 }
             })
-
-
 
         status, r, _ = self.pool.execute_query(query)
         if status != 0:
