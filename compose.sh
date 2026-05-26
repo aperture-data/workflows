@@ -51,5 +51,6 @@ DOCKERFILE_URL="${SOURCE_URL}/${SOURCE_PATH_REL}/Dockerfile"
 export DESCRIPTION="Built from ${DOCKERFILE_URL} on ${BUILD_DATE}, version ${VERSION}${DESCRIPTION_SUFFIX}"
 echo "Description: ${DESCRIPTION}"
 
+
 # Forward all args to docker compose
 exec docker compose "$@"

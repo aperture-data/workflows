@@ -101,6 +101,11 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
             print(f"error: {response}")
             return 0
 
+        if not uniqueids:
+            return 0
+
+        assert len(uniqueids) == len(r_blobs), f"Mismatch: {len(uniqueids)} images vs {len(r_blobs)} blobs."
+
         desc_blobs = []
         desc_query = []
 
@@ -112,14 +117,6 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         "_ref": image_ref,
                         "constraints": {
                             "_uniqueid": ["==", uid]
-                        },
-                    }
-                },
-                {
-                    "UpdateImage": {
-                        "ref": image_ref,
-                        "properties": {
-                            self.done_property: True
                         },
                     }
                 }])
@@ -190,6 +187,26 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     logger.debug(f"Added {len(segments)} segments for {uid}")
             else:
                 logger.warning(f"No text found for image {uid}")
+
+        done_ref = len(desc_query) + 1
+        desc_query.extend([
+            {
+                "FindImage": {
+                    "_ref": done_ref,
+                    "constraints": {
+                        "_uniqueid": ["in", uniqueids]
+                    },
+                }
+            },
+            {
+                "UpdateImage": {
+                    "ref": done_ref,
+                    "properties": {
+                        self.done_property: True,
+                    },
+                }
+            }
+        ])
 
         status, r, _ = self.pool.execute_query(desc_query, desc_blobs)
         assert status == 0, f"Query failed: {r}"
