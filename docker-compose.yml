@@ -492,7 +492,7 @@ services:
             context: ./apps/caption-image
             args:
                 <<: *build-args
-                PRELOAD_MODEL: "true"
+                PRELOAD_MODEL: "${PRELOAD_MODEL:-false}"
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-caption-image:${VERSION}"
