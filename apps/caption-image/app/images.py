@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 _processor = None
 _model = None
 _model_lock = threading.Lock()
+_inference_lock = threading.Lock()
 
 def get_model_and_processor():
     global _processor, _model
@@ -53,7 +54,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
@@ -63,8 +64,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             raise RuntimeError(f"Error executing query to find images: {response}")
 
         try:
-            self.unique_ids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-            total_images = len(self.unique_ids)
+            total_images = response[0]["FindImage"]["count"]
         except (KeyError, IndexError) as e:
             logger.error(f"Error retrieving the images count. No images in the db? {e}")
             total_images = 0
@@ -89,18 +89,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        start_idx = idx * self.batch_size
-        end_idx = start_idx + self.batch_size
-        batch_ids = self.unique_ids[start_idx:end_idx]
-
-        if not batch_ids:
-            return None
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_ids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
@@ -126,20 +123,36 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         failed_uniqueids = []
         failed_reasons = []
         
+        images_to_process = []
+        texts = []
+        uids_to_process = []
+        
         for uid, b in zip(uniqueids, r_blobs):
             try:
                 image = Image.open(io.BytesIO(b)).convert("RGB")
-                text = "A picture of"
-                inputs = processor(images=image, text=text, return_tensors="pt")
-                with torch.no_grad():
-                    output = model.generate(**inputs)
-                caption = processor.decode(output[0], skip_special_tokens=True)
-                valid_uniqueids.append(uid)
-                captions.append(caption)
+                images_to_process.append(image)
+                texts.append("A picture of")
+                uids_to_process.append(uid)
             except Exception as e:
-                logger.error(f"Failed to process image {uid}: {e}")
+                logger.error(f"Failed to load image {uid}: {e}")
                 failed_uniqueids.append(uid)
                 failed_reasons.append(str(e))
+
+        if images_to_process:
+            try:
+                inputs = processor(images=images_to_process, text=texts, return_tensors="pt", padding=True)
+                with _inference_lock:
+                    with torch.no_grad():
+                        outputs = model.generate(**inputs)
+                batch_captions = processor.batch_decode(outputs, skip_special_tokens=True)
+                for uid, caption in zip(uids_to_process, batch_captions):
+                    valid_uniqueids.append(uid)
+                    captions.append(caption)
+            except Exception as e:
+                logger.error(f"Failed to process batch: {e}")
+                for uid in uids_to_process:
+                    failed_uniqueids.append(uid)
+                    failed_reasons.append(str(e))
 
         if not valid_uniqueids and not failed_uniqueids:
             return 0
@@ -182,6 +195,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "UpdateImage": {
                     "ref": ref_idx,
                     "properties": {
+                        self.caption_image_property + "_done": True,
                         self.caption_image_property + "_failed": True,
                         self.caption_image_property + "_error": reason
                     },
@@ -193,3 +207,5 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if status != 0:
             logger.error(f"Query failed: {r}")
             raise Exception(f"Query failed: {r}")
+
+        return len(valid_uniqueids)
