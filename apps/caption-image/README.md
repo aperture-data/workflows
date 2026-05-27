@@ -34,7 +34,7 @@ docker run \
            -e DB_PASS="password" \
            -e NUM_WORKERS=4 \
            -e BATCH_SIZE=32 \
-           -e LOG_LEVEL=INFO \
+           -e WF_LOG_LEVEL=INFO \
            aperturedata/workflows-caption-image
 ```
 
@@ -42,7 +42,7 @@ Parameters:
 * **`NUM_WORKERS`**: Specifies the number of worker threads that will be running simultaneously,
 retrieving and processing images in parallel. Default is `1`.
 * **`BATCH_SIZE`**: Specifies the batch size for processing images. Default is `1`.
-* **`LOG_LEVEL`**: Set log level for workflow code. Available options: DEBUG, INFO, WARNING, ERROR. Default is `WARNING`.
+* **`WF_LOG_LEVEL`**: Set log level for workflow code. Available options: DEBUG, INFO, WARNING, ERROR. Default is `WARNING`. `LOG_LEVEL` is also supported as a legacy alias.
 
 See [Common Parameters](../../README.md#common-parameters) for common parameters.
 
@@ -57,10 +57,10 @@ q = [
                 "constraints": {
                     "wf_caption_image": ["!=", None]
                 },
-                "remove_props": ["wf_caption_image", "wf_caption_image_done"]
+                "remove_props": ["wf_caption_image", "wf_caption_image_done", "wf_caption_image_failed", "wf_caption_image_error"]
             }
         }
     ]
 ```
 
-or manually remove the `wf_caption_image` and `wf_caption_image_done` properties from images that have been processed.
+or manually remove the `wf_caption_image`, `wf_caption_image_done`, `wf_caption_image_failed`, and `wf_caption_image_error` properties from images that have been processed.
