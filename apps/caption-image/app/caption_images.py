@@ -18,13 +18,14 @@ def caption_images(
     batch_size = int(batch_size)
 
     logging.basicConfig(level=log_level.upper(), force=True)
+    logger = logging.getLogger(__name__)
     pool = ConnectionPool()
     data = FindImageQueryGenerator(
         pool,
         batch_size=batch_size,
         caption_image_property=CAPTION_IMAGE_PROPERTY)
 
-    print("Running Caption Image...")
+    logger.info("Running Caption Image...")
     with pool.get_connection() as db:
         querier = ParallelQuery.ParallelQuery(db)
         querier.query(data, batchsize=1, numthreads=num_workers, stats=True)
