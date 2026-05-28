@@ -54,7 +54,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
@@ -64,8 +64,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             raise RuntimeError(f"Error executing query to find images: {response}")
 
         try:
-            self.unique_ids = [i["_uniqueid"] for i in response[0]["FindImage"]["entities"]]
-            total_images = len(self.unique_ids)
+            total_images = response[0]["FindImage"]["count"]
         except (KeyError, IndexError) as e:
             logger.error(f"Error retrieving the images count. No images in the db? {e}")
             total_images = 0
@@ -90,18 +89,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        start_idx = idx * self.batch_size
-        end_idx = start_idx + self.batch_size
-        batch_ids = self.unique_ids[start_idx:end_idx]
-
-        if not batch_ids:
-            return None
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_ids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
@@ -118,6 +114,10 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                          for i in response[0]["FindImage"]["entities"]]
         except Exception as e:
             logger.exception(f"error parsing uniqueids from response: {response}")
+            return 0
+
+        if len(uniqueids) != len(r_blobs):
+            logger.error(f"Mismatch in response: {len(uniqueids)} uniqueids vs {len(r_blobs)} blobs")
             return 0
 
         processor, model = get_model_and_processor()
@@ -153,10 +153,20 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     valid_uniqueids.append(uid)
                     captions.append(caption)
             except Exception as e:
-                logger.error(f"Failed to process batch: {e}")
-                for uid in uids_to_process:
-                    failed_uniqueids.append(uid)
-                    failed_reasons.append(str(e))
+                logger.error(f"Failed to process batch, falling back to per-image: {e}")
+                for uid, img, txt in zip(uids_to_process, images_to_process, texts):
+                    try:
+                        inputs = processor(images=img, text=txt, return_tensors="pt", padding=True)
+                        with _inference_lock:
+                            with torch.no_grad():
+                                outputs = model.generate(**inputs)
+                        caption = processor.decode(outputs[0], skip_special_tokens=True)
+                        valid_uniqueids.append(uid)
+                        captions.append(caption)
+                    except Exception as single_e:
+                        logger.error(f"Failed to process image {uid} individually: {single_e}")
+                        failed_uniqueids.append(uid)
+                        failed_reasons.append(str(single_e))
 
         if not valid_uniqueids and not failed_uniqueids:
             return 0

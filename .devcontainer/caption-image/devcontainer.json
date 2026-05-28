@@ -1,7 +1,8 @@
 {
     "name": "caption-image",
     "dockerComposeFile": [
-        "docker-compose.yml"
+        "docker-compose.yml",
+        "../docker-compose.shared.yml"
     ],
     "service": "caption-image",
     "workspaceFolder": "/workflows",

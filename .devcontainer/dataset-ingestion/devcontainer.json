@@ -1,7 +1,8 @@
 {
     "name": "dataset-ingestion",
     "dockerComposeFile": [
-        "docker-compose.yml"
+        "docker-compose.yml",
+        "../docker-compose.shared.yml"
     ],
     "service": "dataset-ingestion",
     "workspaceFolder": "/workflows",

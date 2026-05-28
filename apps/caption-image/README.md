@@ -40,7 +40,7 @@ docker run \
 
 Parameters:
 * **`NUM_WORKERS`**: Specifies the number of worker threads that will be running simultaneously,
-retrieving and processing images in parallel. Default is `1`.
+retrieving and processing images in parallel. Default is `1`. Note that the BLIP model inference is serialized with a lock to prevent PyTorch intra-op threading conflicts on CPU, so increasing `NUM_WORKERS` only parallelizes image fetching and preprocessing, not inference itself.
 * **`BATCH_SIZE`**: Specifies the batch size for processing images. Default is `1`.
 * **`WF_LOG_LEVEL`**: Set log level for workflow code. Available options: DEBUG, INFO, WARNING, ERROR. Default is `WARNING`. `LOG_LEVEL` is also supported as a legacy alias.
 

@@ -1,7 +1,8 @@
 {
     "name": "crawl-website",
     "dockerComposeFile": [
-        "docker-compose.yml"
+        "docker-compose.yml",
+        "../docker-compose.shared.yml"
     ],
     "service": "crawl-website",
     "workspaceFolder": "/workflows",
