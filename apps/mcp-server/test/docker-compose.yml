@@ -13,6 +13,8 @@ services:
   seed:
     image: aperturedata/workflows-mcp-server-tests:${VERSION:-latest}
     depends_on:
+      aperturedb:
+        condition: service_healthy
       lenz:
         condition: service_started
     working_dir: /app
