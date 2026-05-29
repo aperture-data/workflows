@@ -504,6 +504,7 @@ services:
             - ./ca:/ca
         environment:
             <<: *common-env
+            RUN_ONCE: "${RUN_ONCE:-true}"
             NUM_WORKERS: "${NUM_WORKERS:-1}"
             BATCH_SIZE: "${BATCH_SIZE:-1}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-WARNING}"

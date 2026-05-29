@@ -112,10 +112,28 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                          for i in response[0]["FindImage"]["entities"]]
         except Exception as e:
             logger.exception(f"error parsing uniqueids from response: {response}")
-            return 0
+            raise RuntimeError(f"error parsing uniqueids from response: {response}") from e
 
         if len(uniqueids) != len(r_blobs):
             logger.error(f"Mismatch in response: {len(uniqueids)} uniqueids vs {len(r_blobs)} blobs")
+            query_fail = []
+            ref_idx = 1
+            for uid in uniqueids:
+                query_fail.append({
+                    "FindImage": {"_ref": ref_idx, "constraints": {"_uniqueid": ["==", uid]}}
+                })
+                query_fail.append({
+                    "UpdateImage": {
+                        "ref": ref_idx,
+                        "properties": {
+                            self.caption_image_property + "_done": True,
+                            self.caption_image_property + "_failed": True,
+                            self.caption_image_property + "_error": "Mismatch in blob response"
+                        }
+                    }
+                })
+                ref_idx += 1
+            self.pool.execute_query(query_fail)
             return 0
 
         processor, model = get_model_and_processor()
@@ -162,9 +180,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                         valid_uniqueids.append(uid)
                         captions.append(caption)
                     except Exception as single_e:
-                        if isinstance(single_e, RuntimeError):
-                            logger.error(f"System/transient error for image {uid}: {single_e}. Aborting batch.")
-                            raise
                         logger.error(f"Failed to process image {uid} individually: {single_e}")
                         failed_uniqueids.append(uid)
                         failed_reasons.append(str(single_e))
