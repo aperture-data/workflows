@@ -20,12 +20,11 @@ _inference_lock = threading.Lock()
 
 def get_model_and_processor():
     global _processor, _model
-    if _processor is None or _model is None:
-        with _model_lock:
-            if _processor is None or _model is None:
-                _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-                _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-                _model.eval()
+    with _model_lock:
+        if _processor is None or _model is None:
+            _processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            _model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+            _model.eval()
     return _processor, _model
 
 
@@ -54,7 +53,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     self.caption_image_property + "_done": ["!=", True]
                 },
                 "results": {
-                    "list": ["_uniqueid"]
+                    "count": True
                 }
             }
         }]
@@ -64,11 +63,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             raise RuntimeError(f"Error executing query to find images: {response}")
 
         try:
-            self.uniqueids = [e["_uniqueid"] for e in response[0]["FindImage"]["entities"]]
-            total_images = len(self.uniqueids)
+            total_images = response[0]["FindImage"]["count"]
         except (KeyError, IndexError) as e:
             logger.error(f"Error retrieving the images count. No images in the db? {e}")
-            self.uniqueids = []
             total_images = 0
 
         if total_images == 0:
@@ -80,7 +77,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         logger.info(f"Total images to process: {total_images}")
 
         self.total_batches = int(math.ceil(total_images / self.batch_size))
-
         self.len = self.total_batches
 
     def __len__(self):
@@ -91,15 +87,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        batch_uids = self.uniqueids[idx * self.batch_size : (idx + 1) * self.batch_size]
-        if not batch_uids:
-            return None
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", batch_uids]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "results": {
                     "list": ["_uniqueid"]
@@ -166,6 +162,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                         valid_uniqueids.append(uid)
                         captions.append(caption)
                     except Exception as single_e:
+                        if isinstance(single_e, RuntimeError):
+                            logger.error(f"System/transient error for image {uid}: {single_e}. Aborting batch.")
+                            raise
                         logger.error(f"Failed to process image {uid} individually: {single_e}")
                         failed_uniqueids.append(uid)
                         failed_reasons.append(str(single_e))
