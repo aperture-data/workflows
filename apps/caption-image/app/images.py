@@ -137,7 +137,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     }
                 })
                 ref_idx += 1
-            self.pool.execute_query(query_fail)
+            status, r, _ = self.pool.execute_query(query_fail)
+            if status != 0:
+                logger.error(f"Failed to update images on mismatch: {r}")
             return 0
 
         processor, model = get_model_and_processor()
