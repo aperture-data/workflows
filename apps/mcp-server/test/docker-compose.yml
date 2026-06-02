@@ -26,7 +26,7 @@ services:
       CA_CERT: /ca/ca.crt
     volumes:
       - ./ca:/ca
-    command: ["python", "/app/seed.py"]
+    command: ["sh", "-c", "for i in $$(seq 1 10); do python /app/seed.py && exit 0; sleep 5; done; exit 1"]
 
   mcp-server:
     depends_on:
