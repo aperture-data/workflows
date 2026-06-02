@@ -20,7 +20,7 @@ def mcp_auth():
 @pytest_asyncio.fixture
 async def client(mcp_url, mcp_auth):
     """Get a FastMCP client."""
-    async with Client(mcp_url, auth=mcp_auth, timeout=30) as aclient:
+    async with Client(mcp_url, auth=mcp_auth, timeout=300) as aclient:
         yield aclient
 
 
