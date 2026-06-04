@@ -238,6 +238,6 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         status, r, _ = self.pool.execute_query(query)
         if status != 0:
             logger.error(f"Query failed: {r}")
-            raise Exception(f"Query failed: {r}")
+            raise RuntimeError(f"Query failed: {r}")
 
         return len(valid_uniqueids)
