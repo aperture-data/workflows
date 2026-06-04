@@ -11,7 +11,7 @@ services:
       ca:
         condition: service_completed_successfully
       aperturedb:
-        condition: service_started
+        condition: service_healthy
     image: aperturedata/lenz:latest
     ports:
       - ${ADB_PORT:-55555}:55551
@@ -31,6 +31,13 @@ services:
 
   aperturedb:
     image: aperturedata/aperturedb-community:latest
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "bash -lc 'echo > /dev/tcp/127.0.0.1/55553'"
+      interval: 2s
+      timeout: 1s
+      retries: 60
     volumes:
       - ../aperturedb/db:/aperturedb/db
       - ../aperturedb/logs:/aperturedb/logs
