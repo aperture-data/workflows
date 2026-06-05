@@ -97,6 +97,13 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                     "batch_size": self.batch_size,
                     "batch_id": idx
                 },
+                "operations": [
+                    {
+                        "type": "resize",
+                        "width": 224,
+                        "height": 224
+                    }
+                ],
                 "results": {
                     "list": ["_uniqueid"]
                 }
