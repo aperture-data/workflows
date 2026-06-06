@@ -62,6 +62,7 @@
       "@type": "cr:RecordSet",
       "@id": "dummy_records",
       "name": "dummy_records",
+      "description": "Dummy records",
       "field": [
         {
           "@type": "cr:Field",
