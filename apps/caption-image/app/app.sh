@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-SLEEPING_TIME=${SLEEPING_TIME:-30}
+SLEEPING_TIME=$(/app/wf_argparse.py --type non_negative_int --envar SLEEPING_TIME --default 30)
+RUN_ONCE=$(/app/wf_argparse.py --type bool --envar RUN_ONCE --default false)
 
 python3 status_tools.py --completed 0 --phases processing --phases sleeping --phase processing
 while true; do

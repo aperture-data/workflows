@@ -8,6 +8,9 @@ if [ $CI_RUN -eq 0 ]; then
   $COMMAND build base
 fi
 
+# Override the Croissant URL for tests to use the local dummy data
+export WF_CROISSANT_URL="/test_data/croissant.json"
+
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log
 echo "Writing logs to $TEST_LOG"
