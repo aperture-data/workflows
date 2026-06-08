@@ -47,36 +47,27 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if self.batch_size <= 0:
             raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
 
-        # Fetch all uniqueids of images that need captioning to use as stable identifiers for pagination
-        self.image_ids = []
-        batch_id = 0
-        while True:
-            query = [{
-                "FindImage": {
-                    "constraints": {
-                        self.caption_image_property + "_done": ["!=", True]
-                    },
-                    "batch": {
-                        "batch_size": 100000,
-                        "batch_id": batch_id
-                    },
-                    "results": {
-                        "list": ["_uniqueid"]
-                    }
+        
+        query = [{
+            "FindImage": {
+                "constraints": {
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "results": {
+                    "count": True
                 }
-            }]
-            status, response, _ = self.pool.execute_query(query)
-            if status != 0:
-                raise RuntimeError(f"Error executing query to find images: {response}")
-            
-            entities = response[0]["FindImage"].get("entities", [])
-            if not entities:
-                break
-            
-            self.image_ids.extend([e["_uniqueid"] for e in entities])
-            batch_id += 1
+            }
+        }]
 
-        total_images = len(self.image_ids)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"Error executing query to find images: {response}")
+            
+        try:
+            total_images = response[0]["FindImage"]["count"]
+        except Exception as e:
+            logger.error(f"Error retrieving the number of images: {e}")
+            total_images = 0
 
         if total_images == 0:
             logger.warning("No images to be processed. Continuing!")
@@ -97,13 +88,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
         
-        chunk = self.image_ids[idx * self.batch_size : (idx + 1) * self.batch_size]
-
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    "_uniqueid": ["in", chunk]
+                    self.caption_image_property + "_done": ["!=", True]
+                },
+                "batch": {
+                    "batch_size": self.batch_size,
+                    "batch_id": idx
                 },
                 "operations": [
                     {
