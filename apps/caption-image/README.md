@@ -5,7 +5,7 @@ analyzed before, and runs them through a
 [BLIP (Bootstrapping Language-Image Pre-training)](https://github.com/salesforce/BLIP)
 model to generate a caption for each image.
 
-The workflow will run once and process all uncaptioned images.
+The workflow runs continuously by default, periodically checking for and processing new uncaptioned images. To run it only once, set `RUN_ONCE=true`.
 
 ## Database details
 
@@ -55,7 +55,7 @@ q = [
         {
             "UpdateImage": {
                 "constraints": {
-                    "wf_caption_image": ["!=", None]
+                    "wf_caption_image": ["!=", null]
                 },
                 "remove_props": ["wf_caption_image", "wf_caption_image_done", "wf_caption_image_failed", "wf_caption_image_error"]
             }
