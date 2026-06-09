@@ -50,6 +50,13 @@ services:
         # ports:
         #     - 55555:55551
         restart: always
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - "bash -lc 'echo > /dev/tcp/127.0.0.1/55551'"
+            interval: 2s
+            timeout: 1s
+            retries: 60
         environment:
             LNZ_HEALTH_PORT: 58085
             LNZ_TCP_PORT: 55551
@@ -124,7 +131,7 @@ services:
         image: aperturedata/workflows-crawl-website:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         environment:
             <<: *common-env
             WF_CLEAN: "${WF_CLEAN:-true}"
@@ -146,7 +153,7 @@ services:
         image: aperturedata/workflows-embeddings-extraction:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         # Don't let this service kill your dev box
         # It's OK, but lets' not over compensate for it.
         deploy:
@@ -202,7 +209,7 @@ services:
         image: aperturedata/workflows-jupyterlab:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         ports:
             - "8888:8888"
         healthcheck:
@@ -383,7 +390,7 @@ services:
         image: aperturedata/workflows-ingest-croissant:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         volumes:
             - ./ca:/ca
             - ./apps/ingest-croissant/test_data:/test_data
@@ -405,7 +412,7 @@ services:
         image: aperturedata/workflows-dataset-ingestion:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         volumes:
             - ./ca:/ca
         environment:
@@ -429,7 +436,7 @@ services:
         image: aperturedata/workflows-dataset-ingestion-movies:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         volumes:
             - ./ca:/ca
         environment:
@@ -441,7 +448,7 @@ services:
         image: aperturedata/wf-add-image:latest
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         volumes:
             - ./ca:/ca
         environment:
@@ -458,7 +465,7 @@ services:
         image: aperturedata/workflows-face-detection:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
             add-image:
                 condition: service_completed_successfully
         volumes:
@@ -478,7 +485,7 @@ services:
         image: aperturedata/workflows-object-detection:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
             add-image:
                 condition: service_completed_successfully
         volumes:
@@ -500,7 +507,7 @@ services:
         image: aperturedata/workflows-caption-image:${VERSION}
         depends_on:
             lenz:
-                condition: service_started
+                condition: service_healthy
         volumes:
             - ./ca:/ca
         environment:

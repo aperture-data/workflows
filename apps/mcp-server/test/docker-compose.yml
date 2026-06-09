@@ -16,7 +16,7 @@ services:
       aperturedb:
         condition: service_healthy
       lenz:
-        condition: service_started
+        condition: service_healthy
     working_dir: /app
     environment:
       DB_HOST: lenz
