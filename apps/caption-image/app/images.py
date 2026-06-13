@@ -94,7 +94,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 },
                 "batch": {
                     "batch_size": self.batch_size,
-                    "batch_id": idx
+                    "batch_id": 0
                 },
                 "operations": [
                     {
