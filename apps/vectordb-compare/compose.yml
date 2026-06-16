@@ -1,0 +1,13 @@
+services:
+  bench-vectordb-compare:
+    build:
+      context: .
+      args:
+        - APP_NAME=wf-bench-vectordb-compare
+    image: aperturedata/wf-bench-vectordb-compare
+    network_mode: host
+    volumes:
+      - ./input:/app/input/
+      - ./output:/app/output/
+    env_file:
+      - .env

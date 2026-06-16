@@ -1,0 +1,19 @@
+pandas
+numpy
+h5py
+
+urllib3
+pkginfo
+pydantic
+pydantic_core
+
+aperturedb
+dbeval
+
+pinecone
+qdrant-client
+lancedb
+
+# Weaviate client requires protobuf==6.30.0 to work properly
+# protobuf==6.30.0
+# weaviate-client

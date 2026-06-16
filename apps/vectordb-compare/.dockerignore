@@ -1,0 +1,9 @@
+app/input/
+app/output/
+app/ann-benchmarks/
+app/__pycache__/
+app/.venv/
+
+input/
+output/
+*.log
