@@ -1,4 +1,5 @@
 #bucket_loader.py - ApertureData's bucket loading workflow
+import argparse
 import logging
 import sys
 from uuid import uuid4
