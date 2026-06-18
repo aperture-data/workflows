@@ -98,9 +98,9 @@ def get_args():
 
     obj.add_argument("--cloud-provider",type=str, choices=["s3","gs"], required=True,
             help="Whether the workflow should ingest supported image types")
-    obj.add_argument("--aws-access-key-id",type=str,default=None, help=argparse.SUPPRESS) 
-    obj.add_argument("--aws-secret-access-key",type=str,default=None, help=argparse.SUPPRESS)
-    obj.add_argument("--gcp-service-account-key",type=str, default = None, help=argparse.SUPPRESS) 
+    obj.add_argument("--aws-access-key-id",type=str,default=None, hidden=True, help=argparse.SUPPRESS) 
+    obj.add_argument("--aws-secret-access-key",type=str,default=None, hidden=True, help=argparse.SUPPRESS)
+    obj.add_argument("--gcp-service-account-key",type=str, default = None, hidden=True, help=argparse.SUPPRESS) 
     obj.add_argument("--bucket",type=str,required=True,
             help="Which bucket to ingest data from") 
     obj.add_argument("--ingest-images",type=bool,default=False,
