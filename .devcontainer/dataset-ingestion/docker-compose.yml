@@ -17,3 +17,5 @@ services:
     depends_on:
       aperturedb:
         condition: service_started
+      lenz:
+        condition: service_started

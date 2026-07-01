@@ -14,8 +14,12 @@ def caption_images(
     log_level: str = typer.Option("WARNING", envvar=["WF_LOG_LEVEL", "LOG_LEVEL"], help="Logging level")
 ):
     num_workers = int(num_workers)
+    if num_workers <= 0:
+        raise ValueError("num_workers must be > 0")
 
     batch_size = int(batch_size)
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
 
     logging.basicConfig(level=log_level.upper(), force=True)
     logger = logging.getLogger(__name__)
