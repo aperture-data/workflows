@@ -1,21 +1,17 @@
-"""Site customization module for setting up global exception handling."""
 import sys
-import logging
-
 from status_tools import StatusUpdater, WorkFlowError
-
+import logging
 
 old_handler = sys.excepthook
 
 logging.info("Setting up exception handler")
 updater = StatusUpdater()
 
-def exception_handler(etype, value, tb):
-    """Handle uncaught exceptions by posting status updates."""
+def exception_handler(type, value, tb):
     updater.post_update(
-        error_message=f"Exception: {etype.__name__} {value}",
+        error_message=f"Exception: {type.__name__} {value}",
         error_code=WorkFlowError.WORKFLOW_ERROR
     )
-    old_handler(etype, value, tb)
+    old_handler(type, value, tb)
 
 sys.excepthook = exception_handler
