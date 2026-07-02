@@ -2,7 +2,7 @@ import os
 import sys
 import io
 from PIL import Image
-from aperturedb.CommonLibrary import execute_query, create_connector
+from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
 
 def db_connection():

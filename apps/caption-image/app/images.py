@@ -64,8 +64,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             total_images = response[0]["FindImage"]["count"]
         except Exception as e:
-            logger.error(f"Error retrieving the number of images: {e}")
-            total_images = 0
+            logger.exception(f"error parsing count from response: {response}")
+            raise RuntimeError(f"error parsing count from response: {response}") from e
 
         if total_images == 0:
             logger.warning("No images to be processed. Continuing!")
