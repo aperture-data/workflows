@@ -51,8 +51,9 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 "constraints": {
                     self.caption_image_property + "_done": ["!=", True]
                 },
+                "limit": 100000,
                 "results": {
-                    "count": True
+                    "list": ["_uniqueid"]
                 }
             }
         }]
@@ -62,10 +63,12 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             raise RuntimeError(f"Error executing query to find images: {response}")
             
         try:
-            total_images = response[0].get("FindImage", {}).get("count", 0)
+            entities = response[0].get("FindImage", {}).get("entities", [])
+            self.all_uniqueids = [e["_uniqueid"] for e in entities if "_uniqueid" in e]
+            total_images = len(self.all_uniqueids)
         except Exception as e:
-            logger.exception(f"error parsing count from response: {response}")
-            raise RuntimeError(f"error parsing count from response: {response}") from e
+            logger.exception(f"error parsing uniqueids from response: {response}")
+            raise RuntimeError(f"error parsing uniqueids from response: {response}") from e
 
         if total_images == 0:
             logger.warning("No images to be processed. Continuing!")
@@ -86,15 +89,18 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
+        start_idx = idx * self.batch_size
+        end_idx = start_idx + self.batch_size
+        chunk = self.all_uniqueids[start_idx:end_idx]
+
+        if not chunk:
+            return None
+
         query = [{
             "FindImage": {
                 "blobs": True,
                 "constraints": {
-                    self.caption_image_property + "_done": ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
+                    "_uniqueid": ["in", chunk]
                 },
                 "operations": [
                     {
