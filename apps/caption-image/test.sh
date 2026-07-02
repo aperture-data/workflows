@@ -5,5 +5,4 @@ set -o errexit
 
 cd "$(dirname "$(readlink -f "$0")")"
 
-export PRELOAD_MODEL=true
 bash ../build.sh
