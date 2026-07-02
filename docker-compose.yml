@@ -53,7 +53,7 @@ services:
         healthcheck:
             test:
                 - CMD-SHELL
-                - "bash -lc 'echo > /dev/tcp/127.0.0.1/55551'"
+                - "bash -lc 'echo > /dev/tcp/127.0.0.1/$${LNZ_TCP_PORT}'"
             interval: 2s
             timeout: 1s
             retries: 60
