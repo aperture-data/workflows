@@ -1,17 +1,14 @@
 services:
-  # One image for both seed and tests (Python + aperturedb + pytest + CLIP)
-  # Use the same image; just change the command.
   test-base:
     build:
-      context: apps/ocr-extraction/test
+      context: apps/caption-image/test
       dockerfile: Dockerfile
-    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    image: aperturedata/workflows-caption-image-tests:${VERSION:-latest}
     deploy:
       replicas: 0
 
-  # Populate ApertureDB with synthetic test data
   seed:
-    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    image: aperturedata/workflows-caption-image-tests:${VERSION:-latest}
     depends_on:
       lenz:
         condition: service_healthy
@@ -21,15 +18,13 @@ services:
       DB_PORT: 55551
       DB_USER: admin
       DB_PASS: admin
-      APERTUREDB_KEY: ""
       CA_CERT: /ca/ca.crt
     volumes:
       - ./ca:/ca
     command: ["python", "/app/seed.py"]
-    # command: ["sleep", "infinity"]
 
-  ocr-extraction:
-    image: aperturedata/workflows-ocr-extraction:${VERSION:-latest}
+  caption-image:
+    image: aperturedata/workflows-caption-image:${VERSION:-latest}
     depends_on:
       seed:
         condition: service_completed_successfully
@@ -39,17 +34,14 @@ services:
       DB_USER: admin
       DB_PASS: admin
       CA_CERT: /ca/ca.crt
-      APERTUREDB_KEY: ""
-      WF_EXTRACT_IMAGE_TEXT: "true"
-      WF_EXTRACT_PDF_TEXT: "true"
-      WF_GENERATE_EMBEDDINGS: "true"
+      RUN_ONCE: "true"
     volumes:
       - ./ca:/ca
-  # Test runner
+
   tests:
-    image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
+    image: aperturedata/workflows-caption-image-tests:${VERSION:-latest}
     depends_on:
-      ocr-extraction:
+      caption-image:
         condition: service_completed_successfully
     environment:
       DB_HOST: lenz
@@ -57,7 +49,7 @@ services:
       DB_USER: admin
       DB_PASS: admin
       CA_CERT: /ca/ca.crt
+    working_dir: /app
     volumes:
       - ./ca:/ca
-    working_dir: /app
     command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]

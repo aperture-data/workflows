@@ -1,0 +1,3 @@
+aperturedb
+pytest
+Pillow

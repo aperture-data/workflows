@@ -14,7 +14,7 @@ services:
     image: aperturedata/workflows-embeddings-extraction-tests:${VERSION:-latest}
     depends_on:
       lenz:
-        condition: service_started
+        condition: service_healthy
     working_dir: /app
     environment:
       DB_HOST: lenz

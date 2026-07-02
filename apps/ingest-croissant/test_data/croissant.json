@@ -1,0 +1,96 @@
+{
+  "@context": {
+    "@language": "en",
+    "@vocab": "https://schema.org/",
+    "citeAs": "cr:citeAs",
+    "column": "cr:column",
+    "conformsTo": "dct:conformsTo",
+    "cr": "http://mlcommons.org/croissant/",
+    "data": {
+      "@id": "cr:data",
+      "@type": "@json"
+    },
+    "dataBiases": "cr:dataBiases",
+    "dataCollection": "cr:dataCollection",
+    "dataType": {
+      "@id": "cr:dataType",
+      "@type": "@vocab"
+    },
+    "dct": "http://purl.org/dc/terms/",
+    "extract": "cr:extract",
+    "field": "cr:field",
+    "fileProperty": "cr:fileProperty",
+    "fileObject": "cr:fileObject",
+    "fileSet": "cr:fileSet",
+    "format": "cr:format",
+    "includes": "cr:includes",
+    "isLiveDataset": "cr:isLiveDataset",
+    "jsonPath": "cr:jsonPath",
+    "key": "cr:key",
+    "md5": "cr:md5",
+    "parentField": "cr:parentField",
+    "path": "cr:path",
+    "personalSensitiveInformation": "cr:personalSensitiveInformation",
+    "recordSet": "cr:recordSet",
+    "references": "cr:references",
+    "regex": "cr:regex",
+    "repeated": "cr:repeated",
+    "replace": "cr:replace",
+    "sc": "https://schema.org/",
+    "separator": "cr:separator",
+    "source": "cr:source",
+    "subField": "cr:subField",
+    "transform": "cr:transform"
+  },
+  "@type": "sc:Dataset",
+  "conformsTo": "http://mlcommons.org/croissant/1.0",
+  "name": "Dummy",
+  "description": "Dummy dataset",
+  "url": "https://dummy.co",
+  "distribution": [
+    {
+      "@type": "cr:FileObject",
+      "@id": "dummy.csv",
+      "name": "dummy.csv",
+      "contentUrl": "/test_data/dummy.csv",
+      "encodingFormat": "text/csv",
+      "md5": "c3c6bc2ae8ece4bd2510dca21225c041"
+    }
+  ],
+  "recordSet": [
+    {
+      "@type": "cr:RecordSet",
+      "@id": "dummy_records",
+      "name": "dummy_records",
+      "description": "Dummy records",
+      "field": [
+        {
+          "@type": "cr:Field",
+          "@id": "dummy_records/a",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileObject": {
+              "@id": "dummy.csv"
+            },
+            "extract": {
+              "column": "a"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "dummy_records/b",
+          "dataType": "sc:Integer",
+          "source": {
+            "fileObject": {
+              "@id": "dummy.csv"
+            },
+            "extract": {
+              "column": "b"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
