@@ -1,8 +1,6 @@
-#!/bin/bash
-set -o pipefail
-set -o nounset
-set -o errexit
-
-cd "$(dirname "$(readlink -f "$0")")"
-
-bash ../build.sh
+#!/usr/bin/env bash
+set -x
+set -euo pipefail
+cd $(dirname "$(readlink -f "$0")")
+source ../../.commonrc
+run_pytest

@@ -2,4 +2,4 @@
 --extra-index-url https://pypi.org/simple
 torch>=2.0
 pillow
-transformers
+transformers>=4.38.0

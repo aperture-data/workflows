@@ -55,7 +55,7 @@ q = [
         {
             "UpdateImage": {
                 "constraints": {
-                    "wf_caption_image": ["!=", null]
+                    "wf_caption_image": ["!=", None]
                 },
                 "remove_props": ["wf_caption_image", "wf_caption_image_done", "wf_caption_image_failed", "wf_caption_image_error"]
             }
