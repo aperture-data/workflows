@@ -34,9 +34,7 @@ def image(
         {
             "FindImage": {
                 "blobs": True,
-                "constraints": {
-                    "_uniqueid": ["==", image_id],
-                },
+                "constraints": ["$_uniqueid", "==", {"json": image_id}],
                 "unique": True,
                 "as_format": format,
             }

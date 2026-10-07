@@ -11,6 +11,8 @@ from typing import List, Optional, Tuple, Dict, Any, Literal
 import logging
 from datetime import datetime
 from .common import PROXY_SOCKET_PATH, UnixHTTPConnection
+from .expressions import query_expressions
+from .schema import needs_index_metadata, with_index_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ def execute_query(
     logger.debug(
         f"Executing query: {json_query} with blobs: {len(blobs) if blobs else 0}")
     boundary = "----apdb-" + uuid.uuid4().hex
-    body = _multipart(boundary, json_query, blobs)
+    body = _multipart(boundary, query_expressions(json_query), blobs)
 
     conn = UnixHTTPConnection(uds_path)
     try:
@@ -84,6 +86,7 @@ def execute_query(
 
 
 _SCHEMA = None  # Global schema variable; see get_schema()
+_INDEXES = None  # Index definitions for the same imported schema snapshot.
 
 
 def get_schema() -> Dict:
@@ -112,4 +115,14 @@ def get_classes(field: Literal["entities", "connections"],
     if not classes:
         logger.warning(f"No {field} classes found in schema")
         return {}
+    if needs_index_metadata(classes):
+        global _INDEXES
+        if _INDEXES is None:
+            _, response, _ = execute_query([{"GetIndexes": {}}])
+            listing = response[0]["GetIndexes"]
+            if listing.get("status", 0) != 0:
+                raise RuntimeError(f"Cannot retrieve index metadata: {listing}")
+            _INDEXES = listing["indexes"]
+        return with_index_metadata(
+            classes, _INDEXES, "entity" if field == "entities" else "connection")
     return classes

@@ -1,3 +1,4 @@
+from .schema import property_info
 # This module populates the system schema for ApertureDB.
 # This schema contains tables for system classes such as _Blob, _Image, etc.
 # Note that the tables for these are named without the leading underscore.
@@ -273,7 +274,7 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
                 assert isinstance(item["properties"], dict), \
                     f"Expected properties to be a dict, got {type(item['properties'])}"
                 for prop, prop_data in item["properties"].items():
-                    count, indexed, prop_type = prop_data
+                    count, indexed, prop_type = property_info(prop_data)
                     property_types[prop].add(prop_type.lower())
 
     columns = []

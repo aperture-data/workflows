@@ -62,5 +62,7 @@ services:
       SQL_NAME: aperturedb
       SQL_USER: aperturedb
       SQL_PASS: test
+    volumes:
+      - ./apps/sql-server/fdw:/fdw:ro
     working_dir: /app
     command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]

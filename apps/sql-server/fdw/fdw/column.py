@@ -1,3 +1,4 @@
+from .schema import property_info
 from .common import Curry, TYPE_MAP, PathKey
 import logging
 from pydantic import BaseModel
@@ -177,7 +178,7 @@ def property_columns(data: dict) -> List[ColumnDefinition]:
             f"Expected properties to be a dict, got {type(data['properties'])}"
         for prop, prop_data in data["properties"].items():
             try:
-                count, indexed, type_ = prop_data
+                count, indexed, type_ = property_info(prop_data)
                 columns.append(ColumnDefinition(
                     column_name=prop,
                     type_name=TYPE_MAP[type_.lower()],
