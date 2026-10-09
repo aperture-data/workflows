@@ -55,14 +55,27 @@ RETURNS jsonb AS $$
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- Flip
+-- mode is one of 'horizontal', 'vertical', 'both'
 CREATE OR REPLACE FUNCTION FLIP(
-    code int
+    mode text
 )
 RETURNS jsonb AS $$
   SELECT jsonb_build_object(
     'type', 'flip',
-    'code', $1
+    'mode', $1
   )
+$$ LANGUAGE SQL IMMUTABLE;
+
+-- Flip with a legacy OpenCV-style code: 0 = vertical, > 0 = horizontal, < 0 = both
+CREATE OR REPLACE FUNCTION FLIP(
+    code int
+)
+RETURNS jsonb AS $$
+  SELECT FLIP(CASE
+    WHEN $1 = 0 THEN 'vertical'
+    WHEN $1 > 0 THEN 'horizontal'
+    WHEN $1 < 0 THEN 'both'
+  END)
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- Interval

@@ -1,6 +1,6 @@
 fastmcp>=2.11.0
 fastapi
-mcp==1.10.1
-pydantic>=2.0,<3.0
+mcp==1.11.0
+pydantic>=2.0,<2.14  # mcp 1.11.0 imports eval_type_backport, removed in pydantic 2.14
 torch>=2.0
 open_clip_torch>=2.23

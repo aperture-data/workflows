@@ -61,6 +61,10 @@ Certain parameters are supported by all workflow images:
 
 ### Building Docker images
 
+The root [`VERSION`](VERSION) file specifies the release version in `MAJOR.MINOR.PATCH` format (for example, `1.0.0`), with no prefix or leading zeros.
+Update and commit this file for each release. CI prefixes it with `v` for image tags (for example, `v1.0.0`) on pushes to `main` and scheduled builds; successful pushes to `main` publish the images.
+Pushing to `main` without changing `VERSION` reuses the same image tag. Pull requests and manual CI runs keep their temporary `pr-...` and `adhoc-...` tags.
+
 There is a `build.sh` script in the `/apps` directory that can be used to build any of the workflow images. Either invoke it with a workflow name as a parameter:
 ```
 apps/build.sh rag

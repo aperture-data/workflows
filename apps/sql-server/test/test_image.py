@@ -51,8 +51,10 @@ OPERATIONS = [
     'OPERATIONS(CROP(x := 10, y := 10, width := 50, height := 50))',
     'OPERATIONS(ROTATE(angle := 90))',
     'OPERATIONS(FLIP(code := 1))',
+    "OPERATIONS(FLIP(mode := 'vertical'))",
+    "OPERATIONS(FLIP('both'))",
     'OPERATIONS(THRESHOLD(value := 128))',
-    'OPERATIONS(THRESHOLD(value := 64), CROP(x := 10, y := 10, width := 50, height := 50), FLIP(code := 1), ROTATE(angle := 90), RESIZE(width := 50))'
+    "OPERATIONS(THRESHOLD(value := 64), CROP(x := 10, y := 10, width := 50, height := 50), FLIP(mode := 'horizontal'), ROTATE(angle := 90), RESIZE(width := 50))"
 ]
 
 

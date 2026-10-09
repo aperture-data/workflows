@@ -125,7 +125,7 @@ SELECT * FROM system."Image"
     AND _operations = OPERATIONS(
         THRESHOLD(64), 
         CROP(x:=10, y:=10, width:=200, height:=200),
-        FLIP(+1),
+        FLIP('horizontal'),
         ROTATE(angle:=90),
         RESIZE(width:=50))
     AND _as_format = 'jpg'
