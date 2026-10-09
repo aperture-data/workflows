@@ -10,9 +10,6 @@ def reconfigure():
     no_needed_vars = [
         "WF_TOKEN",
         "WF_ALLOWED_ORIGINS",
-        "WF_AIMON_API_KEY",
-        "WF_AIMON_APP_NAME",
-        "WF_AIMON_LLM_MODEL_NAME",
         "WF_LLM_PROVIDER",
         "WF_LLM_API_KEY"
     ]

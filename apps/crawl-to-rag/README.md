@@ -22,9 +22,4 @@ The following parameters are recommended:
 * **`WF_LLM_PROVIDER`**: For performance, it is recommended to use a cloud provider for the `rag` workflow. The default is `huggingface` which is local, but largely intended for cloud-independent testing.
 * **`WF_LLM_API_KEY`**: Required by the `rag` workflow when using a cloud LLM
 
-The following parameters are required, if configuring for AIMon analytics.
-* **`WF_AIMON_API_KEY`**: Optional for monitoring response quality with [AIMon](https://aimon.ai). A key would be required for this to work. If not specified the AIMon integration would be disabled.
-* **`WF_AIMON_APP_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
-* **`WF_AIMON_LLM_MODEL_NAME`**: Optional, should be the same as configured on the AIMon dashboard.
-
 See the respective workflow READMEs for more details.

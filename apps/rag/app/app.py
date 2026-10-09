@@ -32,73 +32,6 @@ start_time = time.time()
 startup_time = None
 
 
-async def query_with_aimon(query: str, history: Optional[str] = None):
-    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
-    from aimon import AsyncClient
-    # Add your AIMON_API_KEY, get it from app.aimon.ai -> My Account -> Keys -> "Copy API Key"
-    aimon_api_key = args.aimon_api_key
-    logger.info(f"WF_AIMON_API_KEY: {aimon_api_key is not None}")
-    logger.info(f"WF_AIMON_APP_NAME: {args.aimon_app_name}")
-    logger.info(f"WF_AIMON_LLM_MODEL_NAME: {args.aimon_llm_model_name}")
-    if aimon_api_key and args.aimon_app_name and args.aimon_llm_model_name:
-        # The user query and generated text are important
-        aimon_payload = {}
-        # This is the user query that you sent to the original LLM
-        aimon_payload["user_query"] = rewritten_query
-        # This is the generated response from the original LLM
-        aimon_payload["generated_text"] = answer
-        # This is the instructions that you want to evaluate
-        aimon_payload["instructions"] = [
-            "Ensure that the output is correct and is derived from the provided context."]
-        # The context is the documents retrieved by the retriever
-        aimon_payload["context"] = [
-            docs.page_content for docs in docs] + [history]
-
-        # This configuration invokes AIMon's "instruction_adherence" model
-        # that validates if an LLM response has been
-        aimon_payload["config"] = {
-            "hallucination": {"detector_name": "default"},
-            "conciseness": {"detector_name": "default"},
-            "completeness": {"detector_name": "default"},
-            "toxicity": {"detector_name": "default"},
-            "instruction_adherence": {
-                "detector_name": "default",
-                "explain": "true",  # Generates textual explanation that helps understand AIMon's evaluation
-            }
-        }
-
-        # This parameter controls whether you want to publish the analysis to the go/aimonui
-        aimon_payload["publish"] = True
-
-        # This parameter controls whether you would like to perform this computation asynchronously
-        aimon_payload["async_mode"] = False
-
-        # Include application_name and model_name if publishing
-        if aimon_payload["publish"]:
-            aimon_payload["application_name"] = args.aimon_app_name
-            # This is the LLM you used to generate the SQL query from text,
-            # AIMon only uses this for metadata in the UI. AIMon does not invoke this LLM.
-            aimon_payload["model_name"] = args.aimon_llm_model_name
-
-        data_to_send = [aimon_payload]
-
-        async def call_aimon():
-            async with AsyncClient(auth_header=f"Bearer {aimon_api_key}") as aimon:
-                resp = await aimon.inference.detect(body=data_to_send)
-                return resp
-
-        # Await on
-        resp = await call_aimon()
-        resp_json = resp[0].instruction_adherence
-        print(json.dumps(resp_json, indent='\t'))
-    else:
-        logger.info(
-            "WF_AIMON_API_KEY, WF_AIMON_APP_NAME, WF_AIMON_LLM_MODEL_NAME not set, skipping AIMon analysis")
-        resp_json = {}
-
-    return answer, new_history, rewritten_query, docs
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting RAG API lifespan")
@@ -193,8 +126,7 @@ async def ask(request: Request,
     logger.info(f"Received query: {query}")
 
     start_time = time.time()
-    # answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
-    answer, new_history, rewritten_query, docs = await query_with_aimon(query, history)
+    answer, new_history, rewritten_query, docs = await qa_chain.run(query, history)
 
     qa_duration = time.time() - start_time
     logger.info(f"Answer: {answer}, duration: {qa_duration:.2f}s")
@@ -477,15 +409,6 @@ def get_args(argv=[]):
                      help='The allowed origins for CORS',
                      default="http://localhost",
                      type=str)
-
-    obj.add_argument('--aimon-api-key',
-                     help='API key for AIMON')
-
-    obj.add_argument('--aimon-app-name',
-                     help='Name of the AIMON app')
-
-    obj.add_argument('--aimon-llm-model-name',
-                     help='Name of the LLM model')
 
     obj.add_argument('--rewrite-query',
                      help='Whether to rewrite the query using the LLM',

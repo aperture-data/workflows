@@ -16,7 +16,6 @@ on:
   workflow_dispatch:
 
 jobs:
-
   get-version:
     runs-on: ubuntu-latest
     outputs:
@@ -77,7 +76,7 @@ jobs:
           path: ${{ runner.temp }}/workflows-base.tar
 
   test-base:
-    needs: [ build-base, get-version ]
+    needs: [build-base, get-version]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
@@ -101,28 +100,29 @@ jobs:
           CI_RUN=1 bash test.sh
 
   build-test-apps-small:
-    needs: [ test-base, get-version ]
+    needs: [test-base, get-version]
 
     strategy:
       matrix:
-        app: [
-          object-detection,
-          embeddings-extraction,
-          face-detection,
-          jupyterlab,
-          mcp-server,
-          crawl-website,
-          text-extraction,
-          text-embeddings,
-          ingest-croissant,
-          ingest-from-bucket,
-          ingest-from-sql,
-          sql-server,
-          label-studio,
-          ocr-extraction,
-          caption-image,
-          dataset-ingestion-movies
-        ]
+        app:
+          [
+            object-detection,
+            embeddings-extraction,
+            face-detection,
+            jupyterlab,
+            mcp-server,
+            crawl-website,
+            text-extraction,
+            text-embeddings,
+            ingest-croissant,
+            ingest-from-bucket,
+            ingest-from-sql,
+            sql-server,
+            label-studio,
+            ocr-extraction,
+            caption-image,
+            dataset-ingestion-movies,
+          ]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
@@ -175,11 +175,7 @@ jobs:
 
     strategy:
       matrix:
-        app: [
-          rag,
-          crawl-to-rag,
-          dataset-ingestion
-        ]
+        app: [rag, crawl-to-rag, dataset-ingestion]
 
     runs-on: [self-hosted, deployer]
     env:
@@ -218,7 +214,7 @@ jobs:
             bash ../build.sh
           fi
 
-     # ⬇️ Upload logs even if the tests fail
+      # ⬇️ Upload logs even if the tests fail
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -235,7 +231,6 @@ jobs:
         run: |
           docker push aperturedata/workflows-base:$VERSION
           docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
-
 
   update-version:
     needs: [build-test-apps-small, build-test-apps-large, get-version]
@@ -293,4 +288,4 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.PAT_INFRA }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/aperture-data/infra/dispatches \
-          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"environment\":\"develop\", \"component\": \"workflows-public\", \"tag\": \"${VERSION}\"}}"
+          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"component\": \"workflows-public\", \"tag\": \"${VERSION}\"}}"
