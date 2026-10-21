@@ -445,12 +445,14 @@ services:
             SAMPLE_COUNT: "${SAMPLE_COUNT:--1}"
 
     add-image:
-        image: aperturedata/wf-add-image:latest
+        image: aperturedata/workflows-base:${VERSION}
+        command: ["python3", "/seed/seed.py"]
         depends_on:
             lenz:
                 condition: service_healthy
         volumes:
             - ./ca:/ca
+            - ./tests/seed-images:/seed:ro
         environment:
             <<: *common-env
             TOTAL_IMAGES: "${TOTAL_IMAGES:-100}"
