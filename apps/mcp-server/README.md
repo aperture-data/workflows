@@ -2,6 +2,17 @@
 
 This workflow make an ApertureDB instance accessible by an MCP platform, such as Claude or ChatGPT.
 
+## Schema tools
+
+`list_entity_classes` and `list_connection_classes` list the available classes.
+`describe_entity_class` returns the class's `matched` count and its properties.
+`describe_connection_class` returns an `items` list, with one description for
+each source/destination class pair.
+
+Each property description contains `matched` (the number of objects that have
+that property), `type`, and `indexed` (whether the property has an index).
+Classes without properties return an empty `properties` object.
+
 ## Running in docker
 
 ```

@@ -1,3 +1,4 @@
+import json
 import os
 import pytest
 from fastmcp import Client
@@ -45,38 +46,14 @@ class TestSchemaTools:
                 "class_name": "Person"
             })
         
-        # FastMCP automatically deserializes into .data
-        assert result.data
-        assert hasattr(result.data, "matched")
-        assert hasattr(result.data, "properties")
-        
-        # The properties field is Dict[str, PropertyDescription] but FastMCP client
-        # may not deserialize it properly. Check if we can access it via content instead
-        if hasattr(result, 'content'):
-            # result.content has the raw response
-            import json
-            for content_item in result.content:
-                if hasattr(content_item, 'text'):
-                    data = json.loads(content_item.text)
-                    assert 'matched' in data
-                    assert 'properties' in data
-                    properties = data['properties']
-                    assert 'name' in properties or 'age' in properties
-                    
-                    # Check property structure
-                    for prop_name, prop_desc in properties.items():
-                        assert 'type' in prop_desc
-                        assert 'indexed' in prop_desc
-                        assert 'matched' in prop_desc
-                    return  # Test passed via content
-        
-        # Fallback: try the structured data approach
-        # If properties is a dict-like object, try to access it
-        properties = result.data.properties
-        if hasattr(properties, '__dict__'):
-            props_dict = properties.__dict__
-            assert 'name' in props_dict or 'age' in props_dict, \
-                f"Expected properties in __dict__, got: {props_dict.keys()}"
+        data = json.loads(result.content[0].text)
+        assert data == {
+            "matched": 15,
+            "properties": {
+                "name": {"matched": 15, "indexed": True, "type": "String"},
+                "age": {"matched": 10, "indexed": False, "type": "Number"},
+            },
+        }
 
     @pytest.mark.asyncio
     async def test_describe_entity_class_company(self, mcp_url, mcp_auth):
@@ -121,21 +98,23 @@ class TestSchemaTools:
                 "class_name": "WorksAt"
             })
         
-        assert result.data
-        assert hasattr(result.data, "items")
-        items = result.data.items
-        assert len(items) > 0
-        
-        # Check structure of each item
-        for item in items:
-            assert hasattr(item, "matched")
-            assert hasattr(item, "properties")
-            assert hasattr(item, "src")
-            assert hasattr(item, "dst")
-            
-            # Verify source and destination
-            assert item.src == "Person"
-            assert item.dst == "Company"
+        data = json.loads(result.content[0].text)
+        assert data == {"items": [{
+            "matched": 5, "src": "Person", "dst": "Company",
+            "properties": {"since": {"matched": 5, "indexed": True, "type": "Number"}},
+        }]}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool,class_name,expected", [
+        ("describe_entity_class", "Empty", {"matched": 1, "properties": {}}),
+        ("describe_connection_class", "Propertyless", {"items": [{
+            "matched": 1, "src": "Empty", "dst": "Empty", "properties": {},
+        }]}),
+    ])
+    async def test_classes_without_properties(self, mcp_url, mcp_auth, tool, class_name, expected):
+        async with Client(mcp_url, auth=mcp_auth) as client:
+            result = await client.call_tool(tool, {"class_name": class_name})
+        assert json.loads(result.content[0].text) == expected
 
     @pytest.mark.asyncio
     async def test_describe_nonexistent_connection_class(self, mcp_url, mcp_auth):

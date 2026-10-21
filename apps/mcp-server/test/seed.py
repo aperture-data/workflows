@@ -207,6 +207,13 @@ if __name__ == "__main__":
     print(f"host={client.host}")
     load_entity_testdata(client)
     load_connection_testdata(client)
+    status, _, _ = execute_query(client, [
+        {"CreateIndex": {"target": "entity", "class": "Person", "property": "name", "kind": "ordered"}},
+        {"CreateIndex": {"target": "connection", "class": "WorksAt", "property": "since", "kind": "ordered"}},
+        {"AddEntity": {"class": "Empty", "_ref": 1}},
+        {"AddConnection": {"class": "Propertyless", "src": 1, "dst": 1}},
+    ])
+    assert status == 0
     load_text_descriptors_testdata(client)
     load_images_testdata(client)
     print("Test data loaded successfully.")
