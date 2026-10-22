@@ -77,3 +77,16 @@ class QueryFailureTests(unittest.TestCase):
                 with self.assertRaises(ConnectionError) as caught:
                     generator(pool, Mock(), 'done')
                 self.assertIs(caught.exception, failure)
+
+    def test_pdf_count_and_pages_use_the_same_completion_marker(self):
+        generator = next(factory for command, factory in generators()
+                         if command == 'FindBlob')
+        pool = Mock()
+        pool.execute_query.return_value = (0, [{'FindBlob': {'count': 1}}], [])
+        query_generator = generator(pool, Mock(), 'custom_done')
+        count_query = pool.execute_query.call_args.args[0]
+        page_query, _ = query_generator.getitem(0)
+        constraints = page_query[0]['FindBlob']['constraints']
+        self.assertEqual(count_query[0]['FindBlob']['constraints'], constraints)
+        self.assertIn(['$custom_done', '!=', True], constraints)
+        self.assertIn(['$_mime_type', '==', 'application/pdf'], constraints)

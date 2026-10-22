@@ -46,7 +46,9 @@ services:
                 condition: service_completed_successfully
             aperturedb:
                 condition: service_healthy
-        image: aperturedata/lenz:latest
+        # Keep the database and gateway on the same tested development release.
+        # APERTUREDB_VERSION can select a published release for compatibility tests.
+        image: aperturedata/lenz:${APERTUREDB_VERSION:-dev}
         # ports:
         #     - 55555:55551
         restart: always
@@ -79,7 +81,7 @@ services:
             interval: 2s
             timeout: 1s
             retries: 60
-        image: aperturedata/aperturedb-community:latest
+        image: aperturedata/aperturedb-community:${APERTUREDB_VERSION:-dev}
         restart: always
         environment:
             ADB_MASTER_KEY: "admin"

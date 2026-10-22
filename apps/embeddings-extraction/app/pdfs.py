@@ -44,10 +44,10 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
 
         query = [{
             "FindBlob": {
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    self.done_property: ["!=", True]
-                },
+                "constraints": ["all",
+                    ["$_mime_type", "==", "application/pdf"],
+                    ["$" + self.done_property, "!=", True]
+                ],
                 "results": {
                     "count": True
                 }
@@ -90,10 +90,10 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         query = [{
             "FindBlob": {
                 "blobs": True,
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    "wf_embeddings_clip": ["!=", True]
-                },
+                "constraints": ["all",
+                    ["$_mime_type", "==", "application/pdf"],
+                    ["$" + self.done_property, "!=", True]
+                ],
                 "batch": {
                     "batch_size": self.batch_size,
                     "batch_id": idx

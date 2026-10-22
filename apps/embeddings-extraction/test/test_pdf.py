@@ -17,7 +17,8 @@ def run_query(db_connection):
     query = [
         {
             "FindBlob": {
-                "constraints": {"_mime_type": ["==", "application/pdf"], "corpus": ["==", "text"]},
+                "constraints": ["all", ["$_mime_type", "==", "application/pdf"],
+                                ["$corpus", "==", "text"]],
                 "results": {
                     "list": ["filename", "_uniqueid", "expected_text", "corpus"]
                 },
