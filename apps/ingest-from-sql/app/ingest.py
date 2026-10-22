@@ -424,7 +424,6 @@ class PDFIngester(Ingester):
             drop_col = self.source.get_bin_col()
         logger.debug(self.df.columns)
         self.df.drop(columns=[drop_col],inplace=True)
-        self.df["document_type"] = "pdf"
 
         logger.debug("PDF DataFrame output")
         logger.debug(self.df)

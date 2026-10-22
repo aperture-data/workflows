@@ -40,7 +40,6 @@ erDiagram
         string wf_sha1_hash
     }
     Blob {
-        string document_type "'pdf'"
         string adb_mime_type
         string wf_creator
         string wf_creator_key
@@ -168,3 +167,7 @@ When a CSV contains information about another object type, properties are merged
 * `all_blobs` (default): Items found in the bucket with no associated properties are added with no properties.
 * `only_matched`: Drops objects without a matching entry in properties (useful for ingesting a subset).
 
+
+PDF blobs receive the server-derived `_blob_type` value `application/pdf`.
+Ingestion does not supply this reserved property; downstream filters use it
+instead of a client-assigned document type.

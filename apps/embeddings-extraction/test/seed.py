@@ -117,7 +117,6 @@ def create_test_pdfs(client, pdf_dir):
             query.append({
                 "AddBlob": {
                     "properties": {
-                        "document_type": "pdf",
                         "content_type": "application/pdf",
                         "filename": pdf_file,
                         "expected_text": expected_text,

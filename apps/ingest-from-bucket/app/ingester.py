@@ -294,7 +294,6 @@ class DocumentIngester(Ingester):
             return False
         paths = self.source.scan( object_filter )
         self.df = super(DocumentIngester,self).generate_df(paths)
-        self.df['document_type'] = "pdf"
     def load(self,db):
         print("Ready to load documents")
         if self.check_for_existing:

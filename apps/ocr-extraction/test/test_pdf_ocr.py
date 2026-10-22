@@ -16,7 +16,7 @@ def run_query(db_connection):
         {
             "FindBlob": {
                 "constraints": {
-                    "document_type": ["==", "pdf"],
+                    "_blob_type": ["==", "application/pdf"],
                     "corpus": ["==", "images"]
                 },
                 "results": {
@@ -123,7 +123,7 @@ def test_text_pdfs_are_skipped(db_connection):
         {
             "FindBlob": {
                 "constraints": {
-                    "document_type": ["==", "pdf"],
+                    "_blob_type": ["==", "application/pdf"],
                     "corpus": ["==", "text"]
                 },
                 "results": {

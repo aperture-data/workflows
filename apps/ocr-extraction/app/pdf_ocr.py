@@ -56,7 +56,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         query = [{
             "FindBlob": {
                 "constraints": {
-                    "document_type": ["==", "pdf"],
+                    "_blob_type": ["==", "application/pdf"],
                     self.done_property: ["!=", True]
                 },
                 "results": {
@@ -97,7 +97,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
             "FindBlob": {
                 "blobs": True,
                 "constraints": {
-                    "document_type": ["==", "pdf"],
+                    "_blob_type": ["==", "application/pdf"],
                     self.done_property: ["!=", True]
                 },
                 "batch": {

@@ -36,7 +36,6 @@ erDiagram
         string wf_sha1_hash
     }
     Blob {
-        string document_type "'pdf'"
         string adb_mime_type
         string wf_table_source
         string wf_creator
@@ -217,3 +216,7 @@ If you don't know the `WorkflowSpec` of a run, it will exist in the database as 
 ```
 
 For **`WF_DELETE_FROM_SQL_DB`** the pattern with match the host and database, and will delete all objects that match.   
+
+PDF blobs receive the server-derived `_blob_type` value `application/pdf`.
+Ingestion does not supply this reserved property; downstream filters use it
+instead of a client-assigned document type.

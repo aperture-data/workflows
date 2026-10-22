@@ -6,7 +6,7 @@ db = create_connector()
 query = [{
     "FindBlob": {
         "constraints": {
-            "document_type": ["==","pdf"]
+            "_blob_type": ["==", "application/pdf"]
         },
         "results": {
             "all_properties":True 
