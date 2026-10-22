@@ -62,3 +62,11 @@ services:
     volumes:
       - ./ca:/ca
     command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
+  unit-tests:
+    image: python:3.12-alpine
+    network_mode: none
+    profiles: [unit]
+    volumes:
+      - ./apps/embeddings-extraction/app:/app:ro
+      - ./apps/embeddings-extraction/test/unit:/tests:ro
+    command: ["python", "-B", "-m", "unittest", "discover", "-s", "/tests", "-v"]

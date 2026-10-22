@@ -32,14 +32,15 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        _, response, _ = self.pool.execute_query(query)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"FindVideo count query failed: {response}")
 
         try:
             total_videos = response[0]["FindVideo"]["count"]
-        except:
-            logger.error(
-                "Error retrieving the number of videos. No videos in the db?")
-            exit(0)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(
+                f"Invalid FindVideo count response: {response}") from exc
 
         if total_videos == 0:
             logger.warning("No videos to be processed. Continuing.")

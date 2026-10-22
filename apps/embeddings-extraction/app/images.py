@@ -34,13 +34,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        _, response, _ = self.pool.execute_query(query)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"FindImage count query failed: {response}")
 
         try:
             total_images = response[0]["FindImage"]["count"]
-        except:
-            logger.error("Error retrieving the number of images. No images in the db?")
-            exit(0)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(
+                f"Invalid FindImage count response: {response}") from exc
 
         if total_images == 0:
             logger.warning("No images to be processed. Continuing!")

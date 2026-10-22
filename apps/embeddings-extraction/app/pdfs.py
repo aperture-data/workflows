@@ -54,14 +54,15 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             }
         }]
 
-        _, response, _ = self.pool.execute_query(query)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"FindBlob count query failed: {response}")
 
         try:
             total_pdfs = response[0]["FindBlob"]["count"]
-        except:
-            logger.error(
-                "Error retrieving the number of PDFs. No PDFs in the db?")
-            exit(0)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(
+                f"Invalid FindBlob count response: {response}") from exc
 
         if total_pdfs == 0:
             logger.warning("No PDFs to be processed. Continuing!")
