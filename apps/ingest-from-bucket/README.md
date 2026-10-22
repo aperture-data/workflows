@@ -168,6 +168,6 @@ When a CSV contains information about another object type, properties are merged
 * `only_matched`: Drops objects without a matching entry in properties (useful for ingesting a subset).
 
 
-PDF blobs receive the server-derived `_blob_type` value `application/pdf`.
+PDF blobs receive the server-derived `_mime_type` value `application/pdf`.
 Ingestion does not supply this reserved property; downstream filters use it
 instead of a client-assigned document type.
