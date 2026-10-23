@@ -120,44 +120,50 @@ class AperturedbIO:
             [
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": SPEC_CLASS,
-                        "property_key": "id",
+                        "property": "id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": RUN_CLASS,
-                        "property_key": "id",
+                        "property": "id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": RUN_CLASS,
-                        "property_key": "spec_id",
+                        "property": "spec_id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": "Segment",
-                        "property_key": "id",
+                        "property": "id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": "Segment",
-                        "property_key": "spec_id",
+                        "property": "spec_id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "index_type": "entity",
+                        "target": "entity",
+                        "kind": "ordered",
                         "class": "Segment",
-                        "property_key": "run_id",
+                        "property": "run_id",
                     }
                 },
             ],

@@ -300,37 +300,42 @@ def create_indexes(db):
     execute_query(db, [
         {
             "CreateIndex": {
-                "index_type": "entity",
+                "target": "entity",
+                "kind": "ordered",
                 "class": "CrawlSpec",
-                "property_key": "id",
+                "property": "id",
             }
         },
         {
             "CreateIndex": {
-                "index_type": "entity",
+                "target": "entity",
+                "kind": "ordered",
                 "class": "CrawlDocument",
-                "property_key": "id",
+                "property": "id",
             }
         },
         {
             "CreateIndex": {
-                "index_type": "entity",
+                "target": "entity",
+                "kind": "ordered",
                 "class": "CrawlDocument",
-                "property_key": "spec_id",
+                "property": "spec_id",
             }
         },
         {
             "CreateIndex": {
-                "index_type": "entity",
+                "target": "entity",
+                "kind": "ordered",
                 "class": "CrawlDocument",
-                "property_key": "run_id",
+                "property": "run_id",
             }
         },
         {
             "CreateIndex": {
-                "index_type": "entity",
+                "target": "entity",
+                "kind": "ordered",
                 "class": "CrawlRun",
-                "property_key": "id",
+                "property": "id",
             }
         },
     ])

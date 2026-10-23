@@ -255,7 +255,6 @@ async def config(request: Request):
         "ready": True,
     }
     logger.info(f"Config: {config}")
-    assert config["host"] != "", "DB_HOST is not set"
     return JSONResponse(config)
 
 
