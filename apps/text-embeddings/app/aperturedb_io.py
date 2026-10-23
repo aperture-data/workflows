@@ -80,9 +80,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", self.spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.spec_id}],
                     "_ref": "SPEC",
                 }
             },
@@ -100,9 +98,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": INPUT_SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", self.input_spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.input_spec_id}],
                     "_ref": 1,
                 }
             },
@@ -133,9 +129,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", self.spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.spec_id}],
                     "_ref": 1,
                 }
             },
@@ -210,9 +204,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", self.spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.spec_id}],
                     "_ref": 1,
                 },
             },
@@ -236,9 +228,7 @@ class AperturedbIO:
             },
             {
                 "FindDescriptor": {
-                    "constraints": {
-                        "run_id": ["==", self.run_id],
-                    },
+                    "constraints": ["$run_id", "==", {"json": self.run_id}],
                     "_ref": 3,
                 },
             },
@@ -257,9 +247,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": INPUT_SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", self.input_spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.input_spec_id}],
                     "_ref": 1,
                 }
             },
@@ -305,9 +293,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": "Segment",
-                    "constraints": {
-                        "id": ["==", embedding.segment_id],
-                    },
+                    "constraints": ["$id", "==", {"json": embedding.segment_id}],
                     "_ref": "SEGMENT",
                 }
             },
@@ -348,9 +334,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": SPEC_CLASS,
-                    "constraints": {
-                        "id": ["==", spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": spec_id}],
                     "_ref": 1,
                 }
             },
@@ -373,9 +357,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": RUN_CLASS,
-                    "constraints": {
-                        "spec_id": ["==", spec_id],
-                    },
+                    "constraints": ["$spec_id", "==", {"json": spec_id}],
                     "_ref": 3,
                 }
             },
@@ -386,9 +368,7 @@ class AperturedbIO:
             },
             {
                 "FindDescriptor": {
-                    "constraints": {
-                        "spec_id": ["==", spec_id],
-                    },
+                    "constraints": ["$spec_id", "==", {"json": spec_id}],
                     "_ref": 4,
                 }
             },
@@ -409,9 +389,7 @@ class AperturedbIO:
             self.execute_query([
                 {
                     "FindDescriptorSet": {
-                        "constraints": {
-                            "_uniqueid": ["==", descriptorset_id],
-                        },
+                        "constraints": ["$_uniqueid", "==", {"json": descriptorset_id}],
                         "_ref": 1,
                     }
                 },
@@ -452,9 +430,7 @@ class AperturedbIO:
             {
                 "FindEntity": {
                     "with_class": class_,
-                    "constraints": {
-                        "id": ["==", id_],
-                    },
+                    "constraints": ["$id", "==", {"json": id_}],
                     "results": {"count": True},
                 }
             },

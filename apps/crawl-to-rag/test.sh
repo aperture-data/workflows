@@ -18,3 +18,6 @@ bash ../build.sh
 cd -
 
 bash ../build.sh
+
+# Check query compatibility against the same database version used by CI.
+bash checks/constraints.sh

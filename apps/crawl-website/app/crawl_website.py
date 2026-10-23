@@ -223,9 +223,7 @@ class ApertureDBPipeline:
             {
                 "FindEntity": {
                     "with_class": "CrawlSpec",
-                    "constraints": {
-                        "id": ["==", self.spec_id],
-                    },
+                    "constraints": ["$id", "==", {"json": self.spec_id}],
                     "_ref": 1,
                 }
             },
@@ -270,9 +268,7 @@ def create_spec(db, args):
         {
             "FindEntity": {
                 "with_class": "CrawlSpec",
-                "constraints": {
-                    "id": ["==", spec_id],
-                },
+                "constraints": ["$id", "==", {"json": spec_id}],
                 "results": {"count": True}
             }
         }
@@ -361,9 +357,7 @@ def create_run(db, spec_id, run_id, stats):
     execute_query(db, [{
         "FindEntity": {
             "with_class": "CrawlSpec",
-            "constraints": {
-                "id": ["==", spec_id],
-            },
+            "constraints": ["$id", "==", {"json": spec_id}],
             "_ref": 1,
         }
     }, {
@@ -380,9 +374,7 @@ def create_run(db, spec_id, run_id, stats):
     }, {
         "FindEntity": {
             "with_class": "CrawlDocument",
-            "constraints": {
-                "run_id": ["==", run_id],
-            },
+            "constraints": ["$run_id", "==", {"json": run_id}],
             "_ref": 3,
         }
     }, {
@@ -401,9 +393,7 @@ def delete_crawl(db, spec_id):
         {
             "FindEntity": {
                 "with_class": "CrawlSpec",
-                "constraints": {
-                    "id": ["==", spec_id],
-                },
+                "constraints": ["$id", "==", {"json": spec_id}],
                 "_ref": 1,
             },
         },
@@ -415,18 +405,14 @@ def delete_crawl(db, spec_id):
         {
             "FindEntity": {
                 "with_class": "CrawlDocument",
-                "constraints": {
-                    "spec_id": ["==", spec_id],
-                },
+                "constraints": ["$spec_id", "==", {"json": spec_id}],
                 "_ref": 2,
             }
         },
         {
             "FindEntity": {
                 "with_class": "CrawlRun",
-                "constraints": {
-                    "spec_id": ["==", spec_id],
-                },
+                "constraints": ["$spec_id", "==", {"json": spec_id}],
                 "_ref": 3,
             }
         },
