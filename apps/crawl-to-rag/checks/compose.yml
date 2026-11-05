@@ -1,15 +1,16 @@
+# The database comes from the published ApertureDB Docker Compose package;
+# no-ports.yml keeps it off the host's ports.
+include:
+  - path:
+      - oci://aperturedata/aperturedb-compose-single-node:${APERTUREDB_VERSION:-dev}
+      - no-ports.yml
+    project_directory: .
 services:
-  db:
-    image: aperturedata/aperturedb-community:${APERTUREDB_VERSION:-dev}
-    environment:
-      ADB_MASTER_KEY: admin
-      ADB_PORT: 55555
-      ADB_FORCE_SSL: 'false'
-      ADB_KVGD_DB_SIZE: '1024'
   tests:
     image: aperturedata/workflows-base:${VERSION:-v1.0.2}
     depends_on:
-      - db
+      - aperturedb
+      - lenz
     volumes:
       - ../..:/apps:ro
     command: ['python', '/apps/crawl-to-rag/checks/test_constraints.py']

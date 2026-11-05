@@ -31,7 +31,7 @@ class BindValue(ast.NodeTransformer):
 
 for attempt in range(60):
     try:
-        db = Connector(host='db', port=55555, user='admin', password='admin',
+        db = Connector(host='lenz', port=55551, user='admin', password='admin',
                        use_ssl=False, retry_max_attempts=1)
         query({'GetStatus': {}})
         break

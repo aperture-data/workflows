@@ -31,8 +31,6 @@ echo "COMMAND: $COMMAND"
 export DB_HOST="lenz"
 export DB_PORT="55551"
 export DB_PASS="admin"
-export DB_TCP_CN="lenz"
-export DB_HTTP_CN="nginx"
 
 cleanup() {
   $COMMAND logs | tee -a $TEST_LOG

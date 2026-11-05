@@ -1,0 +1,5 @@
+services:
+  lenz:
+    ports: !reset []
+  http-proxy:
+    ports: !reset []

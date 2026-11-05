@@ -5,7 +5,7 @@ This repository contains ApertureDB workflows packaged as Docker images. It uses
 ## Architecture & Boundaries
 - `apps/`: Contains individual workflow projects (e.g., `embeddings-extraction`, `rag`, `jupyterlab`). Each acts as an independent Docker build but relies on root scripts.
 - `base/docker/`: Contains the base Ubuntu+Python Docker image that individual workflows build upon.
-- `docker-compose.yml` (at root): Provides shared services for testing, notably the `aperturedb` database, the `lenz` gateway in front of it, and the `ca` cert generator.
+- `docker-compose.yml` (at root): Provides shared services for testing. It includes the published ApertureDB Docker Compose package (the `aperturedb` database, the `lenz` gateway in front of it, `http-proxy` and `webui`, and the `ca` service that generates their certificate). `aperturedb.compose.yml` adds healthchecks and copies the certificate to `ca/ca.crt`, which workflows use as `CA_CERT`.
 
 ## Testing & Execution
 **Do not run `pytest` or python execution scripts directly on the host.** Workflows depend on complex interactions with the database and object storage. Execution and testing are entirely orchestrated via Docker Compose.
