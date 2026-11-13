@@ -14,35 +14,19 @@ def run_query(db_connection):
     """Get the results of the query."""
     query = [
         {
-            "FindImage": {
-                "results": {
-                    "list": ["_uniqueid", "filename", "expected_text", "corpus", "wf_ocr_done"]
-                },
-                "_ref": 1,
-            }
-        },
-        {
-            "FindEntity": {
-                "with_class": "ExtractedText",
-                "is_connected_to": {"ref": 1},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid", "text"],
-                },
-                "_ref": 2,
-            }
-        },
-        {
-            "FindDescriptor": {
-                "set": "wf_ocr_images",
-                "is_connected_to": {"ref": 2},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }
-    ]
+            'FindImage': {
+                'results': {
+                    'list': [
+                        '_uniqueid', 'filename', 'expected_text', 'corpus', 'wf_ocr_done']}, '_ref': 1, 'uniqueids': True}}, {
+            'FindEntity': {
+                'with_class': 'ExtractedText', 'is_connected_to': {
+                    'ref': 1}, 'group_by_source': True, 'results': {
+                    'list': [
+                        '_uniqueid', 'text']}, '_ref': 2, 'uniqueids': True}}, {
+            'FindDescriptor': {
+                'with_class': 'wf_ocr_images', 'is_connected_to': {
+                    'ref': 2}, 'group_by_source': True, 'results': {
+                                                        'list': ['_uniqueid']}, 'uniqueids': True}}]
 
     status, response, _ = execute_query(db_connection, query)
 

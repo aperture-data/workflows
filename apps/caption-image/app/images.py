@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import io
 import math
 import logging
@@ -15,6 +16,7 @@ _processor = None
 _model = None
 _model_lock = threading.Lock()
 _inference_lock = threading.Lock()
+
 
 def get_model_and_processor():
     global _processor, _model
@@ -46,23 +48,28 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if self.batch_size <= 0:
             raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
 
-        query = [{
-            "FindImage": {
-                "constraints": {
-                    self.caption_image_property + "_done": ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [
+            {
+                'FindImage': {
+                    'constraints': predicate(
+                        self.caption_image_property +
+                        '_done',
+                        '!=',
+                        True),
+                    'results': {
+                        'list': ['_uniqueid']},
+                    'uniqueids': True}}]
 
         status, response, _ = self.pool.execute_query(query)
         if status != 0:
             raise RuntimeError(f"Error executing query to find images: {response}")
-            
+
         try:
-            total_images = response[0]["FindImage"]["count"]
+            selection = response[0]["FindImage"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_images = len(self._selected_ids)
         except Exception as e:
             logger.exception(f"error parsing count from response: {response}")
             raise RuntimeError(f"error parsing count from response: {response}") from e
@@ -86,28 +93,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [{
-            "FindImage": {
-                "blobs": True,
-                "constraints": {
-                    self.caption_image_property + "_done": ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "operations": [
-                    {
-                        "type": "resize",
-                        "width": 224,
-                        "height": 224
-                    }
-                ],
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }]
+        query = [{'FindImage': {'blobs': True,
+                                'constraints': predicate('_uniqueid',
+                                                         'in',
+                                                         self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                                'operations': [{'type': 'resize',
+                                                'width': 224,
+                                                'height': 224}],
+                                'results': {'list': ['_uniqueid']},
+                                'uniqueids': True}}]
 
         return query, []
 
@@ -121,13 +115,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             raise RuntimeError(f"error parsing uniqueids from response: {response}") from e
 
         if len(uniqueids) != len(r_blobs):
-            logger.error(f"Mismatch in response: {len(uniqueids)} uniqueids vs {len(r_blobs)} blobs")
+            logger.error(
+                f"Mismatch in response: {
+                    len(uniqueids)} uniqueids vs {
+                    len(r_blobs)} blobs")
             query_fail = []
             ref_idx = 1
             for uid in uniqueids:
-                query_fail.append({
-                    "FindImage": {"_ref": ref_idx, "constraints": {"_uniqueid": ["==", uid]}}
-                })
+                query_fail.append(
+                    {'FindImage': {'_ref': ref_idx, 'constraints': predicate('_uniqueid', '==', uid)}})
                 query_fail.append({
                     "UpdateImage": {
                         "ref": ref_idx,
@@ -169,7 +165,11 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         if images_to_process:
             try:
-                inputs = processor(images=images_to_process, text=texts, return_tensors="pt", padding=True)
+                inputs = processor(
+                    images=images_to_process,
+                    text=texts,
+                    return_tensors="pt",
+                    padding=True)
                 with _inference_lock:
                     with torch.no_grad():
                         outputs = model.generate(**inputs)
@@ -200,14 +200,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         ref_idx = 1
 
         for uniqueid, caption in zip(valid_uniqueids, captions):
-            query.append({
-                "FindImage": {
-                    "_ref": ref_idx,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
+            query.append(
+                {'FindImage': {'_ref': ref_idx, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
 
             query.append({
                 "UpdateImage": {
@@ -221,14 +215,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             ref_idx += 1
 
         for uniqueid, reason in zip(failed_uniqueids, failed_reasons):
-            query.append({
-                "FindImage": {
-                    "_ref": ref_idx,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
+            query.append(
+                {'FindImage': {'_ref': ref_idx, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
 
             query.append({
                 "UpdateImage": {

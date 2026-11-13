@@ -1,12 +1,11 @@
 [
     {
         "UpdateImage": {
-            "constraints": {
-                "adb_data_source": [
-                    "==",
-                    "IngestType.IMAGE.val_images.adb.csv"
-                ]
-            },
+            "constraints": [
+                "$adb_data_source",
+                "==",
+                "IngestType.IMAGE.val_images.adb.csv"
+            ],
             "properties": {
                 "adb_data_source": "coco"
             }

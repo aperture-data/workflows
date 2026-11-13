@@ -1,3 +1,5 @@
+from aperturedb.DescriptorEngines import engines_object
+from aperturedb.Constraints import predicate
 import os
 import argparse
 import io
@@ -28,23 +30,21 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         self.batch_size = kwargs.get("batch_size", 1)
         self.generate_embeddings = kwargs.get("generate_embeddings", False)
         self.pool = ConnectionPool(connection_factory=db.clone)
-        query = [{
-            "FindImage": {
-                "constraints": {
-                    PROCESSED_LABEL_IMAGES: ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [{'FindImage': {'constraints': predicate(PROCESSED_LABEL_IMAGES, '!=', True), 'results': {
+            'list': ['_uniqueid']}, 'uniqueids': True}}]
 
         result, response, _ = self.pool.execute_query(query, [])
+        if result != 0:
+            raise RuntimeError(f"Selection query failed: {response}")
         try:
-            total_images = response[0]["FindImage"]["count"]
-        except:
+            selection = response[0]["FindImage"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_images = len(self._selected_ids)
+        except BaseException:
             print("Error retrieving the number of images. No images in the db?")
-            exit(0)
+            raise RuntimeError(f"Invalid selection response: {response}")
 
         print(f"Total images to process: {total_images}")
 
@@ -55,21 +55,12 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         return self.total_batches
 
     def getitem(self, idx):
-        query = [{
-            "FindImage": {
-                "blobs": True,
-                "constraints": {
-                    PROCESSED_LABEL_IMAGES: ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }]
+        query = [{'FindImage': {'blobs': True,
+                                'constraints': predicate('_uniqueid',
+                                                         'in',
+                                                         self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                                'results': {'list': ['_uniqueid']},
+                                'uniqueids': True}}]
 
         return query, []
 
@@ -77,7 +68,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             uniqueids = [i["_uniqueid"]
                          for i in response[0]["FindImage"]["entities"]]
-        except:
+        except BaseException:
             print(f"error: {response}")
             return 0
 
@@ -110,14 +101,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         ref_counter = 1
         for uniqueid in uniqueids:
-            query.append({
-                "FindImage": {
-                    "_ref": ref_counter,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
+            query.append({'FindImage': {'_ref': ref_counter,
+                         'constraints': predicate('_uniqueid', '==', uniqueid)}})
 
             query.append({
                 "UpdateImage": {
@@ -132,31 +117,20 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
             if uniqueid in boxes:
                 bb_ref = 1
                 for box, prob in boxes[uniqueid]["boxes"]:
-                    query.append({
-                        "AddBoundingBox": {
-                            "image_ref": ref_counter,
-                            "_ref": ref_counter + bb_ref,
-                            "label": "face",
-                            "rectangle": {
-                                "x": max(int(box[0]), 0),
-                                "y": max(int(box[1]), 0),
-                                "width": int(box[2] - box[0]),
-                                "height": int(box[3] - box[1])
-                            },
-                            "properties": {
-                                PROCESSED_LABEL_CONFIDENCE: prob
-                            }
-                        }
-                    })
+                    query.append({'AddBoundingBox': {'class': 'BoundingBoxes',
+                                                     'image_ref': ref_counter,
+                                                     '_ref': ref_counter + bb_ref,
+                                                     'label': 'face',
+                                                     'rectangle': {'x': max(int(box[0]),
+                                                                            0),
+                                                                   'y': max(int(box[1]),
+                                                                            0),
+                                                                   'width': int(box[2] - box[0]),
+                                                                   'height': int(box[3] - box[1])},
+                                                     'properties': {PROCESSED_LABEL_CONFIDENCE: prob}}})
                     if self.generate_embeddings:
-                        query.append({
-                            "AddDescriptor": {
-                                "set": PROCESSED_LABEL_IMAGES,
-                                "connect": {
-                                    "ref": ref_counter + bb_ref
-                                }
-                            }
-                        })
+                        query.append({'AddDescriptor': {'class': PROCESSED_LABEL_IMAGES, 'connect': {
+                                     'ref': ref_counter + bb_ref, 'class': 'HasDescriptor'}}})
                     bb_ref += 1
             ref_counter += (bb_ref + 1)
 
@@ -170,55 +144,38 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
 
 def clean_artifacts(db):
-    query = [{
-        "FindImage": {
-            "_ref": 1,
-            "constraints": {
-                PROCESSED_LABEL_IMAGES: ["==", True]
-            },
-            "results": {
-                "count": True
-            }
-        }
-    }, {
-        "UpdateImage": {
-            "ref": 1,
-            "remove_props": [PROCESSED_LABEL_IMAGES]
-        }
-    }, {
-        "FindBoundingBox": {
-            "_ref": 2,
-            "constraints": {
-                PROCESSED_LABEL_CONFIDENCE: ["!=", None]
-            },
-            "results": {
-                "count": True
-            }
-        }
-    }, {
-        "DeleteBoundingBox": {
-            "ref": 2
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": PROCESSED_LABEL_IMAGES
-        }
-    }]
+    from aperturedb.Utils import Utils
+    utils = Utils(db)
+    if not utils.remove_descriptorset(PROCESSED_LABEL_IMAGES):
+        raise RuntimeError("Could not remove descriptor class")
+    query = [
+        {
+            'FindImage': {
+                '_ref': 1, 'constraints': predicate(
+                    PROCESSED_LABEL_IMAGES, '==', True), 'results': {
+                    'list': ['_uniqueid']}, 'uniqueids': True}}, {
+                        'UpdateImage': {
+                            'ref': 1, 'remove_props': [PROCESSED_LABEL_IMAGES]}}, {
+                                'FindBoundingBox': {
+                                    '_ref': 2, 'constraints': predicate(
+                                        PROCESSED_LABEL_CONFIDENCE, '!=', None), 'results': {
+                                            'count': True}}}, {
+                                                'DeleteBoundingBox': {
+                                                    'ref': 2}}]
     result, response, _ = execute_query(db, query, [])
-    print(f"Cleaning Artifacts... {response if result!=0 else 'done'}")
+    print(f"Cleaning Artifacts... {(response if result != 0 else 'done')}")
 
 
 def add_descriptor_set(db):
 
-    result, response, _ = execute_query(db, [{
-        "AddDescriptorSet": {
-            "name": PROCESSED_LABEL_IMAGES,
-            "engine": "HNSW",
-            "metric": "CS",
-            "dimensions": 512,
-        }
-    }], [], success_statuses=[0, 2])
-    print(f"Added Descriptor Set... {response if result!=0 else 'done'}")
+    result, response, _ = execute_query(
+        db, [
+            {
+                'CreateIndex': {
+                    'target': 'descriptor', 'class': PROCESSED_LABEL_IMAGES, 'property': '_blob', 'kind': 'vector', 'params': {
+                        'dimensions': 512, 'metric': 'CS', 'engines': engines_object('HNSW')}}}], [], success_statuses=[
+            0, 2])
+    print(f"Added Descriptor Set... {response if result != 0 else 'done'}")
 
 
 def main(params):

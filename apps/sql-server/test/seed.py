@@ -1,3 +1,5 @@
+from aperturedb.Constraints import predicate
+from aperturedb.DescriptorEngines import engines_object
 from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 from itertools import product
@@ -6,8 +8,7 @@ import numpy as np
 import requests
 import base64
 from typing import Dict, List
-
-np.random.seed(42)  # Seed for reproducibility
+np.random.seed(42)
 
 
 def strip_null(d):
@@ -55,34 +56,12 @@ def load_constraints_testdata(client):
     execute_query(client, query)
 
 
-TEXTS = [
-    "A group of people hiking through a forest trail.",
-    "A cat sitting on a windowsill looking outside.",
-    "A busy city street during rush hour.",
-    "A child blowing bubbles in a park.",
-    "A plate of fresh sushi on a wooden table.",
-    "A mountain landscape at sunrise.",
-    "A cyclist riding along a coastal road.",
-    "A dog playing fetch with its owner.",
-    "A close-up of colorful autumn leaves.",
-    "A family enjoying a picnic by the lake."
-]
-
-# Tests will assume 512 dimensions
-IMAGE_MODELS = [
-    {"provider": "clip", "model": "ViT-B/16",
-        "corpus": "openai", "dimensions": 512},
-    {"provider": "openclip", "model": "ViT-B-32",
-        "corpus": "laion2b_s34b_b79k", "dimensions": 512}
-]
-
-# Tests will assume 512 dimensions
-TEXT_MODELS = [
-    {"provider": "clip", "model": "ViT-B/16",
-        "corpus": "openai", "dimensions": 512},
-    {"provider": "openclip", "model": "ViT-B-32",
-        "corpus": "laion2b_s34b_b79k", "dimensions": 512}
-]
+TEXTS = ['A group of people hiking through a forest trail.', 'A cat sitting on a windowsill looking outside.', 'A busy city street during rush hour.', 'A child blowing bubbles in a park.', 'A plate of fresh sushi on a wooden table.',
+         'A mountain landscape at sunrise.', 'A cyclist riding along a coastal road.', 'A dog playing fetch with its owner.', 'A close-up of colorful autumn leaves.', 'A family enjoying a picnic by the lake.']
+IMAGE_MODELS = [{'provider': 'clip', 'model': 'ViT-B/16', 'corpus': 'openai', 'dimensions': 512},
+                {'provider': 'openclip', 'model': 'ViT-B-32', 'corpus': 'laion2b_s34b_b79k', 'dimensions': 512}]
+TEXT_MODELS = [{'provider': 'clip', 'model': 'ViT-B/16', 'corpus': 'openai', 'dimensions': 512},
+               {'provider': 'openclip', 'model': 'ViT-B-32', 'corpus': 'laion2b_s34b_b79k', 'dimensions': 512}]
 
 
 def random_images(n=10):
@@ -101,6 +80,7 @@ def random_images(n=10):
         Image.fromarray(image).save(img_byte_arr, format=format)
         images.append(img_byte_arr.getvalue())
     return images
+
 
 def random_blobs(n=10):
     """
@@ -122,41 +102,18 @@ def load_text_descriptors_testdata(client):
     """
     query = []
     blobs = []
-
     for i, model in enumerate(TEXT_MODELS):
-        set_name = f"TestText_{i}"
-        query.append({
-            "AddDescriptorSet": {
-                "name": set_name,
-                "properties": {
-                    "description": "Test set for descriptor suite",
-                    "embeddings_provider": model["provider"],
-                    "embeddings_model": model["model"],
-                    "embeddings_pretrained": model["corpus"],
-                },
-                "dimensions": model["dimensions"],
-                "metric": "CS",
-            }
-        })
-
-        # https://github.com/aperture-data/athena/issues/1738
+        set_name = f'TestText_{i}'
+        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'vector', 'params': {'dimensions': model['dimensions'], 'metric': 'CS', 'engines': engines_object(
+            'HNSW')}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
         status, _, _ = execute_query(client, query, blobs)
         assert status == 0
         query = []
         blobs = []
-
         for text in TEXTS:
-            embedding = random_embedding(model["dimensions"])
-            query.append({
-                "AddDescriptor": {
-                    "set": set_name,
-                    "properties": {
-                        "text": text,
-                    }
-                }
-            })
+            embedding = random_embedding(model['dimensions'])
+            query.append({'AddDescriptor': {'class': set_name, 'properties': {'text': text}}})
             blobs.append(embedding)
-
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
 
@@ -167,49 +124,22 @@ def load_images_testdata(client):
     """
     query = []
     blobs = []
-
     images = random_images(10)
-
     for i, model in enumerate(IMAGE_MODELS):
-        set_name = f"TestImage_{i}"
-        query.append({
-            "AddDescriptorSet": {
-                "name": set_name,
-                "properties": {
-                    "description": "Test set for descriptor suite",
-                    "embeddings_provider": model["provider"],
-                    "embeddings_model": model["model"],
-                    "embeddings_pretrained": model["corpus"],
-                },
-                "dimensions": model["dimensions"],
-                "metric": "CS",
-            }
-        })
-
+        set_name = f'TestImage_{i}'
+        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'vector', 'params': {'dimensions': model['dimensions'], 'metric': 'CS', 'engines': engines_object(
+            'HNSW')}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
         status, _, _ = execute_query(client, query, blobs)
         assert status == 0
         query = []
         blobs = []
-
         for image in images:
-            embedding = random_embedding(model["dimensions"])
+            embedding = random_embedding(model['dimensions'])
             ref = len(query) + 1
-            query.extend([
-                {
-                    "AddImage": {
-                        "_ref": ref,
-                    }
-                },
-                {
-                    "AddDescriptor": {
-                        "set": set_name,
-                        "connect": {"ref": ref},
-                    }
-                }
-            ])
+            query.extend([{'AddImage': {'class': 'Images', '_ref': ref}}, {'AddDescriptor': {
+                         'class': set_name, 'connect': {'ref': ref, 'class': 'has_descriptor'}}}])
             blobs.append(image)
             blobs.append(embedding)
-
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
 
@@ -220,63 +150,15 @@ def load_blobs_testdata(client):
     """
     query = []
     blobs = random_blobs(10)
-
     for blob in blobs:
-        query.append({
-            "AddBlob": {
-            }
-        })
-
+        query.append({'AddBlob': {'class': 'Blobs'}})
     status, _, _ = execute_query(client, query, blobs)
     assert status == 0
 
-def load_generic_connection_testdata(client):
-    # See https://github.com/aperture-data/athena/issues/757
-    query = [
-        {
-            "AddEntity": {
-                "_ref": 1,
-                "class": "Person"
-            }
-        },
-        {
-            "AddEntity": {
-                "_ref": 2,
-                "class": "School",
-                "connect": {
-                    "ref": 1
-                }
-            }
-        },
-        {
-            "AddEntity": {
-                "class": "Sport",
-                "connect": {
-                    "ref": 2
-                }
-            }
-        },
-        {
-            "AddEntity": {
-                "_ref": 3,
-                "class": "College",
-                "connect": {
-                    "ref": 1,
-                    "class": "ReusedConnection"
-                }
-            }
-        },
-        {
-            "AddEntity": {
-                "class": "Athletics",
-                "connect": {
-                    "ref": 3,
-                    "class": "ReusedConnection"
-                }
-            }
-        }
-    ]
 
+def load_generic_connection_testdata(client):
+    query = [{'AddEntity': {'_ref': 1, 'class': 'Person'}}, {'AddEntity': {'_ref': 2, 'class': 'School', 'connect': {'direction': 'in', 'ref': 1, 'class': 'Related'}}}, {'AddEntity': {'class': 'Sport', 'connect': {'direction': 'in', 'ref': 2, 'class': 'Related'}}}, {
+        'AddEntity': {'_ref': 3, 'class': 'College', 'connect': {'direction': 'in', 'ref': 1, 'class': 'ReusedConnection'}}}, {'AddEntity': {'class': 'Athletics', 'connect': {'direction': 'in', 'ref': 3, 'class': 'ReusedConnection'}}}]
     status, _, _ = execute_query(client, query)
     assert status == 0
 
@@ -302,17 +184,14 @@ def db_connection():
     return Connector(host=DB_HOST, user=DB_USER, port=DB_PORT, password=DB_PASS, ca_cert=CA_CERT, use_ssl=USE_SSL)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     client = db_connection()
-
-    print(f"host={client.host}")
+    print(f'host={client.host}')
     load_constraints_testdata(client)
     load_text_descriptors_testdata(client)
     load_images_testdata(client)
     load_blobs_testdata(client)
     load_generic_connection_testdata(client)
-    print("Test data loaded successfully.")
-
-    _, results, _ = execute_query(client, [{"GetSchema": {}}])
-
-    print("Loaded test data:", results)
+    print('Test data loaded successfully.')
+    _, results, _ = execute_query(client, [{'GetSchema': {}}])
+    print('Loaded test data:', results)

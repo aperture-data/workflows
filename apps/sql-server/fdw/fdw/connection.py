@@ -38,7 +38,7 @@ def connection_table(connection: str, data: Union[dict, list]) -> Optional[Table
     Create a TableDefinition for a connection.
     This is used to create the foreign table in PostgreSQL.
 
-    Note that data is a list from 0.18.15 onwards, but commonly of length 1
+    Data contains one or more native typed endpoint categories.
     """
 
     table_name = connection
@@ -49,7 +49,7 @@ def connection_table(connection: str, data: Union[dict, list]) -> Optional[Table
     try:
         # We have to handle three cases here: dict, list of length 1, and list of length > 1
         if isinstance(data, dict):
-            data = [data] # normalize to list form
+            data = [data]  # normalize to list form
 
         assert isinstance(data, list), "Expected data to be a list"
 
@@ -59,9 +59,22 @@ def connection_table(connection: str, data: Union[dict, list]) -> Optional[Table
             dst_class = data[0].get("dst", None)
             if not is_system_class:
                 columns.extend(property_columns(data[0]))
-        else: # TODO: two or more items; skip for now
-            return None
-
+        else:
+            count = sum(item.get("matched", 0) for item in data)
+            src_class = dst_class = None
+            from .schema import property_info
+            properties = {}
+            incompatible = set()
+            for item in data:
+                for name, info in item.get("properties", {}).items():
+                    if name in properties and properties[name]["type"] != info["type"]:
+                        incompatible.add(name)
+                    else:
+                        previous = properties.get(name, {})
+                        properties[name] = dict(info, count=previous.get(
+                            "count", 0) + info["count"], indexed=False)
+            columns.extend(property_columns({"matched": count, "properties": {
+                name: info for name, info in properties.items() if name not in incompatible}}))
 
         # Add the _src, and _dst columns
         columns.append(ColumnDefinition(
@@ -93,7 +106,7 @@ def connection_table(connection: str, data: Union[dict, list]) -> Optional[Table
         command="FindConnection",
         result_field="connections",
         modify_query=Curry(table_connection, class_name=connection,
-            src_class=src_class, dst_class=dst_class),
+                           src_class=src_class, dst_class=dst_class),
         path_keys=path_keys,
     )
 

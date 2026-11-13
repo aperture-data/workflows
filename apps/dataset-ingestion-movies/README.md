@@ -108,28 +108,12 @@ How dataset ingestion (movies) works:
 
 Executing the following query will selectively delete all the Objects added to the DB via the workflow.
 
-```json
-[
-    {
-        "DeleteEntity": {
-            "constraints": {
-                "dataset_name": ["==", "tmdb_5000"]
-            }
-        }
-    },
-    {
-        "DeleteImage": {
-            "constraints": {
-                "dataset_name": ["==", "tmdb_5000"]
-            }
-        }
-    },
-    {
-        "DeleteDescriptorSet": {
-            "constraints": {
-                "dataset_name": ["==", "tmdb_5000"]
-            }
-        }
-    }
-    ]
+```python
+client.query([
+    {"DeleteDescriptor": {"constraints": ["$dataset_name", "==", "tmdb_5000"]}},
+    {"DeleteEntity": {"constraints": ["$dataset_name", "==", "tmdb_5000"]}},
+    {"DeleteImage": {"constraints": ["$dataset_name", "==", "tmdb_5000"]}},
+])
 ```
+
+The shared vector index retains its model metadata for the next ingestion run.

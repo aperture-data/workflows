@@ -2,7 +2,14 @@
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 project="crawl-rag-constraints-$$"
-trap 'docker compose -p "$project" -f compose.yml down -v' EXIT
-# The package's ca service exits once it has a certificate, so run the tests
-# instead of stopping at the first exited container.
-docker compose -p "$project" -f compose.yml run --rm tests
+certdir=$(mktemp -d)
+cleanup() {
+    docker compose -p "$project" -f compose.yml down -v
+    rm -rf "$certdir"
+}
+trap cleanup EXIT
+# Native Lenz clients verify the generated stack certificate.
+docker compose -p "$project" -f compose.yml up -d aperturedb lenz
+docker compose -p "$project" -f compose.yml cp lenz:/etc/lenz/certificate/tls.crt "$certdir/ca.crt"
+docker compose -p "$project" -f compose.yml run --rm \
+    -v "$certdir/ca.crt:/ca.crt:ro" -e CA_CERT=/ca.crt tests

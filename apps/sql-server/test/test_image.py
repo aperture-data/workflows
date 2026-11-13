@@ -27,17 +27,17 @@ def validate_image_format(image_bytes, expected_format):
     """
     if image_bytes is None:
         return False
-    
+
     try:
         # Try to open the image with PIL
         image = Image.open(BytesIO(image_bytes))
         actual_format = image.format.upper()
         expected_format_upper = expected_format.upper()
-        
+
         # Handle JPEG vs JPG
         if expected_format_upper == 'JPG':
             expected_format_upper = 'JPEG'
-        
+
         return actual_format == expected_format_upper
     except Exception:
         return False
@@ -67,7 +67,7 @@ class TestImage:
         Test basic _as_format functionality for different formats.
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _blobs = TRUE
         AND _as_format = '{format_val}'
         LIMIT 5;
@@ -75,14 +75,16 @@ class TestImage:
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows with image data
         for row in result:
             assert row[1] is not None, f"Expected _image to contain data when _as_format='{format_val}', got None"
-            assert isinstance(row[1], (bytes, memoryview)), f"Expected _image to be bytes, got: {type(row[1])}"
-            
+            assert isinstance(row[1], (bytes, memoryview)
+                              ), f"Expected _image to be bytes, got: {type(row[1])}"
+
             # Validate the image format
-            assert validate_image_format(row[1], format_val), f"Expected image to be in {format_val} format, but validation failed"
+            assert validate_image_format(
+                row[1], format_val), f"Expected image to be in {format_val} format, but validation failed"
 
     @pytest.mark.parametrize("format_val", FORMATS)
     @pytest.mark.parametrize("operation", OPERATIONS)
@@ -93,7 +95,7 @@ class TestImage:
         if operation is None:
             # Test without operations
             sql = f"""
-            SELECT _uniqueid, _image FROM system."Image" 
+            SELECT _uniqueid, _image FROM system."image:Images"
             WHERE _blobs = TRUE
             AND _as_format = '{format_val}'
             LIMIT 5;
@@ -101,24 +103,26 @@ class TestImage:
         else:
             # Test with operations
             sql = f"""
-            SELECT _uniqueid, _image FROM system."Image" 
+            SELECT _uniqueid, _image FROM system."image:Images"
             WHERE _blobs = TRUE
             AND _as_format = '{format_val}'
             AND _operations = {operation}
             LIMIT 5;
             """
-        
+
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows with image data
         for row in result:
             assert row[1] is not None, f"Expected _image to contain data when _as_format='{format_val}' with operation={operation}, got None"
-            assert isinstance(row[1], (bytes, memoryview)), f"Expected _image to be bytes, got: {type(row[1])}"
-            
+            assert isinstance(row[1], (bytes, memoryview)
+                              ), f"Expected _image to be bytes, got: {type(row[1])}"
+
             # Validate the image format
-            assert validate_image_format(row[1], format_val), f"Expected image to be in {format_val} format with operation={operation}, but validation failed"
+            assert validate_image_format(
+                row[1], format_val), f"Expected image to be in {format_val} format with operation={operation}, but validation failed"
 
     @pytest.mark.parametrize("format_val", FORMATS)
     def test_as_format_without_blobs_flag(self, sql_connection, format_val):
@@ -126,17 +130,18 @@ class TestImage:
         Test that _as_format works even without _blobs flag (should not return blob data).
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _as_format = '{format_val}'
         LIMIT 5;
         """
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows but _image column should be None since _blobs is not set
         for row in result:
-            assert row[1] is None, f"Expected _image to be None when _as_format='{format_val}' is set but _blobs is not, got: {type(row[1])}"
+            assert row[
+                1] is None, f"Expected _image to be None when _as_format='{format_val}' is set but _blobs is not, got: {type(row[1])}"
 
     @pytest.mark.xfail(reason="Invalid format should fail")
     @pytest.mark.parametrize("invalid_format", ['gif', 'bmp', 'tiff', 'webp', 'invalid', 'jpeg'])
@@ -145,18 +150,19 @@ class TestImage:
         Test that invalid _as_format values fail appropriately.
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _blobs = TRUE
         AND _as_format = '{invalid_format}'
         LIMIT 1;
         """
-        
+
         # This should raise an exception
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-            
-            assert len(result) == 0, f"Expected no results for invalid format '{invalid_format}', got {len(result)} results"
+
+            assert len(
+                result) == 0, f"Expected no results for invalid format '{invalid_format}', got {len(result)} results"
 
     @pytest.mark.parametrize("case_format", ['PNG', 'JPG', 'Jpg', 'Png'])
     def test_as_format_case_insensitive(self, sql_connection, case_format):
@@ -164,24 +170,26 @@ class TestImage:
         Test that _as_format is case insensitive - uppercase formats should work.
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _blobs = TRUE
         AND _as_format = '{case_format}'
         LIMIT 5;
         """
-        
+
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows with image data
         for row in result:
             assert row[1] is not None, f"Expected _image to contain data when _as_format='{case_format}', got None"
-            assert isinstance(row[1], (bytes, memoryview)), f"Expected _image to be bytes, got: {type(row[1])}"
-            
+            assert isinstance(row[1], (bytes, memoryview)
+                              ), f"Expected _image to be bytes, got: {type(row[1])}"
+
             # Validate the image format (normalize to lowercase for comparison)
             expected_format = case_format.lower()
-            assert validate_image_format(row[1], expected_format), f"Expected image to be in {expected_format} format, but validation failed"
+            assert validate_image_format(
+                row[1], expected_format), f"Expected image to be in {expected_format} format, but validation failed"
 
     @pytest.mark.parametrize("format_val", FORMATS)
     def test_as_format_with_property_filtering(self, sql_connection, format_val):
@@ -189,7 +197,7 @@ class TestImage:
         Test that _as_format works with property filtering.
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _blobs = TRUE
         AND _as_format = '{format_val}'
         AND _uniqueid IS NOT NULL
@@ -198,14 +206,16 @@ class TestImage:
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows with image data
         for row in result:
             assert row[1] is not None, f"Expected _image to contain data when _as_format='{format_val}' with property filtering, got None"
-            assert isinstance(row[1], (bytes, memoryview)), f"Expected _image to be bytes, got: {type(row[1])}"
-            
+            assert isinstance(row[1], (bytes, memoryview)
+                              ), f"Expected _image to be bytes, got: {type(row[1])}"
+
             # Validate the image format
-            assert validate_image_format(row[1], format_val), f"Expected image to be in {format_val} format with property filtering, but validation failed"
+            assert validate_image_format(
+                row[1], format_val), f"Expected image to be in {format_val} format with property filtering, but validation failed"
 
     @pytest.mark.parametrize("format_val", FORMATS)
     def test_as_format_count_queries(self, sql_connection, format_val):
@@ -213,13 +223,13 @@ class TestImage:
         Test that COUNT queries work with _as_format.
         """
         sql = f"""
-        SELECT COUNT(*) FROM system."Image" 
+        SELECT COUNT(*) FROM system."image:Images"
         WHERE _as_format = '{format_val}';
         """
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchone()
-        
+
         assert result[0] >= 0, f"Expected count to be non-negative for _as_format='{format_val}', got: {result[0]}"
 
     @pytest.mark.parametrize("format_val", FORMATS)
@@ -228,7 +238,7 @@ class TestImage:
         Test that _as_format works with multiple WHERE conditions.
         """
         sql = f"""
-        SELECT _uniqueid, _image FROM system."Image" 
+        SELECT _uniqueid, _image FROM system."image:Images"
         WHERE _blobs = TRUE
         AND _as_format = '{format_val}'
         AND _uniqueid IS NOT NULL
@@ -238,11 +248,13 @@ class TestImage:
         with sql_connection.cursor() as cur:
             cur.execute(sql)
             result = cur.fetchall()
-        
+
         # Should return rows with image data
         for row in result:
             assert row[1] is not None, f"Expected _image to contain data when _as_format='{format_val}' with multiple conditions, got None"
-            assert isinstance(row[1], (bytes, memoryview)), f"Expected _image to be bytes, got: {type(row[1])}"
-            
+            assert isinstance(row[1], (bytes, memoryview)
+                              ), f"Expected _image to be bytes, got: {type(row[1])}"
+
             # Validate the image format
-            assert validate_image_format(row[1], format_val), f"Expected image to be in {format_val} format with multiple conditions, but validation failed"
+            assert validate_image_format(
+                row[1], format_val), f"Expected image to be in {format_val} format with multiple conditions, but validation failed"

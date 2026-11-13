@@ -1,3 +1,6 @@
+import argparse
+from status_tools import StatusUpdater
+from log_processor import LogProcessor
 import os
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
@@ -5,21 +8,22 @@ import sys
 import subprocess
 
 sys.path.append("/app")
-from log_processor import LogProcessor
-from status_tools import StatusUpdater
+
 
 def ingest_coco(cli_args):
     """
     Entire ingestion pipeline for the COCO dataset + some videos + trial demo related data.
     """
+    from native_csv import prepare_connections
+    prepare_connections(cli_args.root_dir)
     print("Creating entity indexes")
     dbutils = Utils(create_connector())
-    dbutils.create_entity_index("_Image", "id")
-    dbutils.create_entity_index("_Image", "yfcc_id")
-    dbutils.create_entity_index("_Image", "seg_id")
-    dbutils.create_entity_index("_BoundingBox", "bbox_id")
-    dbutils.create_entity_index("_Polygon", "ann_id")
-    dbutils.create_entity_index("_Descriptor", "yfcc_id")
+    dbutils.create_entity_index("image:Images", "id")
+    dbutils.create_entity_index("image:Images", "yfcc_id")
+    dbutils.create_entity_index("image:Images", "seg_id")
+    dbutils.create_entity_index("bounding_box:BoundingBoxes", "bbox_id")
+    dbutils.create_entity_index("polygon:Polygons", "ann_id")
+    dbutils.create_entity_index("descriptor:ViT-B/16", "yfcc_id")
 
     args = {
         "images": "IMAGE",
@@ -38,7 +42,6 @@ def ingest_coco(cli_args):
     if cli_args.train == "true":
         stages.append("train")
 
-
     set_name = "ViT-B/16"
     dbutils.add_descriptorset(set_name, 512,
                               metric=["CS"],
@@ -52,7 +55,18 @@ def ingest_coco(cli_args):
                 completed=0.0,
                 phase=f"{stage}_ingesting_{ingestion_type_plural}",
             )
-            common_command = f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {args[obj]} --batchsize {cli_args.batch_size} --num-workers {cli_args.num_workers} --no-use-dask --sample-count {cli_args.sample_count} --stats"
+            media_class = {
+                "IMAGE": "Images",
+                "BOUNDING_BOX": "BoundingBoxes",
+                "POLYGON": "Polygons"}.get(
+                args[obj])
+            class_argument = f"--class-name {media_class}" if media_class else ""
+            common_command = f"adb ingest from-csv {
+                cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {
+                args[obj]} --batchsize {
+                cli_args.batch_size} --num-workers {
+                cli_args.num_workers} --no-use-dask --sample-count {
+                    cli_args.sample_count} --stats {class_argument}"
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
             command = f"{common_command} {transformers}"
             print(command, flush=True)
@@ -67,14 +81,17 @@ def update_adb_source():
     print(command)
     os.system(command)
 
+
 def add_ro_user():
     command = f"adb transact from-json-file create_ro_user_role.json"
     print(command)
     os.system(command)
 
+
 def clean_db():
     utils: Utils = Utils(create_connector())
-    assert utils.remove_all_objects() == True
+    assert utils.remove_all_objects()
+
 
 def main(args):
     if args.clean == "true":
@@ -83,7 +100,6 @@ def main(args):
     ingest_coco(args)
     update_adb_source()
 
-import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -100,6 +116,7 @@ def parse_args():
     parser.add_argument("-T", "--train", type=str, choices=["true", "false"],
                         default="false", help="include train dataset")
     return parser.parse_args()
+
 
 if __name__ in "__main__":
     args = parse_args()

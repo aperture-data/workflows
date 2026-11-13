@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import os
 import argparse
 import logging
@@ -22,64 +23,36 @@ PDF_EXTRACTION_DESCRIPTOR_SET = 'wf_embeddings_clip_pdf_extraction'
 PDF_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_pdf_extraction_done'
 VIDEO_EXTRACTION_DONE_PROPERTY = 'wf_embeddings_clip_video_extraction_done'
 
+
 def clean_embeddings(db):
-
-    print("Cleaning Embeddings...")
-
-    db.query([{
-        "DeleteDescriptorSet": {
-            "with_name": VIDEO_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": IMAGE_DESCRIPTOR_SET
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": TEXT_DESCRIPTOR_SET
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [DONE_PROPERTY]
-        }
-    }, {
-        "UpdateBlob": {
-            "constraints": {
-                DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [DONE_PROPERTY]
-        }
-    },
-        {
-        "FindVideo": {
-            "_ref": 1,
-            "constraints": {
-                VIDEO_EXTRACTION_DONE_PROPERTY: ["==", True]
-            }
-        }
-    },  {
-        "FindClip": {
-            "video_ref": 1,
-            "_ref": 2,
-        }
-    },
-        {
-        "DeleteClip": {
-            "ref": 2
-        }
-    },
-    {
-        "UpdateVideo": {
-            "constraints": {
-                VIDEO_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [VIDEO_EXTRACTION_DONE_PROPERTY]
-        }
-    }])
-
+    from aperturedb.Utils import Utils
+    utils = Utils(db)
+    if not utils.remove_descriptorset(VIDEO_EXTRACTION_DESCRIPTOR_SET):
+        raise RuntimeError("Could not remove descriptor class")
+    if not utils.remove_descriptorset(IMAGE_DESCRIPTOR_SET):
+        raise RuntimeError("Could not remove descriptor class")
+    if not utils.remove_descriptorset(TEXT_DESCRIPTOR_SET):
+        raise RuntimeError("Could not remove descriptor class")
+    print('Cleaning Embeddings...')
+    db.query(
+        [
+            {
+                'UpdateImage': {
+                    'constraints': predicate(
+                        DONE_PROPERTY, '!=', None), 'remove_props': [DONE_PROPERTY]}}, {
+                'UpdateBlob': {
+                    'constraints': predicate(
+                        DONE_PROPERTY, '!=', None), 'remove_props': [DONE_PROPERTY]}}, {
+                'FindVideo': {
+                    '_ref': 1, 'constraints': predicate(
+                        VIDEO_EXTRACTION_DONE_PROPERTY, '==', True)}}, {
+                'FindClip': {
+                    'video_ref': 1, '_ref': 2}}, {
+                'DeleteClip': {
+                    'ref': 2}}, {
+                'UpdateVideo': {
+                    'constraints': predicate(
+                        VIDEO_EXTRACTION_DONE_PROPERTY, '!=', None), 'remove_props': [VIDEO_EXTRACTION_DONE_PROPERTY]}}])
     db.print_last_response()
 
 

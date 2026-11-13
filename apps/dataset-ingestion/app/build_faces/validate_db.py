@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 from aperturedb.CommonLibrary import create_connector
 from aperturedb.ParallelQuery import execute_batch
 import pandas as pd
@@ -5,113 +6,59 @@ import os
 import sys
 
 
-count_queries = [
-        [{
-            "FindImage":{
-                "constraints":{
-                    "Blurry" : ["!=", None]
-                },
-                "results":{
-                    "count": True
-                }
-            }
-        }],
-        [{ "FindImage": {
-            "_ref": 1,
-            "constraints": {
-                "Bald": ["!=", None]
-            },
-            "blobs": False
-        }},
-            {
-            "FindDescriptor":{
-                "set": "ViT-B/16",
-                "is_connected_to":{
-                    "ref": 1
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }],
-        [{ "FindImage": {
-            "_ref": 1,
-            "constraints": {
-                "Bald": ["!=", None]
-            },
-            "blobs": False
-        }},{
-            "FindDescriptor":{
-                "set": "ViT-B/16",
-                "is_connected_to":{
-                    "ref": 1
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }],
-        [{
-            "FindDescriptor":{
-                "set": "facenet_pytorch_embeddings",
-                "results": {
-                    "count": True
-                }
-            }
-        }],
-        [{
-            "FindDescriptor":{
-                "set": "facenet_pytorch_embeddings",
-                "results": {
-                    "count": True
-                }
-            }
-        }],
-        [{
-            "FindImage":{
-                "constraints":{
-                    "celebahq_id" : ["!=", None],
-                    "Blurry" : ["==", None]
-                },
-                "results":{
-                    "count": True
-                }
-            }
-        }],
-        [{
-            "FindPolygon":{
-                "constraints":{
-                    "celebahqmask_id" : ["!=", None]
-                },
-                "results":{
-                    "count": True
-                }
-            }
-        }],
-        [{
-            "FindBoundingBox":{
-                "constraints":{
-                    "celebahqbbox_id" : ["!=", None]
-                },
-                "results":{
-                    "count": True
-                }
-            }
-        }]
-    ]
+count_queries = [[{'FindImage': {'constraints': predicate('Blurry',
+                                                          '!=',
+                                                          None),
+                                 'results': {'count': True}}}],
+                 [{'FindImage': {'_ref': 1,
+                                 'constraints': predicate('Bald',
+                                                          '!=',
+                                                          None),
+                                 'blobs': False}},
+                  {'FindDescriptor': {'with_class': 'ViT-B/16',
+                                      'is_connected_to': {'ref': 1},
+                                      'results': {'count': True}}}],
+                 [{'FindImage': {'_ref': 1,
+                                 'constraints': predicate('Bald',
+                                                          '!=',
+                                                          None),
+                                 'blobs': False}},
+                  {'FindDescriptor': {'with_class': 'ViT-B/16',
+                                      'is_connected_to': {'ref': 1},
+                                      'results': {'count': True}}}],
+                 [{'FindDescriptor': {'with_class': 'facenet_pytorch_embeddings',
+                                      'results': {'count': True}}}],
+                 [{'FindDescriptor': {'with_class': 'facenet_pytorch_embeddings',
+                                      'results': {'count': True}}}],
+                 [{'FindImage': {'constraints': ['all',
+                                                 predicate('celebahq_id',
+                                                           '!=',
+                                                           None),
+                                                 predicate('Blurry',
+                                                           '==',
+                                                           None)],
+                                 'results': {'count': True}}}],
+                 [{'FindPolygon': {'constraints': predicate('celebahqmask_id',
+                                                            '!=',
+                                                            None),
+                                   'results': {'count': True}}}],
+                 [{'FindBoundingBox': {'constraints': predicate('celebahqbbox_id',
+                                                                '!=',
+                                                                None),
+                                       'results': {'count': True}}}]]
 
 INPUT_DIR = "/app/input/faces"
 
-in_csvs = [
-    "pruned_celebA.csv",
-    "celebA.csv_clip_pytorch_embeddings_metadata.adb.csv",
-    "celebA.csv_clip_pytorch_embeddings_connection.adb.csv",
-    ["celebA.csv_facenet_pytorch_embeddings_metadata.adb.csv", "hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv"],
-    ["celebA.csv_facenet_pytorch_embeddings_connection.adb.csv", "hqimages.adb.csv_facenet_pytorch_embeddings_connection.adb.csv"],
-    "hqimages.adb.csv",
-    "hqpolygons.adb.csv",
-    "hqbboxes.adb.csv"
-]
+in_csvs = ["pruned_celebA.csv",
+           "celebA.csv_clip_pytorch_embeddings_metadata.adb.csv",
+           "celebA.csv_clip_pytorch_embeddings_connection.adb.csv",
+           ["celebA.csv_facenet_pytorch_embeddings_metadata.adb.csv",
+            "hqimages.adb.csv_facenet_pytorch_embeddings_metadata.adb.csv"],
+           ["celebA.csv_facenet_pytorch_embeddings_connection.adb.csv",
+            "hqimages.adb.csv_facenet_pytorch_embeddings_connection.adb.csv"],
+           "hqimages.adb.csv",
+           "hqpolygons.adb.csv",
+           "hqbboxes.adb.csv"]
 db = create_connector()
 results = []
 for in_csv, cquery in zip(in_csvs, count_queries):

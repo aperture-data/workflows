@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import math
 import logging
 
@@ -23,23 +24,19 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         self.embedder = embedder
         self.done_property = done_property
 
-        query = [{
-            "FindImage": {
-                "constraints": {
-                    self.done_property: ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [{'FindImage': {'constraints': predicate(self.done_property, '!=', True), 'results': {
+            'list': ['_uniqueid']}, 'uniqueids': True}}]
 
         status, response, _ = self.pool.execute_query(query)
         if status != 0:
             raise RuntimeError(f"FindImage count query failed: {response}")
 
         try:
-            total_images = response[0]["FindImage"]["count"]
+            selection = response[0]["FindImage"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_images = len(self._selected_ids)
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(
                 f"Invalid FindImage count response: {response}") from exc
@@ -62,28 +59,15 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [{
-            "FindImage": {
-                "blobs": True,
-                "constraints": {
-                    self.done_property: ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "operations": [
-                    {
-                        "type": "resize",
-                        "width": 224,
-                        "height": 224
-                    }
-                ],
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }]
+        query = [{'FindImage': {'blobs': True,
+                                'constraints': predicate('_uniqueid',
+                                                         'in',
+                                                         self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                                'operations': [{'type': 'resize',
+                                                'width': 224,
+                                                'height': 224}],
+                                'results': {'list': ['_uniqueid']},
+                                'uniqueids': True}}]
 
         return query, []
 
@@ -92,7 +76,7 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             uniqueids = [i["_uniqueid"]
                          for i in response[0]["FindImage"]["entities"]]
-        except:
+        except BaseException:
             logger.exception(f"error: {response}")
             return 0
 
@@ -105,14 +89,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
         query = []
         for uniqueid, i in zip(uniqueids, range(len(uniqueids))):
 
-            query.append({
-                "FindImage": {
-                    "_ref": i + 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
+            query.append(
+                {'FindImage': {'_ref': i + 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
 
             query.append({
                 "UpdateImage": {
@@ -123,19 +101,17 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
                 }
             })
 
-            query.append({
-                "AddDescriptor": {
-                    "set": self.embedder.descriptor_set,
-                    "connect": {
-                        "ref": i + 1
-                    },
-                    "properties": {
-                        "type": "image",
-                        "source_type": "image",
-                        "extraction_type": "image"
-                    }
-                }
-            })
+            query.append(
+                {
+                    'AddDescriptor': {
+                        'class': self.embedder.descriptor_set,
+                        'connect': {
+                            'ref': i + 1,
+                            'class': 'HasDescriptor'},
+                        'properties': {
+                            'type': 'image',
+                            'source_type': 'image',
+                            'extraction_type': 'image'}}})
 
         with self.pool.get_connection() as db:
             r, _ = db.query(query, desc_blobs)

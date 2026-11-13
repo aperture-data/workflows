@@ -18,7 +18,7 @@ docker run \
            aperturedata/workflows-sql-server
 ```
 
-Parameters: 
+Parameters:
 * **`WF_LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`WF_AUTH_TOKEN`**: Password for the `aperturedb` user in Postgres, and bearer authentication token for REST API
 
@@ -26,7 +26,7 @@ See [Common Parameters](../../README.md#common-parameters) for common parameters
 
 ## Implementation details
 
-This workflow is implemented using 
+This workflow is implemented using
 a full [PostgreSQL](https://www.postgresql.org/) server,
 its [Foreign Data Wrapper](https://www.postgresql.org/docs/current/fdwhandler.html) feature,
 and the [Multicorn2](https://github.com/pgsql-io/multicorn2) Foreign Data Wrapper that supports implementation in Python.
@@ -36,19 +36,19 @@ All of these are automatically provisioned for you in the workflow image.
 
 This workflow provides four different types of table, added to four different schemata.
 
-* **`system`**: Table for every system object type used in the database, e.g. `Descriptor`, `DescriptorSet`, `Image`, `BoundingBox`. In particular, there are tables for `Entity` and `Connection`, which will have any properties that are consistently-typed across all classes.
+* **`system`**: Table for every typed media class used in the database, e.g. `image:Images`, `blob:Blobs`, `bounding_box:BoundingBoxes`. In particular, there are tables for `Entity` and `Connection`, which will have any properties that are consistently-typed across all classes.
 * **`entity`**: Table for every user-defined entity class, e.g. `CrawlDocument`.
 * **`connection`**: Table for every connection class, e.g. `crawlDocumentHasBlob`. Note that in addition to the usual `_uniqueid`, connections also have columns for `_src` and `_dst`.
-* **`descriptor`**: Table for every descriptor set.
+* **`descriptor`**: Table for every descriptor class with a native vector index.
 
-> **Note**: Tables are published at startup, based on the ApertureDB schema at the time. If classes or properties are added later, they will not be available through this interface until the workflow is restarted. 
+> **Note**: Tables are published at startup, based on the ApertureDB schema at the time. If classes or properties are added later, they will not be available through this interface until the workflow is restarted.
 
-> **Tip**: The examples in this documentation use schema-qualified table names, e.g. `system."Image"`, but it is usually possible to omit the schema (e.g. `"Image"`), except when that would make the table name ambiguous.
+> **Tip**: The examples in this documentation use schema-qualified table names, e.g. `system."image:Images"`, but it is usually possible to omit the schema (e.g. `"Image"`), except when that would make the table name ambiguous.
 This is done using the `search_path` feature of SQL.
 
 > **Tip**: Because SQL table names are case-insensitive (strictly speaking, they are by default normalized to lower-case) and may not contain certain special characters, you will almost certainly need to double-quote the table names generated from ApertureDB.
 
-> **Tip**: To see how your SQL query is converted into an ApertureDB query, use the `EXPLAIN` keyword in front of your `SELECT` query. The output will include the queries that will be sent to ApertureDB, one for each table. ([Batching](https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/batch) is used internally, and only the first query in each batch sequence is shown in `EXPLAIN`.)
+> **Tip**: To see how your SQL query is converted into an ApertureDB query, use the `EXPLAIN` keyword in front of your `SELECT` query. The output will include the queries that will be sent to ApertureDB, one for each table. (Ordinary offset/limit pages are used internally; `EXPLAIN` shows the first page.)
 > ```sql
 > EXPLAIN SELECT * FROM entity."Person" WHERE age > 30;
 >```
@@ -68,9 +68,9 @@ Every table has a `_uniqueid` column, representing the system-generated Aperture
 For example, if you have created entity classes `Person` and `Address` and a connection class `personAddress`, then you could write a SQL query like:
 
 ```sql
-SELECT A.*, C.* 
+SELECT A.*, C.*
     FROM entity."Person" AS A
-    INNER JOIN connection."personAddress" AS B 
+    INNER JOIN connection."personAddress" AS B
         ON A._uniqueid = B._src
     INNER JOIN entity."Address" AS C
         ON B._dst = C._uniqueid
@@ -78,7 +78,7 @@ SELECT A.*, C.*
     ORDER BY A.last_transaction_date DESC;
 ```
 
-## Object retrieval 
+## Object retrieval
 
 Certain ApertureDB system object types have associated binary data, known as blobs.
 It is possible to retrieve these blobs in SQL, and even perform certain transformations on them, using the ApertureDB [operations](https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/operations) feature.
@@ -92,8 +92,8 @@ Selected object types have special columns that will contain the blob data:
 
 | Table | Blob column |
 | --- | --- |
-| `system."Blob"` | `_blob` |
-| `system."Image"` | `_image` |
+| `system."blob:Blobs"` | `_blob` |
+| `system."image:Images"` | `_image` |
 | `descriptor.*` | `_vector` |
 
 > **Note**: It is important to distinguish the control flag `_blobs` from the `_blob` data field.
@@ -101,7 +101,7 @@ Selected object types have special columns that will contain the blob data:
 For example, to fetch blob data, you might use the following SQL:
 
 ```sql
-SELECT _blob FROM system."Blob"
+SELECT _blob FROM system."blob:Blobs"
     WHERE foo = "bar"
     AND _blobs
 ```
@@ -114,16 +114,16 @@ The `_blob` column will contain `BYTEA` data.
 
 Certain tables also have special control columns that manipulate the returned blob when used as WHERE clauses.
 
-The `system."Image"` table provides:
+The `system."image:Images"` table provides:
 * **`_as_format`**: This controls the content type of the returned image, and can be either "png" or "jpg".
 * **`_operations`**:  This applies an [operations](https://docs.aperturedata.io/query_language/Reference/shared_command_parameters/operations) pipeline. It should always be a call to the provided `OPERATIONS` function, which in turn should be passed invocations of functions from the list: `THRESHOLD`, `RESIZE`, `CROP`, `ROTATE`, `FLIP`. See the ApertureDB documentation for the parameters of these functions.
 
 For example:
 ```sql
-SELECT * FROM system."Image" 
+SELECT * FROM system."image:Images"
     WHERE _blobs
     AND _operations = OPERATIONS(
-        THRESHOLD(64), 
+        THRESHOLD(64),
         CROP(x:=10, y:=10, width:=200, height:=200),
         FLIP('horizontal'),
         ROTATE(angle:=90),
@@ -156,4 +156,9 @@ SELECT * FROM descriptor."crawl-to-rag"
     LIMIT 10;
 ```
 
-> **Note**: Not all `descriptor` tables support similar search. This is because the corresponding `DescriptorSet` has not been annotated in a way that permits the wrapper to determine the appropriate embedding model. In such cases, the table will not have a `_find_similar` column.
+> **Note**: Every descriptor table supports raw-vector search. Text/image search requires embedding model metadata on its native vector index.
+SQL reads use ordinary offset/limit pages over a fixed selection. Keep source data
+fixed while consuming a result. Customer connections are separate from owned
+frames, clips, boxes and polygons. Same-name connection categories are combined;
+for mixed endpoint categories PostgreSQL applies endpoint qualifications after
+retrieval, preserving correctness without guessing an endpoint type.

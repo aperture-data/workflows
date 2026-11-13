@@ -66,21 +66,8 @@ class Retriever:
         return results
 
     def count(self):
-        query = [
-            {"FindDescriptorSet": {
-                "with_name": self.descriptor_set,
-                "counts": True
-            }}
-        ]
-        status, response, _ = execute_query(self.client, query)
+        status, response, _ = execute_query(self.client, [{"FindDescriptor": {
+            "with_class": self.descriptor_set, "results": {"count": True}}}])
         if status != 0:
-            logger.error(f"Error executing count query: {response}")
-            return 0
-        if not response or not response[0].get("FindDescriptorSet"):
-            return 0
-        if "entities" not in response[0]["FindDescriptorSet"]:
-            return 0
-        if len(response[0]["FindDescriptorSet"]["entities"]) == 0:
-            return 0
-
-        return response[0]["FindDescriptorSet"]["entities"][0].get("_count", 0)
+            raise RuntimeError(f"Could not count descriptor class: {response}")
+        return response[0]["FindDescriptor"]["count"]

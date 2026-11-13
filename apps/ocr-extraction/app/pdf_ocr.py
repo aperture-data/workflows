@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import math
 import logging
 from itertools import islice
@@ -40,7 +41,13 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindBlob Queries for PDFs that need OCR processing
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, generate_embeddings: bool):
+    def __init__(
+            self,
+            pool,
+            embedder: Embedder,
+            done_property: str,
+            ocr,
+            generate_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
@@ -53,30 +60,42 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                        overlap_tokens=overlap_tokens,
                                        min_tokens=None)
 
-        query = [{
-            "FindBlob": {
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    self.done_property: ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [
+            {
+                'FindBlob': {
+                    'constraints': [
+                        'all',
+                        predicate(
+                            '_mime_type',
+                            '==',
+                            'application/pdf'),
+                        predicate(
+                            self.done_property,
+                            '!=',
+                            True)],
+                    'results': {
+                        'list': ['_uniqueid']},
+                    'uniqueids': True}}]
 
-        _, response, _ = self.pool.execute_query(query)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"Selection query failed: {response}")
 
         try:
-            total_pdfs = response[0]["FindBlob"]["count"]
-        except:
+            selection = response[0]["FindBlob"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_pdfs = len(self._selected_ids)
+        except BaseException:
             logger.error(
                 "Error retrieving the number of PDFs. No PDFs in the db?")
-            exit(0)
+            raise RuntimeError(f"Invalid selection response: {response}")
 
         if total_pdfs == 0:
             logger.warning("No PDFs to be processed. Bye!")
-            exit(0)
+            self.total_batches = self.len = 0
+            return
 
         logger.info(f"Total PDFs to process: {total_pdfs}")
 
@@ -93,22 +112,13 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [{
-            "FindBlob": {
-                "blobs": True,
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    self.done_property: ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "results": {
-                    "list": ["_uniqueid", "url"]
-                }
-            }
-        }]
+        query = [{'FindBlob': {'blobs': True,
+                               'constraints': predicate('_uniqueid',
+                                                        'in',
+                                                        self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                               'results': {'list': ['_uniqueid',
+                                                    'url']},
+                               'uniqueids': True}}]
 
         return query, []
 
@@ -168,7 +178,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                          for e in response[0]["FindBlob"]["entities"]]
             urls = [e.get("url")
                     for e in response[0]["FindBlob"]["entities"]]
-        except:
+        except BaseException:
             logger.exception(f"error: {response}")
             return 0
 
@@ -188,16 +198,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
             pdf_ref = 1
             block_query = []
-            block_query.append(
-                {
-                    "FindBlob": {
-                        "constraints": {
-                            "_uniqueid": ["==", uniqueid]
-                        },
-                        "_ref": pdf_ref,
-                    }
-                }
-            )
+            block_query.append({'FindBlob': {'constraints': predicate(
+                '_uniqueid', '==', uniqueid), '_ref': pdf_ref}})
 
             for page, image in enumerate(self.pdf_to_images(b), start=1):
                 logger.info(f"Processing page {page}")
@@ -247,23 +249,11 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                         text_ref = 2
 
                         # Find the blob
-                        desc_query.append({
-                            "FindBlob": {
-                                "_ref": blob_ref,
-                                "constraints": {
-                                    "_uniqueid": ["==", uniqueid]
-                                },
-                            }
-                        })
+                        desc_query.append(
+                            {'FindBlob': {'_ref': blob_ref, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
                         # Find the text block
-                        desc_query.append({
-                            "FindEntity": {
-                                "_ref": text_ref,
-                                "constraints": {
-                                    "id": ["==", block_id]
-                                },
-                            }
-                        })
+                        desc_query.append(
+                            {'FindEntity': {'_ref': text_ref, 'constraints': predicate('id', '==', block_id)}})
 
                         embeddings = self.segments_to_embeddings(segment_batch)
 
@@ -289,17 +279,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                 segment_url = segment.url(url)
                                 properties["url"] = segment_url
 
-                            desc_query.append({
-                                "AddDescriptor": {
-                                    "set": self.embedder.descriptor_set,
-                                    "connect": {
-                                        "ref": text_ref,
-                                        "class": "extractedTextHasDescriptor",
-                                    },
-                                    "properties": properties,
-                                    "_ref": descriptor_ref,
-                                }
-                            })
+                            desc_query.append({'AddDescriptor': {'class': self.embedder.descriptor_set, 'connect': {
+                                              'ref': text_ref, 'class': 'extractedTextHasDescriptor'}, 'properties': properties, '_ref': descriptor_ref}})
                             desc_query.append({
                                 "AddConnection": {
                                     "class": "pdfHasDescriptor",
@@ -319,14 +300,8 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
                 total_segments += blob_segments
 
         done_query = []
-        done_query.append({
-            "FindBlob": {
-                "_ref": 1,
-                "constraints": {
-                    "_uniqueid": ["in", uniqueids]
-                },
-            }
-        })
+        done_query.append(
+            {'FindBlob': {'_ref': 1, 'constraints': predicate('_uniqueid', 'in', uniqueids)}})
         done_query.append({
             "UpdateBlob": {
                 "ref": 1,

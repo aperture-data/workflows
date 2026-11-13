@@ -26,12 +26,12 @@ class TestSchemaTools:
         """Test listing all entity classes."""
         async with Client(mcp_url, auth=mcp_auth) as client:
             result = await client.call_tool("list_entity_classes")
-        
+
         # FastMCP automatically deserializes Pydantic responses into .data
         assert result.data
         assert hasattr(result.data, "classes")
         classes = result.data.classes
-        
+
         # Should have at least the test classes we created
         assert "Person" in classes
         assert "Company" in classes
@@ -45,7 +45,7 @@ class TestSchemaTools:
             result = await client.call_tool("describe_entity_class", {
                 "class_name": "Person"
             })
-        
+
         data = json.loads(result.content[0].text)
         assert data == {
             "matched": 15,
@@ -62,7 +62,7 @@ class TestSchemaTools:
             result = await client.call_tool("describe_entity_class", {
                 "class_name": "Company"
             })
-        
+
         assert result.data
         assert hasattr(result.data, "matched")
         assert hasattr(result.data, "properties")
@@ -81,11 +81,11 @@ class TestSchemaTools:
         """Test listing all connection classes."""
         async with Client(mcp_url, auth=mcp_auth) as client:
             result = await client.call_tool("list_connection_classes")
-        
+
         assert result.data
         assert hasattr(result.data, "classes")
         classes = result.data.classes
-        
+
         # Should have at least the test connection class we created
         assert "WorksAt" in classes
         assert isinstance(classes, list)
@@ -97,10 +97,10 @@ class TestSchemaTools:
             result = await client.call_tool("describe_connection_class", {
                 "class_name": "WorksAt"
             })
-        
+
         data = json.loads(result.content[0].text)
         assert data == {"items": [{
-            "matched": 5, "src": "Person", "dst": "Company",
+            "matched": 5, "src": "entity:Person", "dst": "entity:Company",
             "properties": {"since": {"matched": 5, "indexed": True, "type": "Number"}},
         }]}
 
@@ -132,7 +132,7 @@ class TestSchemaTools:
             result = await client.call_tool("describe_entity_class", {
                 "class_name": "Person"
             })
-        
+
         # Should have matched count
         assert result.data.matched > 0
 
@@ -140,13 +140,12 @@ class TestSchemaTools:
     async def test_multiple_entity_classes(self, mcp_url, mcp_auth):
         """Test describing multiple entity classes in sequence."""
         classes_to_test = ["Person", "Company"]
-        
+
         async with Client(mcp_url, auth=mcp_auth) as client:
             for class_name in classes_to_test:
                 result = await client.call_tool("describe_entity_class", {
                     "class_name": class_name
                 })
-                
+
                 assert hasattr(result.data, "matched")
                 assert result.data.matched > 0
-

@@ -272,20 +272,18 @@ class AperturedbIO:
                     "results": {
                         "list": ["url", "content_type"],
                     },
-                    "batch": {},
+                    "limit": self.batch_size, "offset": 0, "sort": "_uniqueid",
                 }
             },
         ]
 
-        results, _ = self.execute_query(query)
-        n_results = results[1]["FindEntity"]["batch"]["total_elements"]
-        assert n_results > 0, f"No documents found for crawl {self.crawl_id}"
-        query[1]["FindEntity"]["batch"]["batch_size"] = self.batch_size
-        n_batches = int(math.ceil(n_results / self.batch_size))
-
-        for batch_id in range(n_batches):
-            query[1]["FindEntity"]["batch"]["batch_id"] = batch_id
+        offset = 0
+        while True:
+            query[1]["FindEntity"]["offset"] = offset
             results, _ = self.execute_query(query)
+            if not results[1]["FindEntity"].get("entities"):
+                break
+            offset += len(results[1]["FindEntity"]["entities"])
             entities = results[1]["FindEntity"]["entities"]
             entity_ids = [e["_uniqueid"] for e in entities]
 
@@ -318,8 +316,8 @@ class AperturedbIO:
                 content_type = result["content_type"]
 
                 blob_entities = blob_results[1]["FindBlob"]["entities"][document_id]
-                assert len(
-                    blob_entities) == 1, f"Expected 1 blob for document {document_id}, found {len(blob_entities)}"
+                assert len(blob_entities) == 1, f"Expected 1 blob for document {document_id}, found {
+                    len(blob_entities)}"
                 blob = blobs[blob_entities[0]["_blob_index"]]
                 yield CrawlDocument(
                     document_id=document_id,
@@ -430,44 +428,30 @@ class AperturedbIO:
         """Create a FullTextBlock document in ApertureDB, linked to the CrawlDocument and SegmentationSpec"""
         assert self.current_document is not None, "No current document set"
         self.n_full_texts += 1
-        self.batcher.add([
-            {
-                "AddEntity": {
-                    "class": "FullText",
-                    "properties": {
-                        "url": self.current_document.url,
-                        "spec_id": self.spec_id,
-                        "run_id": self.run_id,
-                        **({"title": block.title} if block.title else {}),
-                    },
-                    "connect": {
-                        "ref": "DOC",
-                        "class": "documentHasFullText",
-                        "direction": "in",
-                    },
-                    "_ref": "TEMP",
-                },
-            },
-            {
-                "AddBlob": {
-                    "properties": {
-                        "url": self.current_document.url,
-                    },
-                    "connect": {
-                        "ref": "TEMP",
-                        "class": "fullTextHasBlob",
-                        "direction": "in",
-                    },
-                },
-            },
-            {
-                "AddConnection": {
-                    "src": "SPEC",
-                    "dst": "TEMP",
-                    "class": "segmentationSpecHasFullText",
-                }
-            },
-        ], [block.text.encode("utf-8")])
+        self.batcher.add([{"AddEntity": {"class": "FullText",
+                                         "properties": {"url": self.current_document.url,
+                                                        "spec_id": self.spec_id,
+                                                        "run_id": self.run_id,
+                                                        **({"title": block.title} if block.title else {}),
+                                                        },
+                                         "connect": {"ref": "DOC",
+                                                     "class": "documentHasFullText",
+                                                     "direction": "in",
+                                                     },
+                                         "_ref": "TEMP",
+                                         },
+                           },
+                          {'AddBlob': {'class': 'Blobs',
+                                       'properties': {'url': self.current_document.url},
+                                       'connect': {'ref': 'TEMP',
+                                                   'class': 'fullTextHasBlob',
+                                                   'direction': 'in'}}},
+                          {"AddConnection": {"src": "SPEC",
+                                             "dst": "TEMP",
+                                             "class": "segmentationSpecHasFullText",
+                                             }},
+                          ],
+                         [block.text.encode("utf-8")])
 
     def delete_spec(self, spec_id) -> None:
         """Delete a SegmentationSpec document and all its dependent artefacts"""

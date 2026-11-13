@@ -15,24 +15,14 @@ def run_query(db_connection):
     """Get the results of the query."""
     query = [
         {
-            "FindImage": {
-                "results": {
-                    "list": ["_uniqueid", "filename"]
-                },
-                "_ref": 1,
-            }
-        },
-        {
-            "FindDescriptor": {
-                "set": "wf_embeddings_clip",
-                "is_connected_to": {"ref": 1},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }
-    ]
+            'FindImage': {
+                'results': {
+                    'list': [
+                        '_uniqueid', 'filename']}, '_ref': 1, 'uniqueids': True}}, {
+            'FindDescriptor': {
+                'with_class': 'wf_embeddings_clip', 'is_connected_to': {
+                    'ref': 1}, 'group_by_source': True, 'results': {
+                    'list': ['_uniqueid']}, 'uniqueids': True}}]
 
     status, response, _ = execute_query(db_connection, query)
 

@@ -14,4 +14,6 @@ services:
   tests:
     image: aperturedata/workflows-base-tests:${VERSION:-latest}
     command: ["pytest", "-vv", "-s", "-rA", "/app/"]
+    volumes:
+      - .:/workflows:ro
 

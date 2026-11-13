@@ -1,4 +1,6 @@
 """Count-query failures must not terminate the workflow successfully."""
+from aperturedb.Constraints import predicate
+import os
 import importlib.util
 from pathlib import Path
 import sys
@@ -7,9 +9,10 @@ import unittest
 from unittest.mock import Mock, patch
 
 
-APP = Path('/app')
+APP = Path(os.getenv('WORKFLOW_APP', '/app'))
 DEPENDENCIES = {
     'aperturedb': SimpleNamespace(QueryGenerator=SimpleNamespace(QueryGenerator=object)),
+    'aperturedb.Constraints': SimpleNamespace(predicate=predicate),
     'connection_pool': Mock(),
     'cv2': Mock(),
     'numpy': Mock(),
@@ -65,7 +68,8 @@ class QueryFailureTests(unittest.TestCase):
             for count in (0, 1):
                 with self.subTest(command=command, count=count):
                     pool = Mock()
-                    pool.execute_query.return_value = (0, [{command: {'count': count}}], [])
+                    pool.execute_query.return_value = (
+                        0, [{command: {'returned': count, 'entities': [{'_uniqueid': str(i)} for i in range(count)]}}], [])
                     self.assertEqual(len(generator(pool, Mock(), 'done')), count)
 
     def test_connection_failures_propagate(self):
@@ -82,11 +86,13 @@ class QueryFailureTests(unittest.TestCase):
         generator = next(factory for command, factory in generators()
                          if command == 'FindBlob')
         pool = Mock()
-        pool.execute_query.return_value = (0, [{'FindBlob': {'count': 1}}], [])
+        pool.execute_query.return_value = (
+            0, [{'FindBlob': {'returned': 1, 'entities': [{'_uniqueid': 'pdf1'}]}}], [])
         query_generator = generator(pool, Mock(), 'custom_done')
         count_query = pool.execute_query.call_args.args[0]
         page_query, _ = query_generator.getitem(0)
         constraints = page_query[0]['FindBlob']['constraints']
-        self.assertEqual(count_query[0]['FindBlob']['constraints'], constraints)
-        self.assertIn(['$custom_done', '!=', True], constraints)
-        self.assertIn(['$_mime_type', '==', 'application/pdf'], constraints)
+        self.assertEqual(constraints, predicate('_uniqueid', 'in', ['pdf1']))
+        selected = count_query[0]['FindBlob']['constraints']
+        self.assertIn(['$custom_done', '!=', True], selected)
+        self.assertIn(['$_mime_type', '==', 'application/pdf'], selected)

@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import os
 import time
 import argparse
@@ -24,22 +25,8 @@ stop = False
 
 def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_threshold):
 
-    q = [{
-        "FindImage": {
-            "_ref": 1,
-            "blobs": False,
-            "constraints": {
-                "_uniqueid": ["==", img_id]
-            },
-        }
-    }, {
-        "UpdateImage": {
-            "ref": 1,
-            "properties": {
-                "wf_od_model": source
-            }
-        }
-    }]
+    q = [{'FindImage': {'_ref': 1, 'blobs': False, 'constraints': predicate('_uniqueid', '==', img_id)}}, {
+        'UpdateImage': {'ref': 1, 'properties': {'wf_od_model': source}}}]
 
     for box, score, label in zip(detections["boxes"], detections["scores"], detections["labels"]):
 
@@ -51,21 +38,22 @@ def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_thr
         label = classes[idx]
 
         abb = {
-            "AddBoundingBox": {
-                "image_ref": 1,
-                "label": label,
-                "rectangle": {
-                    "x": int(box[0] / resize_scale),
-                    "y": int(box[1] / resize_scale),
-                    "width":  int((box[2] - box[0]) / resize_scale),
-                    "height": int((box[3] - box[1]) / resize_scale)
-                },
-                "properties": {
-                    "wf_od_model": source,
-                    "wf_od_confidence": float(score),
-                },
-            }
-        }
+            'AddBoundingBox': {
+                'class': 'BoundingBoxes',
+                'image_ref': 1,
+                'label': label,
+                'rectangle': {
+                    'x': int(
+                        box[0] / resize_scale),
+                    'y': int(
+                        box[1] / resize_scale),
+                    'width': int(
+                        (box[2] - box[0]) / resize_scale),
+                    'height': int(
+                        (box[3] - box[1]) / resize_scale)},
+                'properties': {
+                    'wf_od_model': source,
+                    'wf_od_confidence': float(score)}}}
 
         q.append(abb)
 
@@ -74,20 +62,8 @@ def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_thr
 
 def cleanup_bboxes_from_aperturedb(pool, source):
 
-    q = [{
-        "DeleteBoundingBox": {
-            "constraints": {
-                "wf_od_model": ["!=", None]
-            }
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                "wf_od_model": ["!=", None]
-            },
-            "remove_props": ["wf_od_model"]
-        }
-    }]
+    q = [{'DeleteBoundingBox': {'constraints': predicate('wf_od_model', '!=', None)}}, {'UpdateImage': {
+        'constraints': predicate('wf_od_model', '!=', None), 'remove_props': ['wf_od_model']}}]
 
     print(f"Cleaning up bboxes with source: {source} from ApertureDB...")
 
@@ -126,27 +102,19 @@ def main(params):
     pool = ConnectionPool()
 
     with pool.get_utils() as dbutils:
-        dbutils.create_entity_index("_BoundingBox", "wf_od_model")
+        dbutils.create_entity_index("bounding_box:BoundingBoxes", "wf_od_model")
 
     if params.clean:
         cleanup_bboxes_from_aperturedb(pool, params.model_name)
 
-    q = [{
-        "FindImage": {
-            "constraints": {
-                "wf_od_model": ["!=", params.model_name],
-            },
-            "results": {
-                "count": True
-            }
-        }
-    }]
+    q = [{'FindImage': {'constraints': predicate(
+        'wf_od_model', '!=', params.model_name), 'results': {'count': True}}}]
 
     with pool.get_connection() as db:
         res, _ = db.query(q)
         try:
             total = res[0]["FindImage"]["count"]
-        except:
+        except BaseException:
             print("Error getting total images:")
             db.print_last_response()
             raise
@@ -155,22 +123,8 @@ def main(params):
         print("No images to process.")
         return
 
-    q = [{
-        "FindImage": {
-            "constraints": {
-                "wf_od_model": ["!=", params.model_name],
-            },
-            "operations": [
-                {
-                    "type": "resize",
-                    "scale": resize_scale
-                }
-            ],
-            "results": {
-                "list": ["_uniqueid"]
-            }
-        }
-    }]
+    q = [{'FindImage': {'constraints': predicate('wf_od_model', '!=', params.model_name), 'operations': [
+        {'type': 'resize', 'scale': resize_scale}], 'results': {'list': ['_uniqueid']}, 'uniqueids': True}}]
 
     if params.max_retrieved > 0:
         q[0]["FindImage"]["limit"] = params.max_retrieved

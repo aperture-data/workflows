@@ -1,7 +1,9 @@
+from aperturedb.Constraints import predicate
 import pytest
 import os
 from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
+
 
 @pytest.fixture(scope="session")
 def db_connection():
@@ -13,6 +15,7 @@ def db_connection():
         password="admin",
         ca_cert="/ca/ca.crt")
 
+
 def get_entity_counts(db_connection, dataset_name):
     """Get the results of the query for a specific dataset."""
     entity_types = [
@@ -23,22 +26,13 @@ def get_entity_counts(db_connection, dataset_name):
         "ProductionCompany",
         "SpokenLanguage"
     ]
-    query = [
-        {
-            "FindEntity": {
-                "with_class": et,
-                "constraints": {
-                    "dataset_name": ["==", dataset_name]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        } for et in entity_types]
+    query = [{'FindEntity': {'with_class': et, 'constraints': predicate(
+        'dataset_name', '==', dataset_name), 'results': {'count': True}}} for et in entity_types]
 
     status, response, _ = execute_query(db_connection, query)
     assert status == 0, f"Query failed: {response}"
     return response
+
 
 def get_connection_counts(db_connection, dataset_name):
     connection_triples = [
@@ -51,38 +45,25 @@ def get_connection_counts(db_connection, dataset_name):
     ]
     query = []
     i = 1
-    for subject, predicate, target in connection_triples:
-        query.extend([
-            {
-                "FindEntity": {
-                    "_ref": i,
-                    "with_class": subject,
-                    "constraints": {
-                        "dataset_name": ["==", dataset_name]
-                    },
-                    "results": {
-                        "count": True
-                    }
-                }
-            },{
-                "FindEntity": {
-                    "with_class": target,
-                    "constraints": {
-                        "dataset_name": ["==", dataset_name]
-                    },
-                    "is_connected_to": {
-                        "ref": i,
-                        "connection_class": predicate
-                    },
-                    "results": {
-                        "count": True
-                    }
-                }
-            }])
+    for subject, connection_class, target in connection_triples:
+        query.extend([{'FindEntity': {'_ref': i,
+                                      'with_class': subject,
+                                      'constraints': predicate('dataset_name',
+                                                               '==',
+                                                               dataset_name),
+                                      'results': {'count': True}}},
+                      {'FindEntity': {'with_class': target,
+                                      'constraints': predicate('dataset_name',
+                                                               '==',
+                                                               dataset_name),
+                                      'is_connected_to': {'ref': i,
+                                                          'connection_class': connection_class},
+                                      'results': {'count': True}}}])
         i += 1
     status, response, _ = execute_query(db_connection, query)
     assert status == 0, f"Query failed: {response}"
     return response
+
 
 def test_count_entities_full(db_connection):
     response = get_entity_counts(db_connection, "tmdb_5000")
@@ -102,6 +83,7 @@ def test_count_entities_full(db_connection):
         assert response[4]['FindEntity']['count'] == 5047
         assert response[5]['FindEntity']['count'] == 87
 
+
 def test_count_connections_full(db_connection):
     response = get_connection_counts(db_connection, "tmdb_5000")
     sample_count = int(os.environ.get("SAMPLE_COUNT", "-1"))
@@ -120,10 +102,11 @@ def test_count_connections_full(db_connection):
         assert response[9]['FindEntity']['count'] == 5047
         assert response[11]['FindEntity']['count'] == 87
 
+
 def test_count_entities_sample(db_connection):
     # This dataset is populated by dataset-ingestion-movies-sample
     response = get_entity_counts(db_connection, "tmdb_5000_sample")
-    
+
     # Asserting sample dataset size (should always match the SAMPLE_COUNT=10 case)
     assert response[0]['FindEntity']['count'] == 10
     assert response[1]['FindEntity']['count'] == 9
@@ -132,9 +115,10 @@ def test_count_entities_sample(db_connection):
     assert response[4]['FindEntity']['count'] == 25
     assert response[5]['FindEntity']['count'] == 5
 
+
 def test_count_connections_sample(db_connection):
     response = get_connection_counts(db_connection, "tmdb_5000_sample")
-    
+
     assert response[1]['FindEntity']['count'] == 9
     assert response[3]['FindEntity']['count'] == 804
     assert response[5]['FindEntity']['count'] == 954

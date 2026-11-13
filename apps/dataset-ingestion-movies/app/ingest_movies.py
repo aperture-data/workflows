@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import mlcroissant as mlc
 from typer import Typer
 import json
@@ -21,6 +22,7 @@ CROISSANT_URL = "https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata/croiss
 
 app = Typer()
 
+
 def deserialize_record(record):
     deserialized = record.decode('utf-8') if isinstance(record, bytes) else record
     if isinstance(deserialized, str):
@@ -30,34 +32,16 @@ def deserialize_record(record):
             pass
     return deserialized
 
+
 def cleanup_movies(db):
-    """
-    Cleanup the movies dataset from ApertureDB.
-    """
-    query = [
-    {
-        "DeleteEntity": {
-            "constraints": {
-                "dataset_name": ["==", DATASET_NAME]
-            }
-        }
-    },
-    {
-        "DeleteImage": {
-            "constraints": {
-                "dataset_name": ["==", DATASET_NAME]
-            }
-        }
-    },
-    {
-        "DeleteDescriptorSet": {
-            "constraints": {
-                "dataset_name": ["==", DATASET_NAME]
-            }
-        }
-    }
-    ]
-    execute_query(db, query=query)
+    """Delete this dataset's graph objects while preserving shared vector definitions."""
+    status, response, _ = execute_query(db, [
+        {"DeleteDescriptor": {"constraints": predicate("dataset_name", "==", DATASET_NAME)}},
+        {"DeleteEntity": {"constraints": predicate("dataset_name", "==", DATASET_NAME)}},
+        {"DeleteImage": {"constraints": predicate("dataset_name", "==", DATASET_NAME)}}])
+    if status != 0:
+        raise RuntimeError(f"Movie cleanup failed: {response}")
+
 
 @app.command()
 def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sample_count: int = -1):
@@ -118,4 +102,3 @@ def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sam
 
 if __name__ == "__main__":
     app()
-

@@ -24,8 +24,8 @@ def entity_schema() -> List[TableDefinition]:
     results = []
     classes = get_classes("entities")
     for entity, data in classes.items():
-        if entity[0] != "_":
-            results.append(entity_table(entity, data))
+        if data["_type"] == "entity":
+            results.append(entity_table(data["_class"], data))
     return results
 
 

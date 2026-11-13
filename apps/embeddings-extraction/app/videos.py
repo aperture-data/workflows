@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import math
 import logging
 
@@ -13,7 +14,13 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n Video Queries for video processing
     """
 
-    def __init__(self, pool, embedder, done_property: str, sample_rate_fps: int = 1, embedder_batch_size: int = 250):
+    def __init__(
+            self,
+            pool,
+            embedder,
+            done_property: str,
+            sample_rate_fps: int = 1,
+            embedder_batch_size: int = 250):
 
         self.pool = pool
         self.embedder = embedder
@@ -21,23 +28,19 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
         self.sample_rate_fps = sample_rate_fps
         self.embedder_batch_size = embedder_batch_size
 
-        query = [{
-            "FindVideo": {
-                "constraints": {
-                    self.done_property: ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [{'FindVideo': {'constraints': predicate(self.done_property, '!=', True), 'results': {
+            'list': ['_uniqueid']}, 'uniqueids': True}}]
 
         status, response, _ = self.pool.execute_query(query)
         if status != 0:
             raise RuntimeError(f"FindVideo count query failed: {response}")
 
         try:
-            total_videos = response[0]["FindVideo"]["count"]
+            selection = response[0]["FindVideo"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_videos = len(self._selected_ids)
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(
                 f"Invalid FindVideo count response: {response}") from exc
@@ -60,25 +63,10 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [
-            {
-                "FindVideo": {
-                    "constraints": {
-                        self.done_property: ["!=", True]
-                    },
-                    "batch": {
-                        "batch_size": self.batch_size,
-                        "batch_id": idx
-                    },
-                    "results": {
-                        "list": ["_uniqueid", "_frame_count", "_fps"]
-                    }
-                }
-            }
-        ]
+        query = [{'FindVideo': {'constraints': predicate('_uniqueid', 'in', self._selected_ids[idx * self.batch_size:(
+            idx + 1) * self.batch_size]), 'results': {'list': ['_uniqueid', '_frame_count', '_fps']}, 'uniqueids': True}}]
 
         return query, []
-
 
     def frames_to_embeddings(self, frames: list) -> list:
         """
@@ -122,10 +110,9 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
 
         try:
             entities = response[0]["FindVideo"]["entities"]
-        except:
+        except BaseException:
             logger.exception(f"error: {response}")
             return 0
-
 
         for i, entity in enumerate(entities):
             uniqueid = entity["_uniqueid"]
@@ -133,14 +120,8 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
             fps = entity["_fps"]
             frames_per_sample = math.ceil(fps/self.sample_rate_fps)
             frame_spec = list(range(0, frame_count, frames_per_sample))
-            query=[{
-                "FindVideo": {
-                    "_ref": i + 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            }]
+            query = [
+                {'FindVideo': {'_ref': i + 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}}]
             query.append({
                 "ExtractFrames": {
                     "video_ref": i + 1,
@@ -161,37 +142,15 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                 embeddings = self.frames_to_embeddings(blobs)
 
                 query2 = [
-                    {
-                        "FindVideo": {
-                            "_ref": 1,
-                            "constraints": {
-                                "_uniqueid": ["==", uniqueid]
-                            },
-                        }
-                    }
-                ]
+                    {'FindVideo': {'_ref': 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}}]
                 for i, b in enumerate(embeddings):
                     ind = i * 2 + 2
-                    query2.append({
-                        "AddClip": {
-                            "video_ref": 1,
-                            "_ref": ind,
-                            "frame_number_range": {
-                                "start": i * frames_per_sample,
-                                "stop": min((i + 1) * frames_per_sample, frame_count)
-                            }
-                        }
-                    })
-                    query2.append({
-                        "AddDescriptor": {
-                            "_ref": ind + 1,
-                            "set": self.embedder.descriptor_set,
-                            "connect": {
-                                "ref": ind,
-                                "class": "ClipHasDescriptor",
-                            },
-                        }
-                    })
+                    query2.append({'AddClip': {'class': 'Clips', 'video_ref': 1, '_ref': ind, 'frame_number_range': {
+                                  'start': i * frames_per_sample, 'stop': min((i + 1) * frames_per_sample, frame_count)}}})
+                    query2.append({'AddDescriptor': {'_ref': ind + 1,
+                                                     'class': self.embedder.descriptor_set,
+                                                     'connect': {'ref': ind,
+                                                                 'class': 'ClipHasDescriptor'}}})
                     query2.append({
                         "AddConnection": {
                             "class": "VideoHasDescriptor",
@@ -210,7 +169,7 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                             self.done_property: True,
                         },
                     }
-                    })
+                })
 
                 status, r, _ = self.pool.execute_query(query2, embeddings)
                 assert status == 0, f"Query failed: {r=}"

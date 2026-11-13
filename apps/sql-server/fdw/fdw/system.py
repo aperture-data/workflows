@@ -1,10 +1,10 @@
 from .schema import property_info
 # This module populates the system schema for ApertureDB.
-# This schema contains tables for system classes such as _Blob, _Image, etc.
+# This schema contains tables for typed media classes such as blob:Blobs and image:Images.
 # Note that the tables for these are named without the leading underscore.
 # It also includes special tables for Entity and Connection.
 #
-# SELECT * FROM "DescriptorSet" LIMIT 10;
+# SELECT * FROM system."image:Images" LIMIT 10;
 
 from typing import List, Literal, Set, Any, Dict
 from .column import property_columns, ColumnOptions, blob_columns, uniqueid_column, passthrough_lowercase, get_path_keys
@@ -22,15 +22,15 @@ def system_schema() -> List[TableDefinition]:
     """
     Return the system schema for ApertureDB.
     This is used to create the foreign tables for system classes.
-    Here we create a separate table for each system class, such as _Blob, _Image, etc.
+    Each typed media class has a separate table.
     and also special tables for Entity and Connection.
-    Note that we drop the leading underscore from the table names.
+    Type-qualified names keep identically named classes distinct.
     """
     logger.info("Creating system schema")
     results = []
     classes = get_classes("entities")
     for entity, data in classes.items():
-        if entity[0] == "_":
+        if data["_type"] != "entity":
             results.append(system_table(entity, data))
 
     # We include special tables for class-independent entities and connections
@@ -107,8 +107,8 @@ def image_extra_columns() -> List[ColumnDefinition]:
 
 
 OBJECT_COLUMNS_HANDLERS = {
-    "_Blob": blob_extra_columns,
-    "_Image": image_extra_columns,
+    "blob": blob_extra_columns,
+    "image": image_extra_columns,
 }
 
 
@@ -118,23 +118,26 @@ def system_table(entity: str, data: dict) -> TableDefinition:
     This is used to create the foreign table in PostgreSQL.
     """
 
-    assert entity[0] == "_", f"System entity name '{entity}' should start with an underscore."
+    target, category = data["_type"], data["_class"]
 
     columns = []
     blob_column = None
 
     try:
         columns.extend(property_columns(data))
-        if entity in OBJECT_COLUMNS_HANDLERS:
-            columns.extend(OBJECT_COLUMNS_HANDLERS[entity]())
+        if target in OBJECT_COLUMNS_HANDLERS:
+            columns.extend(OBJECT_COLUMNS_HANDLERS[target]())
 
-        table_name = entity[1:]
+        table_name = entity
         path_keys = get_path_keys(columns)
 
         options = TableOptions(
             table_name=f'system."{table_name}"',
             count=data.get("matched", 0),
-            command=f"Find{entity[1:]}",  # e.g. FindBlob, FindImage, etc.
+            command="Find" + {"blob": "Blob", "image": "Image", "video": "Video",
+                              "descriptor": "Descriptor", "frame": "Frame", "clip": "Clip",
+                              "bounding_box": "BoundingBox", "polygon": "Polygon"}[target],
+            modify_query=Curry(literal, {"with_class": category}),
             result_field="entities",
             path_keys=path_keys,
         )
@@ -166,7 +169,7 @@ def system_entity_table() -> TableDefinition:
 
     classes = get_classes("entities")
     count = sum(
-        data.get("matched", 0) for class_, data in classes.items() if class_[0] != "_"
+        data.get("matched", 0) for class_, data in classes.items() if data["_type"] == "entity"
     )
 
     columns = []
@@ -204,9 +207,7 @@ def system_connection_table() -> TableDefinition:
     table_name = "Connection"
     classes = get_classes("connections")
     count = sum(
-        # https://github.com/aperture-data/athena/pull/1726
-        # data may be either a dict or a list of dicts
-        data.get("matched", 0) if isinstance(data, dict) else sum(item.get("matched", 0) for item in data) for class_, data in classes.items()
+        sum(item.get("matched", 0) for item in data) for data in classes.values()
     )
 
     columns = []
@@ -264,10 +265,12 @@ def get_consistent_properties(type_: Literal["entities", "connections"]) -> List
     property_types = defaultdict(set)
     classes = get_classes(type_)
     for data in classes.values():
-        # https://github.com/aperture-data/athena/pull/1726
-        # data may be either a dict or a list of dicts
+        if type_ == "entities" and data.get("_type") != "entity":
+            continue
+        # Node categories are individual records; connection names may have
+        # several typed endpoint categories.
         if isinstance(data, dict):
-            data = [data] # normalize to list form
+            data = [data]  # normalize to list form
 
         for item in data:
             if "properties" in item and item["properties"] is not None:

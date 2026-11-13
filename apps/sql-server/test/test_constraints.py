@@ -265,7 +265,6 @@ def multicorn_plan(plan_node: dict) -> str:
             raise
     return None
 
-xfail_multiple_items_for_connection_class = pytest.mark.xfail(reason="This connection class has multiple items in the data, so we skip them for now")
 
 @pytest.mark.parametrize("query,n_results", [
     ("SELECT source_key FROM \"SourceNode\";", 5),
@@ -286,17 +285,21 @@ xfail_multiple_items_for_connection_class = pytest.mark.xfail(reason="This conne
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _dst IN {dst_unique_ids};", 5),
     ("SELECT edge_key FROM \"edge\" WHERE _uniqueid in {edge_unique_ids} AND _src IN {src_unique_ids} AND _dst IN {dst_unique_ids};", 5),
-    ("SELECT * FROM connection.\"_DescriptorConnection\";", 20),
+    ("SELECT * FROM connection.\"has_descriptor\";", 20),
     ("SELECT * FROM connection.\"edge\";", 5),
-    # These connection classes have multiple items in the data, so we skip them for now
-    pytest.param("SELECT * FROM connection.\"_GenericConnection\";", 7, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"_GenericConnection\" AS B ON A._uniqueid = B._src;", 1, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"_GenericConnection\" AS B ON A._uniqueid = B._src JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM connection.\"_GenericConnection\" AS B JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM connection.\"ReusedConnection\";", 2, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src;", 1, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
-    pytest.param("SELECT * FROM connection.\"ReusedConnection\" AS B JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=xfail_multiple_items_for_connection_class),
+    # Same-name customer categories remain queryable across endpoint classes.
+    pytest.param("SELECT * FROM connection.\"Related\";", 2, marks=[]),
+    pytest.param(
+        "SELECT * FROM entity.\"Person\" AS A JOIN connection.\"Related\" AS B ON A._uniqueid = B._src;", 1, marks=[]),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"Related\" AS B ON A._uniqueid = B._src JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=[]),
+    pytest.param(
+        "SELECT * FROM connection.\"Related\" AS B JOIN entity.\"School\" AS C ON B._dst = C._uniqueid;", 1, marks=[]),
+    pytest.param("SELECT * FROM connection.\"ReusedConnection\";", 2, marks=[]),
+    pytest.param(
+        "SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src;", 1, marks=[]),
+    pytest.param("SELECT * FROM entity.\"Person\" AS A JOIN connection.\"ReusedConnection\" AS B ON A._uniqueid = B._src JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=[]),
+    pytest.param(
+        "SELECT * FROM connection.\"ReusedConnection\" AS B JOIN entity.\"College\" AS C ON B._dst = C._uniqueid;", 1, marks=[]),
 ])
 def test_join_query(query, n_results, sql_connection, constraint_formatter):
     """

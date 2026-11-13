@@ -1,5 +1,7 @@
 from .common import get_log_level, compact_pretty_json, get_command_body, PathKey
 from .table import TableOptions
+from .expressions import predicate
+from copy import deepcopy
 from .column import ColumnOptions
 from multicorn import ForeignDataWrapper, Qual
 import numpy as np
@@ -234,10 +236,11 @@ class FDW(ForeignDataWrapper):
         # Check whether anyone has added the blobs parameter
         blobs = command_body.get("blobs", False)
         batch_size = BATCH_SIZE_WITH_BLOBS if blobs else BATCH_SIZE
-        command_body["batch"] = {
-            "batch_id": 0,
-            "batch_size": batch_size
-        }
+        command_body["limit"] = batch_size
+        command_body["offset"] = 0
+        command_body["uniqueids"] = True
+        if not command_body.get("k_neighbors"):
+            command_body["sort"] = "_uniqueid"
 
         # In SQL it is legal to query a table with no result columns.
         # This will (by design) cause an error in ApertureDB.
@@ -260,23 +263,16 @@ class FDW(ForeignDataWrapper):
 
         return query, get_result_objects
 
-    def _generate_constraints(self, quals: List[Qual], columns: Set[str]) -> dict:
-        """
-        Generate constraints for the command body based on the provided qualifications and columns.
-        """
-        constraints = {}
-        listable_columns = {
-            col for col in columns if self._columns[col].listable}
+    def _generate_constraints(self, quals, columns):
+        """Translate SQL qualifications directly to native expression arrays."""
+        terms = []
+        listable = {name for name in columns if self._columns[name].listable}
         for qual in quals:
-            if qual.field_name in listable_columns:
-                constraint = self._qual_to_constraint(qual)
-                if constraint is not None:
-                    logger.debug(
-                        f"Applying constraint {constraint} for qual {qual} on column {qual.field_name} in {self._options.table_name}")
-                    if qual.field_name not in constraints:
-                        constraints[qual.field_name] = []
-                    constraints[qual.field_name].extend(constraint)
-        return constraints
+            if qual.field_name in listable:
+                comparison = self._qual_to_constraint(qual)
+                if comparison is not None:
+                    terms.append(predicate(qual.field_name, comparison[0], comparison[1]))
+        return terms[0] if len(terms) == 1 else ["all", *terms] if terms else None
 
     def _qual_to_constraint(self, qual: Qual) -> Optional[List[Any]]:
         """
@@ -522,51 +518,21 @@ class FDW(ForeignDataWrapper):
 
         return row
 
-    def _get_next_query(self, query: List[dict], response: List[dict]) -> Optional[List[dict]]:
-        """
-        Get the next query to execute based on the response from the previous query.
-        This is used to handle batching.
-        """
-        if not response or len(response) != len(query) or not isinstance(response, list):
-            logger.warning(
-                f"No results found for query: {query} -> {response}")
+    def _get_next_query(self, query, response):
+        """Page a fixed SQL read with ordinary command-level offset/limit."""
+        if not isinstance(response, list) or len(response) != len(query):
+            raise RuntimeError(f"Invalid paged SQL response: {response}")
+        body = get_command_body(query[-1])
+        result = get_command_body(response[-1])
+        if result.get("status", 0) != 0:
+            raise RuntimeError(f"SQL read failed: {result}")
+        limit = body.get("limit")
+        if limit is None or result.get("returned", 0) < limit:
             return None
-
-        command_body = get_command_body(query[-1])
-        response_body = get_command_body(response[-1])
-
-        if "batch" in response_body:
-            batch_id = response_body["batch"]["batch_id"]
-            total_elements = response_body["batch"]["total_elements"]
-            end = response_body["batch"]["end"]
-
-            if end >= total_elements:  # No more batches to process
-                return None
-
-            next_query = query.copy()
-            next_command_body = get_command_body(next_query[-1])
-            next_command_body["batch"]["batch_id"] += 1
-            return next_query
-        elif "limit" in command_body:
-            # fallback mode for commands that don't support batching
-            limit = command_body["limit"]
-            returned = response_body.get("returned", 0)
-            if returned == 0:
-                logger.info(
-                    f"No results returned for query: {query} -> {response[:10]}")
-                return None
-            offset = command_body.get("offset", 0)
-
-            next_query = query.copy()
-            next_command_body = get_command_body(next_query[-1])
-            next_command_body["offset"] = offset + limit
-            return next_query
-        else:
-            # Some commands (like FindConnection) might not handle batching, so we assume all results are returned at once.
-            # https://github.com/aperture-data/athena/issues/1727
-            logger.info(
-                f"Single batch found for query: {query} -> {response[:10]}")
-            return None
+        next_query = deepcopy(query)
+        next_body = get_command_body(next_query[-1])
+        next_body["offset"] = body.get("offset", 0) + limit
+        return next_query
 
     def explain(self, quals: List[Qual], columns: Set[str], sortkeys=None, verbose=False) -> Iterable[str]:
         """

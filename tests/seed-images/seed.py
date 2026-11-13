@@ -15,7 +15,7 @@ with closing(Connector(host=os.environ["DB_HOST"],
                        ca_cert=os.environ["CA_CERT"],
                        retry_max_attempts=30)) as db:
     for offset in range(0, count, 10):
-        commands = [{"AddImage": {"properties": {"img_id": index}}}
+        commands = [{'AddImage': {'class': 'Images', 'properties': {'img_id': index}}}
                     for index in range(offset, min(offset + 10, count))]
         response, _ = db.query(commands, [image] * len(commands))
         if not db.last_query_ok():

@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import math
 
 from PIL import Image
@@ -21,7 +22,13 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         Generates n FindImage Queries
     """
 
-    def __init__(self, pool, embedder: Embedder, done_property: str, ocr, generate_embeddings: bool):
+    def __init__(
+            self,
+            pool,
+            embedder: Embedder,
+            done_property: str,
+            ocr,
+            generate_embeddings: bool):
 
         self.pool = pool
         self.embedder = embedder
@@ -35,28 +42,27 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                                        overlap_tokens=overlap_tokens,
                                        min_tokens=None)
 
-        query = [{
-            "FindImage": {
-                "constraints": {
-                    self.done_property: ["!=", True]
-                },
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [{'FindImage': {'constraints': predicate(self.done_property, '!=', True), 'results': {
+            'list': ['_uniqueid']}, 'uniqueids': True}}]
 
-        _, response, _ = self.pool.execute_query(query)
+        status, response, _ = self.pool.execute_query(query)
+        if status != 0:
+            raise RuntimeError(f"Selection query failed: {response}")
 
         try:
-            total_images = response[0]["FindImage"]["count"]
-        except:
+            selection = response[0]["FindImage"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_images = len(self._selected_ids)
+        except BaseException:
             print("Error retrieving the number of images. No images in the db?")
-            exit(0)
+            raise RuntimeError(f"Invalid selection response: {response}")
 
         if total_images == 0:
             print("No images to be processed. Bye!")
-            exit(0)
+            self.total_batches = self.len = 0
+            return
 
         print(f"Total images to process: {total_images}")
 
@@ -73,22 +79,12 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [{
-            "FindImage": {
-                "blobs": True,
-                "constraints": {
-                    self.done_property: ["!=", True]
-                },
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                # Full-size images are needed for OCR.
-                "results": {
-                    "list": ["_uniqueid"]
-                }
-            }
-        }]
+        query = [{'FindImage': {'blobs': True,
+                                'constraints': predicate('_uniqueid',
+                                                         'in',
+                                                         self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                                'results': {'list': ['_uniqueid']},
+                                'uniqueids': True}}]
 
         return query, []
 
@@ -97,14 +93,16 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         try:
             uniqueids = [i["_uniqueid"]
                          for i in response[0]["FindImage"]["entities"]]
-        except:
+        except BaseException:
             print(f"error: {response}")
             return 0
 
         if not uniqueids:
             return 0
 
-        assert len(uniqueids) == len(r_blobs), f"Mismatch: {len(uniqueids)} images vs {len(r_blobs)} blobs."
+        assert len(uniqueids) == len(r_blobs), f"Mismatch: {
+            len(uniqueids)} images vs {
+            len(r_blobs)} blobs."
 
         desc_blobs = []
         desc_query = []
@@ -112,14 +110,7 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         for uid, b in zip(uniqueids, r_blobs):
             image_ref = len(desc_query) + 1
             desc_query.extend([
-                {
-                    "FindImage": {
-                        "_ref": image_ref,
-                        "constraints": {
-                            "_uniqueid": ["==", uid]
-                        },
-                    }
-                }])
+                {'FindImage': {'_ref': image_ref, 'constraints': predicate('_uniqueid', '==', uid)}}])
 
             text = self.ocr.bytes_to_text(b)
             if text:
@@ -153,36 +144,26 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     embeddings = list(self.segments_to_embeddings(segments))
                     if len(embeddings) != len(segments):
                         logger.warning(
-                            f"Number of embeddings ({len(embeddings)}) does not match number of segments ({len(segments)}) for text: {text}")
+                            f"Number of embeddings ({
+                                len(embeddings)}) does not match number of segments ({
+                                len(segments)}) for text: {text}")
                         continue
 
                     for segment, embedding in zip(segments, embeddings):
                         segment_ref = len(desc_query) + 1
-                        desc_query.extend([
-                            {
-                                "AddDescriptor": {
-                                    "set": self.embedder.descriptor_set,
-                                    "connect": {
-                                        "ref": text_ref,
-                                        "class": "extractedTextHasDescriptor",
-                                    },
-                                    "properties": {
-                                        "text": segment.text,
-                                        "type": "text",
-                                        "extraction_type": "ocr",
-                                        "ocr_method": self.ocr.method,
-                                    },
-                                    "_ref": segment_ref,
-                                },
-                            },
-                            {
-                                "AddConnection": {
-                                    "class": "imageHasDescriptor",
-                                    "src": image_ref,
-                                    "dst": segment_ref,
-                                },
-                            }
-                        ])
+                        desc_query.extend([{'AddDescriptor': {'class': self.embedder.descriptor_set,
+                                                              'connect': {'ref': text_ref,
+                                                                          'class': 'extractedTextHasDescriptor'},
+                                                              'properties': {'text': segment.text,
+                                                                             'type': 'text',
+                                                                             'extraction_type': 'ocr',
+                                                                             'ocr_method': self.ocr.method},
+                                                              '_ref': segment_ref}},
+                                           {"AddConnection": {"class": "imageHasDescriptor",
+                                                              "src": image_ref,
+                                                              "dst": segment_ref,
+                                                              },
+                                            }])
                         desc_blobs.append(embedding)
                     logger.debug(f"Added {len(segments)} segments for {uid}")
             else:
@@ -190,14 +171,8 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
 
         done_ref = len(desc_query) + 1
         desc_query.extend([
-            {
-                "FindImage": {
-                    "_ref": done_ref,
-                    "constraints": {
-                        "_uniqueid": ["in", uniqueids]
-                    },
-                }
-            },
+            {'FindImage': {'_ref': done_ref, 'constraints': predicate(
+                '_uniqueid', 'in', uniqueids)}},
             {
                 "UpdateImage": {
                     "ref": done_ref,

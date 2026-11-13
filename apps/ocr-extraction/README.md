@@ -7,32 +7,15 @@ The workflow will run on an infinite loop.
 
 ## Database details
 
-```mermaid
-sequenceDiagram
-    participant W as OCR Extraction
-    participant A as ApertureDB instance
-    opt CLEAN
-        W->>A: DeleteDescriptorSet<br/>UpdateImage<br/>UpdateBlob
-    end
+```python
+from aperturedb.Utils import Utils
 
-    W->>A: AddDescriptorSet
-    W->>A: FindImage
-    A-->>W: count
-    loop Until done
-        W->>A: FindImage
-        A-->>W: images
-        W->>A: UpdateImage<br/>AddEntity<br/>AddDescriptor<br/>AddConnection
-    end
-
-    W->>A: AddDescriptorSet
-    W->>A: FindBlob
-    A-->>W: count
-    loop Until done
-        W->>A: FindBlob
-        A-->>W: PDFs
-        W->>A: UpdateBlob<br/>AddEntity</br/>AddDescriptor<br/>AddConnection
-    end
+utils = Utils(client)
+for descriptor_class in ("wf_embeddings_clip", "wf_embeddings_clip_text", "wf_embeddings_clip_video"):
+    assert utils.remove_descriptorset(descriptor_class)
 ```
+
+Use the workflow's `CLEAN` option to reset its completion markers and owned media as well.
 
 Each image and PDF blob is updated with a flag (`wf_ocr_done`) to indicate the
 object has been analyzed, and the extracted text is then inserted to ApertureDB as an `ExtractedText` object, and segments from that text are added as `Descriptor` objects. Both the `ExtractedText` and `Descriptor` are connected to the source object. This allows text-based queries and search functionality on the extracted content.
@@ -50,7 +33,7 @@ docker run \
            aperturedata/workflows-ocr-extraction
 ```
 
-Parameters: 
+Parameters:
 * **`WF_EXTRACT_IMAGE_TEXT`**: Extract OCR text from images. Default is `false`.
 * **`WF_EXTRACT_PDF_TEXT`**: Extract OCR text from PDFs. Default is `false`.
 * **`WF_OCR_METHOD`**: Choose method for OCR extraction. Default is `tesseract`. "easyocr" is also available, but requires large amounts of memory and is not recommended at this time.

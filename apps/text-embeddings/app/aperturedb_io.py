@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 from schema import Segment, Embedding
 from typing import Iterator, Optional, Tuple
 from uuid import uuid4
@@ -42,6 +43,7 @@ class AperturedbIO:
             batch_size=batch_size,
             prolog=self._batcher_prolog)
         self.n_embeddings = 0
+        self._record_run = False
 
     def execute_query(self,
                       query: Iterator[dict],
@@ -72,7 +74,8 @@ class AperturedbIO:
         if exc_type is not None:
             logger.error(f"Error during processing: {exc_value}")
         self.batcher.flush()
-        self.create_run()
+        if self._record_run:
+            self.create_run()
 
     def _batcher_prolog(self) -> list[dict]:
         """Prolog function to create a new batch"""
@@ -122,31 +125,19 @@ class AperturedbIO:
                     }
                 }
             }])
+        self._record_run = True
 
     def connect_descriptor_set(self) -> None:
-        """Finds or creates descriptor set in ApertureDB"""
-        self.execute_query([
-            {
-                "FindEntity": {
-                    "with_class": SPEC_CLASS,
-                    "constraints": ["$id", "==", {"json": self.spec_id}],
-                    "_ref": 1,
-                }
-            },
-            {
-                "FindDescriptorSet": {
-                    "with_name": self.descriptorset_name,
-                    "_ref": 2,
-                }
-            },
-            {
-                "AddConnection": {
-                    "src": 1,
-                    "dst": 2,
-                    "class": "embeddingsSpecHasDescriptorSet",
-                }
-            },
-        ])
+        """Verify the descriptor class has its native vector index."""
+        response, _ = self.execute_query([{"GetIndexes": {"target": "descriptor",
+                                                          "class": self.descriptorset_name,
+                                                          "property": "_blob",
+                                                          "kind": "vector"}}])
+        indexes = response[0]["GetIndexes"].get("indexes", [])
+        if len(indexes) != 1:
+            raise ValueError(
+                f"Expected one vector index for descriptor class {self.descriptorset_name}; "
+                f"found {len(indexes)}")
 
     def create_indexes(self) -> None:
         """Create indexes"""
@@ -180,17 +171,17 @@ class AperturedbIO:
                 },
                 {
                     "CreateIndex": {
-                        "target": "entity",
+                        "target": "descriptor",
                         "kind": "ordered",
-                        "class": "_Descriptor",
+                        "class": self.descriptorset_name,
                         "property": "spec_id",
                     }
                 },
                 {
                     "CreateIndex": {
-                        "target": "entity",
+                        "target": "descriptor",
                         "kind": "ordered",
-                        "class": "_Descriptor",
+                        "class": self.descriptorset_name,
                         "property": "run_id",
                     }
                 },
@@ -233,6 +224,7 @@ class AperturedbIO:
             },
             {
                 "FindDescriptor": {
+                    "with_class": self.descriptorset_name,
                     "constraints": ["$run_id", "==", {"json": self.run_id}],
                     "_ref": 3,
                 },
@@ -247,163 +239,70 @@ class AperturedbIO:
         ])
 
     def get_segments(self) -> Iterator[Segment]:
-        """Retrieve text segments from ApertureDB"""
-        query = [
-            {
-                "FindEntity": {
-                    "with_class": INPUT_SPEC_CLASS,
-                    "constraints": ["$id", "==", {"json": self.input_spec_id}],
-                    "_ref": 1,
-                }
-            },
-            {
-                "FindEntity": {
-                    "with_class": "Segment",
-                    "is_connected_to": {
-                        "ref": 1,
-                        "connection_class": "segmentationSpecHasSegment",
-                        "direction": "out",
-                    },
-                    "results": {
-                        "list": ["id", "url", "text", "title"],
-                    },
-                    "batch": {},
-                }
-            },
-        ]
-
-        results, _ = self.execute_query(query)
-        n_results = results[1]["FindEntity"]["batch"]["total_elements"]
-        assert n_results > 0, f"No text segments found for input {self.input_spec_id}"
-        query[1]["FindEntity"]["batch"]["batch_size"] = self.batch_size
-        n_batches = int(math.ceil(n_results / self.batch_size))
-
-        for batch_id in range(n_batches):
-            query[1]["FindEntity"]["batch"]["batch_id"] = batch_id
-            results, _ = self.execute_query(query)
-            entities = results[1]["FindEntity"]["entities"]
-
+        """Read a fixed segmentation result with ordinary offset/limit pages."""
+        offset = 0
+        while True:
+            results, _ = self.execute_query([
+                {"FindEntity": {"with_class": INPUT_SPEC_CLASS,
+                                "constraints": predicate("id", "==", self.input_spec_id), "_ref": 1}},
+                {"FindEntity": {"with_class": "Segment", "is_connected_to": {
+                    "ref": 1, "connection_class": "segmentationSpecHasSegment", "direction": "out"},
+                    "offset": offset, "limit": self.batch_size, "sort": "_uniqueid",
+                    "results": {"list": ["id", "url", "text", "title"]}}}])
+            entities = results[1]["FindEntity"].get("entities", [])
             for result in entities:
-                yield Segment(
-                    id=result["id"],
-                    url=result["url"],
-                    text=result["text"],
-                    title=result.get("title", None),
-                )
+                yield Segment(id=result["id"], url=result["url"], text=result["text"], title=result.get("title"))
+            if len(entities) < self.batch_size:
+                return
+            offset += len(entities)
 
     def create_embedding(self, embedding: Embedding) -> None:
         """Create a Descriptor in ApertureDB, linked to the EmbeddingsSpec and Segment"""
         self.n_embeddings += 1
-        self.batcher.add([
-            {
-                "FindEntity": {
-                    "with_class": "Segment",
-                    "constraints": ["$id", "==", {"json": embedding.segment_id}],
-                    "_ref": "SEGMENT",
-                }
-            },
-            {
-                "AddDescriptor": {
-                    "set": self.descriptorset_name,
-                    "properties": self._filter_null_properties({
-                        "segment_id": embedding.segment_id,
-                        "uniqueid": str(uuid4()),  # LangChain supported field
-                        "spec_id": self.spec_id,
-                        "run_id": self.run_id,
-                        "text": embedding.text,  # LangChain supported field
-                        "url": embedding.url,
-                        "lc_url": embedding.url,  # LangChain supported field
-                        "title": embedding.title,
-                    }),
-                    "connect": {
-                        "ref": "SEGMENT",
-                        "class": "segmentHasDescriptor",
-                        "direction": "in",
-                    },
-                    "_ref": "TEMP",
-                }
-            },
-            {
-                "AddConnection": {
-                    "src": "SPEC",
-                    "dst": "TEMP",
-                    "class": "embeddingsSpecHasDescriptor",
-                }
-            }
-        ], [embedding.vector.tobytes()])
+        self.batcher.add([{"FindEntity": {"with_class": "Segment",
+                                          "constraints": ["$id",
+                                                          "==",
+                                                          {"json": embedding.segment_id}],
+                                          "_ref": "SEGMENT",
+                                          }},
+                          {'AddDescriptor': {'class': self.descriptorset_name,
+                                             'properties': self._filter_null_properties({'segment_id': embedding.segment_id,
+                                                                                         'uniqueid': str(uuid4()),
+                                                                                         'spec_id': self.spec_id,
+                                                                                         'run_id': self.run_id,
+                                                                                         'text': embedding.text,
+                                                                                         'url': embedding.url,
+                                                                                         'lc_url': embedding.url,
+                                                                                         'title': embedding.title}),
+                                             'connect': {'ref': 'SEGMENT',
+                                                         'class': 'segmentHasDescriptor',
+                                                         'direction': 'in'},
+                                             '_ref': 'TEMP'}},
+                          {"AddConnection": {"src": "SPEC",
+                                             "dst": "TEMP",
+                                             "class": "embeddingsSpecHasDescriptor",
+                                             }}],
+                         [embedding.vector.tobytes()])
 
     def delete_spec(self, spec_id) -> None:
-        """Delete an EmbeddingsSpec document and all its dependent artefacts"""
-        logger.info(f"Deleting {SPEC_CLASS} {spec_id}")
-        response, _ = self.execute_query([
-            {
-                "FindEntity": {
-                    "with_class": SPEC_CLASS,
-                    "constraints": ["$id", "==", {"json": spec_id}],
-                    "_ref": 1,
-                }
-            },
-            {
-                "FindDescriptorSet": {
-                    "is_connected_to": {
-                        "ref": 1,
-                        "connection_class": "embeddingsSpecHasDescriptorSet",
-                    },
-                    "counts": True,
-                    "uniqueids": True,
-                    "_ref": 2,
-                },
-            },
-            {
-                "DeleteEntity": {
-                    "ref": 1,
-                }
-            },
-            {
-                "FindEntity": {
-                    "with_class": RUN_CLASS,
-                    "constraints": ["$spec_id", "==", {"json": spec_id}],
-                    "_ref": 3,
-                }
-            },
-            {
-                "DeleteEntity": {
-                    "ref": 3,
-                }
-            },
-            {
-                "FindDescriptor": {
-                    "constraints": ["$spec_id", "==", {"json": spec_id}],
-                    "_ref": 4,
-                }
-            },
-            {
-                "DeleteDescriptor": {
-                    "ref": 4,
-                }
-            },
-        ])
-
-        # It is possible for multiple EmbeddingsSpec documents to share the same DesceriptorSet
-        # If the descriptor set is empty, delete it
-        descriptorset_count = response[1]["FindDescriptorSet"].get("count", 0)
-        deleted_count = response[6]["DeleteDescriptor"]["count"]
-        if descriptorset_count > 0 and descriptorset_count == deleted_count:
-            descriptorset_id = response[1]["FindDescriptorSet"]["entities"][0]["id"]
-            logger.info("Deleting empty descriptor set")
-            self.execute_query([
-                {
-                    "FindDescriptorSet": {
-                        "constraints": ["$_uniqueid", "==", {"json": descriptorset_id}],
-                        "_ref": 1,
-                    }
-                },
-                {
-                    "DeleteEntity": {
-                        "ref": 1,
-                    }
-                }
-            ])
+        """Remove a job's descriptors and runs, then remove its empty vector class."""
+        response, _ = self.execute_query([{"FindEntity": {"with_class": SPEC_CLASS, "constraints": predicate(
+            "id", "==", spec_id), "results": {"list": ["descriptorset_name"]}}}])
+        specs = response[0]["FindEntity"].get("entities", [])
+        if not specs:
+            return
+        descriptor_class = specs[0]["descriptorset_name"]
+        self.execute_query([
+            {"DeleteDescriptor": {"with_class": descriptor_class,
+                                  "constraints": predicate("spec_id", "==", spec_id)}},
+            {"DeleteEntity": {"with_class": RUN_CLASS,
+                              "constraints": predicate("spec_id", "==", spec_id)}},
+            {"DeleteEntity": {"with_class": SPEC_CLASS, "constraints": predicate("id", "==", spec_id)}}])
+        from aperturedb.Utils import Utils
+        utils = Utils(self.db)
+        if utils.count_descriptors_in_set(descriptor_class) == 0:
+            if not utils.remove_descriptorset(descriptor_class):
+                raise RuntimeError(f"Could not remove empty descriptor class {descriptor_class}")
 
     def delete_all(self) -> None:
         """Delete all SegmentationSpec documents and all their dependent artefacts

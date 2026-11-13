@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import pytest
 from aperturedb.CommonLibrary import execute_query
 import pandas as pd
@@ -14,38 +15,23 @@ def run_query(db_connection):
     """Get the results of the query."""
     query = [
         {
-            "FindBlob": {
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    "corpus": ["==", "images"]
-                },
-                "results": {
-                    "list": ["filename", "_uniqueid", "expected_text", "corpus", "wf_ocr_done"]
-                },
-                "_ref": 1,
-            }
-        },
-        {
-            "FindDescriptor": {
-                "set": "wf_ocr_pdfs",
-                "is_connected_to": {"ref": 1},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"],
-                },
-            }
-        },
-        {
-            "FindEntity": {
-                "with_class": "ExtractedText",
-                "is_connected_to": {"ref": 1},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"],
-                },
-            }
-        }
-    ]
+            'FindBlob': {
+                'constraints': [
+                    'all', predicate(
+                        '_mime_type', '==', 'application/pdf'), predicate(
+                        'corpus', '==', 'images')], 'results': {
+                            'list': [
+                                'filename', '_uniqueid', 'expected_text', 'corpus', 'wf_ocr_done']}, '_ref': 1, 'uniqueids': True}}, {
+                                    'FindDescriptor': {
+                                        'with_class': 'wf_ocr_pdfs', 'is_connected_to': {
+                                            'ref': 1}, 'group_by_source': True, 'results': {
+                                                'list': [
+                                                    '_uniqueid', 'text', 'type', 'page_number', 'source_type', 'ocr_method']}, 'uniqueids': True}}, {
+                                                        'FindEntity': {
+                                                            'with_class': 'ExtractedText', 'is_connected_to': {
+                                                                'ref': 1}, 'group_by_source': True, 'results': {
+                                                                    'list': [
+                                                                        '_uniqueid', 'text', 'type', 'page_number', 'source_type', 'ocr_method']}, 'uniqueids': True}}]
 
     status, response, _ = execute_query(db_connection, query)
 
@@ -121,28 +107,38 @@ def test_text_pdfs_are_skipped(db_connection):
     """Test that text PDFs are skipped (not processed by OCR)."""
     query = [
         {
-            "FindBlob": {
-                "constraints": {
-                    "_mime_type": ["==", "application/pdf"],
-                    "corpus": ["==", "text"]
-                },
-                "results": {
-                    "list": ["filename", "_uniqueid"]
-                },
-                "_ref": 1,
-            },
-        },
+            'FindBlob': {
+                'constraints': [
+                    'all',
+                    predicate(
+                        '_mime_type',
+                        '==',
+                        'application/pdf'),
+                    predicate(
+                        'corpus',
+                        '==',
+                        'text')],
+                'results': {
+                    'list': [
+                        'filename',
+                        '_uniqueid']},
+                '_ref': 1,
+                'uniqueids': True}},
         {
-            "FindDescriptor": {
-                "set": "wf_ocr_pdfs",
-                "is_connected_to": {"ref": 1},
-                "results": {
-                    "list": ["_uniqueid", "text", "type", "page_number", "source_type", "ocr_method"]
-                },
-                "group_by_source": True,
-            }
-        }
-    ]
+            'FindDescriptor': {
+                'with_class': 'wf_ocr_pdfs',
+                'is_connected_to': {
+                    'ref': 1},
+                'results': {
+                    'list': [
+                        '_uniqueid',
+                        'text',
+                        'type',
+                        'page_number',
+                        'source_type',
+                        'ocr_method']},
+                'group_by_source': True,
+                'uniqueids': True}}]
 
     status, response, _ = execute_query(db_connection, query)
     assert status == 0, f"Query failed: {response}"

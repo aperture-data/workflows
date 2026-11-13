@@ -180,7 +180,7 @@ class Embedder():
         This attempts to verify that the properties contain the required keys for an embedder.
 
         Args:
-            properties (dict): The properties to check, as returned by `FindDescriptorSet`.
+            properties (dict): The properties to check, stored in the vector index metadata.
 
         Returns:
             bool: True if the properties are valid for this embedder, False otherwise.
@@ -249,7 +249,7 @@ class Embedder():
                 descriptor_set=descriptor_set):
             logger.info(
                 f"Found existing descriptor set {descriptor_set}: {existing_properties}")
-            
+
             update_required = False
 
             # Verify that the existing descriptor set matches the requested parameters

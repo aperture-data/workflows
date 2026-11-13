@@ -53,10 +53,10 @@ erDiagram
 sequenceDiagram
     participant W as Text Embeddings
     participant A as ApertureDB instance
-    W->>A: FindEntity (SegmentationSpec)<br/>AddEntity (EmbeddingsSpec)<br/>AddDescriptorSet<br/>CreateIndex (various)
+    W->>A: FindEntity (SegmentationSpec)<br/>AddEntity (EmbeddingsSpec)<br/>CreateIndex (vector)<br/>CreateIndex (various)
     W->>A: FindEntity (SegmentationSpec)<br/>FindEntity (Segment)
     loop For each segment
-        W->>A: FindEntity (EmbeddingsSpec)<br/>FindEntity (Segment)<br/>AddDescriptor <br/> AddConnection 
+        W->>A: FindEntity (EmbeddingsSpec)<br/>FindEntity (Segment)<br/>AddDescriptor <br/> AddConnection
     end
     W->>A: FindEntity (EmbeddingsSpec)<br/>AddEntity (EmbeddingsRun)<br/>FindDescriptor<br/>AddConnection
 ```
@@ -75,7 +75,7 @@ docker run \
            aperturedata/workflows-text-embeddings
 ```
 
-Parameters: 
+Parameters:
 * **`WF_LOG_LEVEL`**: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default WARNING.
 * **`WF_INPUT`**: The segmentation spec identifier to use. Required unless deleting.
 * **`WF_OUTPUT`**: The embeddings spec identifier to use. Defaults to UUID.

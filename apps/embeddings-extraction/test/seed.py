@@ -51,15 +51,8 @@ def create_test_images(client, image_dir):
             expected_text = image_text_mapping.get(image_file, "")
 
             # Add image to database
-            query.append({
-                "AddImage": {
-                    "properties": {
-                        "filename": image_file,
-                        "expected_text": expected_text,
-                        "corpus": basename,
-                    }
-                }
-            })
+            query.append({'AddImage': {'class': 'Images', 'properties': {
+                         'filename': image_file, 'expected_text': expected_text, 'corpus': basename}}})
 
             blobs.append(image_data)
 
@@ -114,16 +107,11 @@ def create_test_pdfs(client, pdf_dir):
             expected_text = text_mapping.get(pdf_file, "")
 
             # Add PDF blob to database with expected text
-            query.append({
-                "AddBlob": {
-                    "properties": {
-                        "content_type": "application/pdf",
-                        "filename": pdf_file,
-                        "expected_text": expected_text,
-                        "corpus": basename,
-                    }
-                }
-            })
+            query.append({'AddBlob': {'class': 'Blobs',
+                                      'properties': {'content_type': 'application/pdf',
+                                                     'filename': pdf_file,
+                                                     'expected_text': expected_text,
+                                                     'corpus': basename}}})
             blobs.append(pdf_data)
 
         except Exception as e:
@@ -136,12 +124,14 @@ def create_test_pdfs(client, pdf_dir):
     else:
         print(f"No PDFs were created from {pdf_dir}")
 
+
 def create_test_videos(client, video_csv):
     """Create test videos from the specified directory."""
     print(f"Creating videos from {video_csv}...")
-    data = VideoDataCSV(filename=video_csv)
+    data = VideoDataCSV(filename=video_csv, class_name='Videos')
     loader = ParallelLoader(client=client)
     loader.ingest(data, batchsize=1, numthreads=1, stats=True)
+
 
 def print_schema(client):
     """Print the schema of the database."""

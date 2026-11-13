@@ -2,13 +2,11 @@ import pytest
 from aperturedb.CommonLibrary import execute_query
 import pandas as pd
 from common import (
-    db_connection, 
-    calculate_text_scores, 
+    db_connection,
+    calculate_text_scores,
     create_text_comparison_dataframe,
     assert_score_threshold
 )
-
-
 
 
 @pytest.fixture(scope="module")
@@ -17,25 +15,17 @@ def run_query(db_connection):
     query = [
         {
             "FindBlob": {
-                "constraints": ["all", ["$_mime_type", "==", "application/pdf"],
-                                ["$corpus", "==", "text"]],
-                "results": {
-                    "list": ["filename", "_uniqueid", "expected_text", "corpus"]
-                },
-                "_ref": 1,
-            }
-        },
-        {
-            "FindDescriptor": {
-                "is_connected_to": {"ref": 1},
-                "group_by_source": True,
-                "results": {
-                    "list": ["_uniqueid", "text", "type", "source_type"]
-                },
-                "_ref": 2,
-            }
-        }
-    ]
+                'constraints': [
+                    'all', [
+                        '$_mime_type', '==', 'application/pdf'], [
+                        '$corpus', '==', 'text']], 'results': {
+                            'list': [
+                                'filename', '_uniqueid', 'expected_text', 'corpus']}, '_ref': 1, 'uniqueids': True}}, {
+                                    "FindDescriptor": {
+                                        'is_connected_to': {
+                                            'ref': 1}, 'group_by_source': True, 'results': {
+                                                'list': [
+                                                    '_uniqueid', 'text', 'type', 'source_type']}, '_ref': 2, 'uniqueids': True}}]
 
     status, response, _ = execute_query(db_connection, query)
 

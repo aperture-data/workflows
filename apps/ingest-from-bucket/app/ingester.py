@@ -1,4 +1,5 @@
 #!/bin/env python3
+from aperturedb.Constraints import predicate
 # ingester.py - traverses a cloud bucket and finds matching items
 
 import pandas as pd
@@ -10,7 +11,7 @@ import logging
 from typing import Iterator, Optional, Tuple
 
 import utils
-from provider import Provider,CustomSources
+from provider import Provider, CustomSources
 
 from aperturedb.Query import ObjectType
 from aperturedb.ImageDataCSV import ImageDataCSV
@@ -22,9 +23,10 @@ from aperturedb.CommonLibrary import execute_query
 mimetypes.init()
 
 logger = logging.getLogger(__name__)
-IMAGE_TYPES_TO_LOAD = ['image/png', 'image/jpeg'] 
-DOC_TYPES_TO_LOAD = ['application/pdf' ]
+IMAGE_TYPES_TO_LOAD = ['image/png', 'image/jpeg']
+DOC_TYPES_TO_LOAD = ['application/pdf']
 VIDEO_TYPES_TO_LOAD = ['video/mp4']
+
 
 class MergeData:
     def __init__(self,properties_df:pd.DataFrame, all_blobs=True, error_missing = False):
@@ -35,6 +37,8 @@ class MergeData:
 # Ingester - uses provider to retrieve list of files, creates dataframe,
 #  and passes to appropriate CSVLoader
 # This is the base class, each subclass configures the loader and filter.
+
+
 class Ingester:
     # guess_types - don't download each file to determine the type - do this
     # based off extension.
@@ -52,22 +56,28 @@ class Ingester:
 
     def get_object_types(self):
         return self.multiple_objects if self.multiple_objects else [ self.object_type]
+
     def set_add_object_paths(self,add_object_paths:bool ):
         self.add_object_paths = add_object_paths
 
     def set_merge_data(self,merge_data: MergeData):
         self.merge_data = merge_data
+
     def set_workflow_id(self,id):
         self.workflow_id = id
+
     def set_check_for_existing(self,check):
         self.check_for_existing = check
+
     def set_maximum_object_count(self,count):
         self.maximum_object_count = count
 
     def prepare(self):
         raise NotImplementedError("Base Class")
+
     def load(self):
         raise NotImplementedError("Base Class")
+
     def execute_query(self,db,
                       query: Iterator[dict],
                       blobs: Optional[Iterator[bytes]] = [],
@@ -85,43 +95,36 @@ class Ingester:
         )
         return results, result_blobs
 
-    def find_existing(self,db,hashes):
+    def find_existing(self, db, hashes):
 
         cnt = len(hashes)
-        chunk=500
-        real_type="None"
+        chunk = 500
+        real_type = "None"
         logger.info(f"Finding Existing with list of {cnt}")
         found_hashes = []
         for t in self.get_object_types():
             real_type = "Blob" if t == "_Document" else t[1:]
-            for i in range(0,cnt,chunk):
-                end = (i+chunk if i + chunk <  cnt else cnt)
-                q = [{f"Find{real_type}": {
-                        "constraints": {
-                            "wf_sha1_hash": ["in" , hashes[i:end]]
-                            },
-                        "results": {
-                            "list": ["wf_sha1_hash"]
-                        }
-                    }
-                }]
-                #print(q)
-                r,_ = self.execute_query(db,q)
-                if isinstance(r,list):
+            for i in range(0, cnt, chunk):
+                end = (i+chunk if i + chunk < cnt else cnt)
+                q = [{f'Find{real_type}': {'constraints': predicate(
+                    'wf_sha1_hash', 'in', hashes[i:end]), 'results': {'list': ['wf_sha1_hash']}}}]
+                # print(q)
+                r, _ = self.execute_query(db, q)
+                if isinstance(r, list):
                     find = r[0][f"Find{real_type}"]
                     if find['returned'] == 0:
                         continue
                     ents = find["entities"]
-                    found_hashes.extend( [ e["wf_sha1_hash"] for e in ents ] ) 
+                    found_hashes.extend([e["wf_sha1_hash"] for e in ents])
 
-        existing = pd.DataFrame( found_hashes , columns=["wf_sha1_hash"])
+        existing = pd.DataFrame(found_hashes, columns=["wf_sha1_hash"])
 
-        merged = self.df.merge(existing,on="wf_sha1_hash",indicator=True,how='left')
-        exist_count =  merged[ merged["_merge"] != "left_only" ].shape[0]
-        missing_count =  merged[ merged["_merge"] == "left_only" ].shape[0]
+        merged = self.df.merge(existing, on="wf_sha1_hash", indicator=True, how='left')
+        exist_count = merged[merged["_merge"] != "left_only"].shape[0]
+        missing_count = merged[merged["_merge"] == "left_only"].shape[0]
         logger.info(f"exist count = {exist_count} missing_count = {missing_count}")
-        df = merged[ merged["_merge"] == "left_only" ]
-        return df.drop("_merge",axis=1).reset_index(drop=True)
+        df = merged[merged["_merge"] == "left_only"]
+        return df.drop("_merge", axis=1).reset_index(drop=True)
 
     def generate_df(self, paths ):
         bucket = self.source.bucket_name()
@@ -134,15 +137,15 @@ class Ingester:
         objects = []
         for path in paths:
             url = "{}//{}/{}".format(scheme,bucket,path)
-            full_path = "{}/{}".format(bucket, path) 
-            object_hash = utils.hash_string(url) 
+            full_path = "{}/{}".format(bucket, path)
+            object_hash = utils.hash_string(url)
             full.append([path,url, object_hash, load_time ])
             objects.append(full_path)
         df = pd.DataFrame(
                 columns = ['filename',url_column_name,'wf_sha1_hash','wf_ingest_date'],
                 data=full)
-        df['wf_creator'] =  "bucket_ingestor" 
-        df['wf_creator_key'] = utils.generate_bucket_hash( scheme,bucket) 
+        df['wf_creator'] =  "bucket_ingestor"
+        df['wf_creator_key'] = utils.generate_bucket_hash( scheme,bucket)
         df['constraint_wf_sha1_hash'] = df['wf_sha1_hash']
         df['adb_mime_type'] =df[ url_column_name].apply(set_mime_type)
         if self.add_object_paths:
@@ -162,7 +165,7 @@ class Ingester:
                 if len(self.merge_data.index) != len(merged.index):
                     raise Exception('Error in missing, property items lost on merge ( missing blobs )')
             df = merged.reset_index(drop=True)
-                
+
         df.drop('filename',inplace=True,axis=1)
         return df
 
@@ -170,6 +173,7 @@ class Ingester:
 class ImageIngester(Ingester):
     def __init__(self, source: Provider, guess_types=True , add_object_paths=False):
         super(ImageIngester,self).__init__(ObjectType.IMAGE.value,source,guess_types)
+
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -178,20 +182,21 @@ class ImageIngester(Ingester):
             return False
         paths = self.source.scan( object_filter )
         self.df = super(ImageIngester,self).generate_df(paths)
-    def load(self,db):
+
+    def load(self, db):
         logger.info("Images ready to load")
         if self.maximum_object_count is not None:
-            self.df = self.df.head( self.maximum_object_count )
+            self.df = self.df.head(self.maximum_object_count)
         if self.check_for_existing:
             self.df = self.find_existing(db, self.df["wf_sha1_hash"].tolist())
             if len(self.df.index) == 0:
                 logger.warning("No items to load after checking db for matches")
                 return True
-        csv_data = ImageDataCSV( filename=None,df=self.df)
-        csv_data.sources = CustomSources( self.source )
+        csv_data = ImageDataCSV(filename=None, df=self.df, class_name='Images')
+        csv_data.sources = CustomSources(self.source)
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
-                numthreads=4)
+                      numthreads=4)
         cnt = len(self.df.index)
         noun = "image" if cnt == 1 else "images"
         print(f"Finished uploading {cnt} {noun}")
@@ -200,6 +205,7 @@ class ImageIngester(Ingester):
 class VideoIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
         super(VideoIngester,self).__init__(ObjectType.VIDEO.value,source,guess_types)
+
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -209,13 +215,14 @@ class VideoIngester(Ingester):
         paths = self.source.scan( object_filter )
         self.df = super(VideoIngester,self).generate_df(paths)
         print(self.df)
-    def load(self,db):
+
+    def load(self, db):
         print("Ready to load videos")
-        csv_data = VideoDataCSV( filename=None,df=self.df)
-        csv_data.sources = CustomSources( self.source )
+        csv_data = VideoDataCSV(filename=None, df=self.df, class_name='Videos')
+        csv_data.sources = CustomSources(self.source)
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
-                numthreads=4)
+                      numthreads=4)
         cnt = len(self.df.index)
         noun = "video" if cnt == 1 else "videos"
         print(f"Finished uploading {cnt} {noun}")
@@ -225,6 +232,7 @@ HEADER_PATH = "filename"
 HEADER_URL = "url"
 HEADER_S3_URL = "s3_url"
 HEADER_GS_URL = "gs_url"
+
 
 class FixedBlobDataCSV(BlobDataCSV):
     def __init__(self, filename: str, check_image: bool = True, n_download_retries: int = 3, **kwargs):
@@ -244,7 +252,6 @@ class FixedBlobDataCSV(BlobDataCSV):
         self.source_type = self.header[0]
         self.check_buffer = lambda buf: True
 
-
     def getitem(self, idx):
         idx = self.df.index.start + idx
 
@@ -262,7 +269,6 @@ class FixedBlobDataCSV(BlobDataCSV):
 
         return q, [blob]
 
-
     def load_url(self, url):
         return self.sources.load_from_http_url(url, self.check_buffer)
 
@@ -272,20 +278,21 @@ class FixedBlobDataCSV(BlobDataCSV):
     def load_gs_url(self, gs_url):
         return self.sources.load_from_gs_url(gs_url, self.check_buffer)
 
-
     def validate(self):
 
         self.header = list(self.df.columns.values)
-    
+
         if self.header[0] not in self.source_types:
             field = self.header[0]
             allowed = ", ".join(self.source_types)
             raise Exception(
                 f"Error with CSV file field: {field}. Allowed values: {allowed}")
 
+
 class DocumentIngester(Ingester):
     def __init__(self, source:Provider, guess_types=True):
         super(DocumentIngester,self).__init__("_Document",source,guess_types)
+
     def prepare(self):
         def object_filter(bucket_path):
             object_type = mimetypes.guess_type(bucket_path)[0]
@@ -294,25 +301,26 @@ class DocumentIngester(Ingester):
             return False
         paths = self.source.scan( object_filter )
         self.df = super(DocumentIngester,self).generate_df(paths)
-    def load(self,db):
+
+    def load(self, db):
         print("Ready to load documents")
         if self.check_for_existing:
-            existing = self.find_existing(db, self.df['wf_sha1_hash'].tolist() )
-            merged = self.df.merge(existing,on="wf_sha1_hash",indicator=True,how='left')
+            existing = self.find_existing(db, self.df['wf_sha1_hash'].tolist())
+            merged = self.df.merge(existing, on="wf_sha1_hash", indicator=True, how='left')
             print(merged)
-            exist_count =  merged[ merged["_merge"] != "left_only" ].shape[0]
-            missing_count =  merged[ merged["_merge"] == "left_only" ].shape[0]
+            exist_count = merged[merged["_merge"] != "left_only"].shape[0]
+            missing_count = merged[merged["_merge"] == "left_only"].shape[0]
             print(f"exist count = {exist_count} missing_count = {missing_count}")
-            self.df = merged[ merged["_merge"] != "left_only" ]
-            self.df.drop("_merge",inplace=True,axis=1)
+            self.df = merged[merged["_merge"] != "left_only"]
+            self.df.drop("_merge", inplace=True, axis=1)
             if len(self.df.index) == 0:
                 logger.warning("No items to load after checking db for matches")
                 return True
-        csv_data = FixedBlobDataCSV( filename=None,df=self.df)
-        csv_data.sources = CustomSources( self.source )
+        csv_data = FixedBlobDataCSV(filename=None, df=self.df, class_name='Blobs')
+        csv_data.sources = CustomSources(self.source)
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
-                numthreads=4)
+                      numthreads=4)
         cnt = len(self.df.index)
         noun = "document" if cnt == 1 else "documents"
         print(f"Finished uploading {cnt} {noun}")
@@ -328,55 +336,57 @@ class EntityIngester(Ingester):
             [m.value for m in ObjectType])) + [ "_Document", "_Pdf" ]
 
         self.handled_types = [ "_Image","_Video","_Pdf","_Document" ]
+
     def prepare(self):
-        import pathlib 
+        import pathlib
+
         def object_filter(bucket_path):
             return bucket_path.endswith(".adb.csv")
-        paths = self.source.scan( object_filter )
-        for path in map( pathlib.Path, paths):
+        paths = self.source.scan(object_filter)
+        for path in map(pathlib.Path, paths):
             prefix = path.name[:-1 * len(".adb.csv")]
             known_type = None
             for obj in self.known_objects:
                 if prefix == obj.lower() or prefix == obj \
-                    or prefix == obj[1:].lower() or prefix == obj[1:] :
+                        or prefix == obj[1:].lower() or prefix == obj[1:]:
                     known_type = obj
 
             # ensure it isn't polygon or _Polygon.
-            if known_type and not known_type in self.handled_types:
-                    print(f"Skipping {path}, it is a known object type"\
-                    f" ({known_type}) that we don't support.")
-                    continue
+            if known_type and known_type not in self.handled_types:
+                print(f"Skipping {path}, it is a known object type"
+                      f" ({known_type}) that we don't support.")
+                continue
 
             from io import BytesIO
             bucket = self.source.bucket_name()
             scheme = self.source.url_scheme_name()
-            url = "{}//{}/{}".format(scheme,bucket,path)
+            url = "{}//{}/{}".format(scheme, bucket, path)
             df = None
             print(f"Loading url {url} for properties for {known_type}")
-            with BytesIO( self.sources.load_object( url )) as csv_fd:
-                df = pd.read_csv( csv_fd )
+            with BytesIO(self.sources.load_object(url)) as csv_fd:
+                df = pd.read_csv(csv_fd)
             if not known_type:
                 if df.columns[0] != 'EntityClass':
                     raise Exception("First Column in Entity CSV was not 'EntityClass'")
                 self.entities.append(df)
                 if not self.multiple_objects:
                     self.multiple_objects = []
-                self.multiple_objects.append( list(df['EntityClass'].unique()))
+                self.multiple_objects.append(list(df['EntityClass'].unique()))
             else:
-                if known_type in ["_Pdf","_Document"]:
+                if known_type in ["_Pdf", "_Document"]:
                     known_type = "_Document"
                     self.merges[known_type] = df
 
-
         if self.multiple_objects:
-            self.multiple_objects = list(set( self.multiple_objects))
+            self.multiple_objects = list(set(self.multiple_objects))
+
     def get_merge(self,object_type):
         print(f"GM {object_type} in {self.merges.keys()}")
         if object_type in self.merges:
             return self.merges[object_type]
         return None
 
-    def load(self,db):
+    def load(self, db):
         print("Ready to load entities")
         if len(self.entities) == 0:
             if len(self.merges) > 0:
@@ -384,11 +394,11 @@ class EntityIngester(Ingester):
             else:
                 logger.warning("No Entities were found to be loaded")
         return
-        csv_data = FixedBlobDataCSV( filename=None,df=self.df)
-        csv_data.sources = CustomSources( self.source )
+        csv_data = FixedBlobDataCSV(filename=None, df=self.df, class_name='Blobs')
+        csv_data.sources = CustomSources(self.source)
         loader = ParallelLoader(db)
         loader.ingest(csv_data, batchsize=100,
-                numthreads=4)
+                      numthreads=4)
         cnt = len(self.df.index)
         noun = "entity" if cnt == 1 else "entities"
         print(f"Finished uploading {cnt} {noun}")

@@ -8,6 +8,8 @@ from typing import Any
 DATABASE_NAME = os.getenv("SQL_NAME", "aperturedb")
 
 # List of schemas to test for read-only access
+
+
 @dataclass
 class Schema:
     schema: str
@@ -25,7 +27,7 @@ class Schema:
     def maybe_foreign(self):
         return "FOREIGN " if self.foreign else ""
 
-    @property 
+    @property
     def is_writable(self):
         return self.table is not None and not self.foreign
 
@@ -35,15 +37,15 @@ class Schema:
     def __repr__(self):
         return self.schema
 
+
 SCHEMAS = [
     Schema(schema="public", table=None, foreign=False, column=None, empty=True),
     Schema(schema="pg_catalog", table="pg_authid", foreign=False, column="rolname"),
     Schema(schema="descriptor", table="TestText_0", foreign=True, column="_uniqueid"),
     Schema(schema="entity", table="TestRow", foreign=True, column="_uniqueid"),
     Schema(schema="connection", table="edge", foreign=True, column="_uniqueid"),
-    Schema(schema="system", table="Image", foreign=True, column="_uniqueid"),
+    Schema(schema="system", table="image:Images", foreign=True, column="_uniqueid"),
 ]
-
 
 
 @pytest.fixture(scope="session")

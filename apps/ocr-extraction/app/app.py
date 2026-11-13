@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 import os
 from typing import Literal
 import logging
@@ -22,38 +23,22 @@ logger = logging.getLogger(__name__)
 
 
 def clean_embeddings(db):
-
-    print("Cleaning Embeddings...")
-
-    db.query([{
-        "DeleteDescriptorSet": {
-            "with_name": IMAGE_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
-        "DeleteDescriptorSet": {
-            "with_name": PDF_EXTRACTION_DESCRIPTOR_SET
-        }
-    }, {
-        "UpdateImage": {
-            "constraints": {
-                IMAGE_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [IMAGE_EXTRACTION_DONE_PROPERTY]
-        }
-    }, {
-        "UpdateBlob": {
-            "constraints": {
-                PDF_EXTRACTION_DONE_PROPERTY: ["!=", None]
-            },
-            "remove_props": [PDF_EXTRACTION_DONE_PROPERTY]
-        }
-    }, {
-        "DeleteEntity": {
-            "with_class": "ExtractedText",
-        }
-    },
-    ])
-
+    from aperturedb.Utils import Utils
+    utils = Utils(db)
+    if not utils.remove_descriptorset(IMAGE_EXTRACTION_DESCRIPTOR_SET):
+        raise RuntimeError("Could not remove descriptor class")
+    if not utils.remove_descriptorset(PDF_EXTRACTION_DESCRIPTOR_SET):
+        raise RuntimeError("Could not remove descriptor class")
+    print('Cleaning Embeddings...')
+    db.query([{'UpdateImage': {'constraints': predicate(IMAGE_EXTRACTION_DONE_PROPERTY,
+                                                        '!=',
+                                                        None),
+                               'remove_props': [IMAGE_EXTRACTION_DONE_PROPERTY]}},
+              {'UpdateBlob': {'constraints': predicate(PDF_EXTRACTION_DONE_PROPERTY,
+                                                       '!=',
+                                                       None),
+                              'remove_props': [PDF_EXTRACTION_DONE_PROPERTY]}},
+              {'DeleteEntity': {'with_class': 'ExtractedText'}}])
     db.print_last_response()
 
 

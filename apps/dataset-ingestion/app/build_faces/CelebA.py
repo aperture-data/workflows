@@ -1,9 +1,11 @@
+from aperturedb.Constraints import predicate
 import os
 import pandas as pd
 import time
 import argparse
 
 from aperturedb.Subscriptable import Subscriptable
+
 
 class CelebA(Subscriptable):
     def __init__(self, cli_args):
@@ -22,18 +24,12 @@ class CelebA(Subscriptable):
         p["crop"] = False
         q = [
             {
-                "AddImage": {
-                    "_ref": 1,
-                    "if_not_found": {
-                        "image_id": ["==", p["image_id"]],
-                        "crop": ["==", False]
-                    },
-                    "properties": {
-                        c: p[c] for c in p.keys()
-                    },
-                }
-            }
-        ]
+                'AddImage': {
+                    'class': 'Images', '_ref': 1, 'if_not_found': [
+                        'all', predicate(
+                            'image_id', '==', p['image_id']), predicate(
+                            'crop', '==', False)], 'properties': {
+                        c: p[c] for c in p.keys()}}}]
 
         img_align_path = os.path.join(self.images_align_root, p["image_id"])
         blob_align = open(img_align_path, "rb").read()
@@ -56,6 +52,7 @@ class CelebA(Subscriptable):
 
         df.to_csv(filename, index=False)
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-R", "--images_align_root", type=str,
@@ -65,6 +62,7 @@ def parse_args():
     parser.add_argument("-B", "--bbox_file", type=str,
                         default="input/list_bbox_celeba.txt", help="Bounding box file")
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     start = time.time()

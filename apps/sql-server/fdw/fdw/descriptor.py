@@ -1,6 +1,6 @@
 # This module populates the descriptor schema for ApertureDB.
-# This schema contains a table for each descriptor set,
-# and hence every AQL query includes `set`.
+# This schema contains a table for each descriptor class,
+# and hence every AQL query includes `with_class`.
 # These tables support find-similar queries.
 #
 # SELECT * FROM descriptor."crawl-to-rag"
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def descriptor_set_supports_find_similar(properties: dict) -> bool:
     """
-    Check if the descriptor set supports find-similar queries.
+    Check if the descriptor class supports find-similar queries.
     This is determined by the presence of properties that allow embedding.
     """
     return all(properties.get(x)
@@ -36,9 +36,9 @@ def descriptor_set_supports_find_similar(properties: dict) -> bool:
 
 def descriptor_schema() -> List[TableDefinition]:
     """
-    Return the descriptor set schema for ApertureDB.
+    Return the descriptor class schema for ApertureDB.
     This is used to create the foreign tables for descriptors.
-    Here we create a separate table for each descriptor set.
+    Here we create a separate table for each descriptor class.
     """
     logger.info("Creating descriptor schema")
     results = []
@@ -48,11 +48,11 @@ def descriptor_schema() -> List[TableDefinition]:
     for name, properties in descriptor_sets.items():
         table_name = name
 
-        # We switch the "find similar" feature on if the descriptor set
+        # We switch the "find similar" feature on if the descriptor class
         # has properties that allow us to find the correct embedding model.
         # Notionally we could allow direct vector queries regardless, but
         # this is a good heuristic to avoid unnecessary complexity.
-        find_similar = descriptor_set_supports_find_similar(properties)
+        find_similar = True  # Raw vectors work without a model; text/image need metadata.
 
         columns = property_columns_for_descriptors_in_set(name)
 
@@ -95,7 +95,9 @@ def descriptor_schema() -> List[TableDefinition]:
             command="FindDescriptor",
             result_field="entities",
             modify_query=Curry(
-                literal, {"set": name, "distances": True}),
+                vector_selector, {"with_class": name, "distances": True,
+                                  "engine": next(engine for key, engine in (("flat", "Flat"), ("ivf", "IVF"), ("hnsw", "HNSW"), ("acorn", "ACORN")) if key in properties["_engines"]),
+                                  "metric": properties["_metrics"][0] if isinstance(properties["_metrics"], list) else properties["_metrics"]}),
             path_keys=path_keys,
         )
 
@@ -112,46 +114,22 @@ def descriptor_schema() -> List[TableDefinition]:
     return results
 
 
-def get_descriptor_sets() -> dict:
-    """
-    Get the descriptor sets from the environment variable.
-    This is used to create the foreign tables for descriptor sets.
-    """
-    query = [{"FindDescriptorSet": {"results": {"all_properties": True},
-                                    "counts": True, "engines": True, "dimensions": True, "metrics": True}}]
-    _, response, _ = execute_query(query)
-    if "entities" not in response[0]["FindDescriptorSet"]:
-        return {}
-
-    results = {
-        e['_name']: e for e in response[0]["FindDescriptorSet"]["entities"]
-    }
-    return results
+def get_descriptor_sets():
+    """Read vector definitions and retain model/fingerprint customer metadata."""
+    status, response, _ = execute_query(
+        [{"GetIndexes": {"target": "descriptor", "kind": "vector"}}])
+    if status != 0:
+        raise RuntimeError(f"Cannot read descriptor vector definitions: {response}")
+    classes = get_classes("entities")
+    return {index["class"]: {**index.get("metadata", {}),
+                             "_dimensions": index["params"]["dimensions"], "_metrics": index["params"]["metric"],
+                             "_engines": index["params"]["engines"],
+                             "_count": classes.get("descriptor:" + index["class"], {}).get("matched", 0)}
+            for index in response[0]["GetIndexes"].get("indexes", [])}
 
 
-def property_columns_for_descriptors_in_set(name: str) -> List[ColumnDefinition]:
-    """
-    Get the property columns for a specific descriptor set.
-    """
-    query = [{
-        "FindDescriptor": {
-            "set": name,
-            "_ref": 1
-        }
-    }, {
-        "GetSchema": {
-            "ref": 1
-        }
-    }]
-
-    _, response, _ = execute_query(query)
-
-    classes = get_classes("entities", response[1]["GetSchema"])
-    properties = classes.get("_Descriptor", {})
-
-    columns = property_columns(properties)
-
-    return columns
+def property_columns_for_descriptors_in_set(name):
+    return property_columns(get_classes("entities").get("descriptor:" + name, {}))
 
 
 def find_similar_modify_command_body(
@@ -174,7 +152,7 @@ def find_similar_modify_command_body(
         raise ValueError(
             f"Invalid find_similar format: {find_similar}. Expected an object.")
 
-    include_list = {"k_neighbors", "knn_first"}
+    include_list = {"k_neighbors", "knn_first", "engine", "metric"}
     extra = {k: v for k, v in find_similar.items(
     ) if k in include_list and v is not None}
     command_body.update(extra)
@@ -187,8 +165,8 @@ def find_similar_query_blobs(
     Generates vector data for find similar operations.
 
     Args:
-        properties: The properties of the descriptor set.
-        descriptor_set: The name of the descriptor set.
+        properties: The properties of the descriptor class.
+        descriptor_set: The name of the descriptor class.
         value: JSON string generated from the FIND_SIMILAR SQL function
 
     Returns:
@@ -241,6 +219,15 @@ def find_similar_query_blobs(
                 "find_similar must have one of 'text', 'image', or 'vector' to embed.")
         elapsed_time = datetime.now() - start_time
         logger.debug(
-            f"Embedding took {elapsed_time.total_seconds()} seconds for descriptor set {descriptor_set}")
+            f"Embedding took {elapsed_time.total_seconds()} seconds for descriptor class {descriptor_set}")
 
     return [vector]  # Return as a list of one blob
+
+
+def vector_selector(parameters, query):
+    body = next(iter(query[0].values()))
+    for key, value in parameters.items():
+        if key == "with_class":
+            body[key] = value
+        else:
+            body.setdefault(key, value)

@@ -1,3 +1,15 @@
+# Server compatibility
+
+These workflow images target ApertureDB server 1.0 and Python SDK 1.0 or later.
+Rebuild the shared base image and each application image together when upgrading.
+Media ingestion uses explicit Images, Videos, Blobs, BoundingBoxes and Polygons
+classes. Embedding search spaces are descriptor classes with native vector indexes;
+model identity and fingerprints are stored in index metadata.
+
+Extraction, OCR, captioning and face detection capture stable object IDs before
+parallel processing, so completion updates cannot skip later batches. Text jobs
+page fixed input selections with ordinary offset/limit queries.
+
 # Workflows
 
 ApertureDB Workflows make it easy to perform certain common tasks, like ingesting datasets and adding embeddings or bounding boxes.
@@ -79,3 +91,15 @@ or invoke it from the workflow directory:
 cd apps/rag
 ../build.sh
 ```
+
+## Existing data and generated files
+
+These applications target server 1.0. Updating code does not rename stored
+application classes. Inspect `GetSchema` (`nodes` and `edges`) before reusing an
+existing database: converted built-in categories have names such as `Image`,
+`Video` and `Blob`, while these examples use explicit application classes. On a
+dedicated application database, use the native `RenameClass` command to align
+those categories with the configured names, or reingest through the updated
+loaders. Shared databases need an application-specific export/reingestion plan.
+Regenerate connection CSVs and cached identifiers against the native schema;
+old `_Image@...`/`_Descriptor@...` headers do not identify native categories.

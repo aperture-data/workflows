@@ -1,3 +1,4 @@
+from aperturedb.DescriptorEngines import engines_object
 from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 from itertools import product
@@ -13,7 +14,7 @@ def load_entity_testdata(client):
     Create some test data for entity schema tests.
     """
     query = []
-    
+
     # Create some entities with different classes
     for i in range(10):
         query.append({"AddEntity": {
@@ -23,7 +24,7 @@ def load_entity_testdata(client):
                 "age": 20 + i,
             }
         }})
-    
+
     for i in range(5):
         query.append({"AddEntity": {
             "class": "Company",
@@ -32,7 +33,7 @@ def load_entity_testdata(client):
                 "employees": 100 + i * 50,
             }
         }})
-    
+
     execute_query(client, query)
 
 
@@ -41,7 +42,7 @@ def load_connection_testdata(client):
     Create some test data for connection schema tests.
     """
     query = []
-    
+
     # Create entities and connections
     for i in range(5):
         query.append({"AddEntity": {
@@ -60,7 +61,7 @@ def load_connection_testdata(client):
             "class": "WorksAt",
             "properties": {"since": 2020 + i}
         }})
-    
+
     execute_query(client, query)
 
 
@@ -118,19 +119,17 @@ def load_text_descriptors_testdata(client):
 
     for i, model in enumerate(TEXT_MODELS):
         set_name = f"TestText_{i}"
-        query.append({
-            "AddDescriptorSet": {
-                "name": set_name,
-                "properties": {
-                    "description": "Test set for descriptor suite",
-                    "embeddings_provider": model["provider"],
-                    "embeddings_model": model["model"],
-                    "embeddings_pretrained": model["corpus"],
-                },
-                "dimensions": model["dimensions"],
-                "metric": "CS",
-            }
-        })
+        query.append({'CreateIndex': {'target': 'descriptor',
+                                      'class': set_name,
+                                      'property': '_blob',
+                                      'kind': 'vector',
+                                      'params': {'dimensions': model['dimensions'],
+                                                 'metric': 'CS',
+                                                 'engines': engines_object('HNSW')},
+                                      'metadata': {'description': 'Test set for descriptor suite',
+                                                   'embeddings_provider': model['provider'],
+                                                   'embeddings_model': model['model'],
+                                                   'embeddings_pretrained': model['corpus']}}})
 
         # https://github.com/aperture-data/athena/issues/1738
         status, response, _ = execute_query(client, query, blobs)
@@ -140,15 +139,8 @@ def load_text_descriptors_testdata(client):
 
         for j, text in enumerate(TEXTS):
             embedding = random_embedding(model["dimensions"])
-            query.append({
-                "AddDescriptor": {
-                    "set": set_name,
-                    "properties": {
-                        "text": text,
-                        "url": f"https://example.com/doc_{j}",
-                    }
-                }
-            })
+            query.append({'AddDescriptor': {'class': set_name, 'properties': {
+                         'text': text, 'url': f'https://example.com/doc_{j}'}}})
             blobs.append(embedding)
 
     status, _, _ = execute_query(client, query, blobs)
@@ -166,14 +158,8 @@ def load_images_testdata(client):
 
     for i, image in enumerate(images):
         ref = len(query) + 1
-        query.append({
-            "AddImage": {
-                "_ref": ref,
-                "properties": {
-                    "title": f"Image_{i}",
-                }
-            }
-        })
+        query.append({'AddImage': {'class': 'Images', '_ref': ref,
+                     'properties': {'title': f'Image_{i}'}}})
         blobs.append(image)
 
     status, _, _ = execute_query(client, query, blobs)
@@ -209,7 +195,8 @@ if __name__ == "__main__":
     load_connection_testdata(client)
     status, _, _ = execute_query(client, [
         {"CreateIndex": {"target": "entity", "class": "Person", "property": "name", "kind": "ordered"}},
-        {"CreateIndex": {"target": "connection", "class": "WorksAt", "property": "since", "kind": "ordered"}},
+        {"CreateIndex": {"target": {"src_type": "entity", "dst_type": "entity"}, "class": "WorksAt",
+                         "src_class": "Person", "dst_class": "Company", "property": "since", "kind": "ordered"}},
         {"AddEntity": {"class": "Empty", "_ref": 1}},
         {"AddConnection": {"class": "Propertyless", "src": 1, "dst": 1}},
     ])
@@ -221,5 +208,3 @@ if __name__ == "__main__":
     _, results, _ = execute_query(client, [{"GetSchema": {}}])
 
     print("Loaded test data:", results)
-
-

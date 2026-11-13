@@ -71,7 +71,7 @@ class ColumnOptions(BaseModel):
         Convert ColumnOptions to a string dictionary.
         This is used to encode options for the foreign table column definition.
         """
-        return {"column_options": json.dumps(self.dict(), default=str)}
+        return {"column_options": json.dumps(self.model_dump(), default=str)}
 
     def path_keys(self, name: str) -> Iterator[PathKey]:
         """

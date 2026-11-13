@@ -1,4 +1,4 @@
-aperturedb
+aperturedb>=1.0.0
 pytest
 pytest-asyncio
 fastmcp

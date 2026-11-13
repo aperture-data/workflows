@@ -11,13 +11,16 @@ from pycocotools.coco import COCO
 
 RANDOM_SEED = 42
 
+
 def yfcc_url_to_id(url):
 
     return url.split("/")[-1].split("_")[0]
 
+
 def date_to_iso(date):
 
     return datetime.strptime(date, '%Y-%m-%d %H:%M:%S').isoformat()
+
 
 def generate_image_csv(imgs, im_list, path, op_path, stage, coco, conditional):
 
@@ -45,34 +48,37 @@ def generate_image_csv(imgs, im_list, path, op_path, stage, coco, conditional):
 
     return df["id"], df["yfcc_id"]
 
+
 def generate_pixel_mask_csv(imgs, seg_path, op_path, image_ids, stage, conditional):
 
     seg1_dfs = pd.DataFrame()
-    seg1_dfs["filename"] = [ seg_path + imgs[im]["file_name"].split('.')[0] + ".png"
-                             for im in image_ids ]
-    seg1_dfs["seg_id"]            = image_ids
+    seg1_dfs["filename"] = [seg_path + imgs[im]["file_name"].split('.')[0] + ".png"
+                            for im in image_ids]
+    seg1_dfs["seg_id"] = image_ids
     if conditional:
         seg1_dfs["constraint_seg_id"] = image_ids
-    seg1_dfs["corpus"]            = [stage for x in image_ids]
+    seg1_dfs["corpus"] = [stage for x in image_ids]
 
     fname = os.path.join(op_path, stage + "_pixelmaps.adb.csv")
     seg1_dfs.to_csv(fname, index=False)
 
     img_seg1_conn_dfs = pd.DataFrame()
     img_seg1_conn_dfs["ConnectionClass"] = ["segmentation" for x in image_ids]
-    img_seg1_conn_dfs["_Image@id"]       = image_ids
-    img_seg1_conn_dfs["_Image@seg_id"]   = image_ids
-    img_seg1_conn_dfs["id"]              = image_ids
+    img_seg1_conn_dfs["image:Images@id"] = image_ids
+    img_seg1_conn_dfs["image:Images@seg_id"] = image_ids
+    img_seg1_conn_dfs["id"] = image_ids
     if conditional:
-        img_seg1_conn_dfs["constraint_id"]   = image_ids
-    img_seg1_conn_dfs["corpus"]          = [stage for x in image_ids]
+        img_seg1_conn_dfs["constraint_id"] = image_ids
+    img_seg1_conn_dfs["corpus"] = [stage for x in image_ids]
 
     fname = os.path.join(op_path, stage + "_img_pixelmap_connections.adb.csv")
     img_seg1_conn_dfs.to_csv(fname, index=False)
 
+
 def check_bbox_coord(val):
 
     return int(val) if int(val) > 0 else 1
+
 
 def generate_bbox_csv(imgs, seg_path, op_path, image_ids, seg2_id, stage, coco, conditional):
 
@@ -109,11 +115,14 @@ def generate_bbox_csv(imgs, seg_path, op_path, image_ids, seg2_id, stage, coco, 
     fname = os.path.join(op_path, stage + "_bboxes.adb.csv")
     bbox_dfs.to_csv(fname, index=False)
 
+
 def _coco_polygon_to_adb_polygon(coco_poly, offset=(0.0,0.0)):
     return [[coco_poly[i]+offset[0],coco_poly[i+1]+offset[1]] for i in range(0,len(coco_poly),2)]
 
+
 def _coco_segmentation_to_adb_polygons(coco_seg, offset=(0.0,0.0)):
     return [_coco_polygon_to_adb_polygon(coco_poly,offset) for coco_poly in coco_seg]
+
 
 def generate_polygon_csv(op_path, image_ids, stage, coco, conditional):
 
@@ -154,6 +163,7 @@ def generate_polygon_csv(op_path, image_ids, stage, coco, conditional):
 
     return ann_ids
 
+
 def generate_descriptors_csv(descriptors_bin, op_path, stage, yfcc_ids, conditional):
 
     dtype = [('id', np.int64), ('descs', np.float32, (4096))]
@@ -173,29 +183,29 @@ def generate_descriptors_csv(descriptors_bin, op_path, stage, yfcc_ids, conditio
 
     df = pd.DataFrame()
 
-    df["filename"]  = [numpy_file for i in data["id"]]
-    df["index"]     = [i for i in range(len(data["id"]))]
-    df["set"]       = ["coco_descriptors" for i in data["id"]]
-    df["yfcc_id"]             = data["id"]
+    df["filename"] = [numpy_file for i in data["id"]]
+    df["index"] = [i for i in range(len(data["id"]))]
+    df["set"] = ["coco_descriptors" for i in data["id"]]
+    df["yfcc_id"] = data["id"]
     if conditional:
-        df["constraint_yfcc_id"]  = data["id"]
-    df["corpus"]              = [stage for _ in data["id"]]
+        df["constraint_yfcc_id"] = data["id"]
+    df["corpus"] = [stage for _ in data["id"]]
 
-    df.to_csv( os.path.join(op_path, stage + "_descriptors.adb.csv") , index=False)
+    df.to_csv(os.path.join(op_path, stage + "_descriptors.adb.csv"), index=False)
 
     # Connections
 
     df = pd.DataFrame()
 
-    df["ConnectionClass"]     = ["has_descriptor" for i in data["id"]]
-    df["_Image@yfcc_id"]      = data["id"]
-    df["_Descriptor@yfcc_id"] = data["id"]
-    df["yfcc_id"]             = data["id"]
+    df["ConnectionClass"] = ["has_descriptor" for i in data["id"]]
+    df["image:Images@yfcc_id"] = data["id"]
+    df["descriptor:coco_descriptors@yfcc_id"] = data["id"]
+    df["yfcc_id"] = data["id"]
     if conditional:
-        df["constraint_yfcc_id"]  = data["id"]
-    df["corpus"]              = [stage for _ in data["id"]]
+        df["constraint_yfcc_id"] = data["id"]
+    df["corpus"] = [stage for _ in data["id"]]
 
-    df.to_csv(os.path.join(op_path, stage + "_connections.adb.csv") , index=False)
+    df.to_csv(os.path.join(op_path, stage + "_connections.adb.csv"), index=False)
 
     return
 
@@ -243,6 +253,7 @@ def main(args):
 
     print("Done")
 
+
 def get_args():
     # https://stackoverflow.com/a/43357954
     def str2bool(v):
@@ -278,6 +289,7 @@ def get_args():
         params.sample = None
 
     return params
+
 
 if __name__ == "__main__":
     args = get_args()

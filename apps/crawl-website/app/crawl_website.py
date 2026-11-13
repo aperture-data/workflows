@@ -221,34 +221,16 @@ class ApertureDBPipeline:
         properties['id'] = str(uuid4())
         query = [
             {
-                "FindEntity": {
-                    "with_class": "CrawlSpec",
-                    "constraints": ["$id", "==", {"json": self.spec_id}],
-                    "_ref": 1,
-                }
-            },
-            {
-                "AddEntity": {
-                    "class": "CrawlDocument",
-                    "properties": properties,
-                    "connect": {
-                        "ref": 1,
-                        "class": "crawlSpecHasDocument",
-                        "direction": "in",
-                    },
-                    "_ref": 2,
-                },
-            },
-            {
-                "AddBlob": {
-                    "connect": {
-                        "ref": 2,
-                        "class": "crawlDocumentHasBlob",
-                        "direction": "in",
-                    },
-                }
-            },
-        ]
+                'FindEntity': {
+                    'with_class': 'CrawlSpec', 'constraints': [
+                        '$id', '==', {
+                            'json': self.spec_id}], '_ref': 1}}, {
+                        'AddEntity': {
+                            'class': 'CrawlDocument', 'properties': properties, 'connect': {
+                                'ref': 1, 'class': 'crawlSpecHasDocument', 'direction': 'in'}, '_ref': 2}}, {
+                                    'AddBlob': {
+                                        'class': 'Blobs', 'connect': {
+                                            'ref': 2, 'class': 'crawlDocumentHasBlob', 'direction': 'in'}}}]
 
         blobs = [item.blob]
 

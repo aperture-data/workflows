@@ -1,3 +1,4 @@
+from aperturedb.Constraints import predicate
 from text_extraction.text_extractor import TextExtractor
 from text_extraction.segmentation import TextSegmenter
 from text_extraction.schema import TextBlock, Segment
@@ -42,31 +43,32 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         self.embedder = embedder
         self.done_property = done_property
 
-        query = [{
-            "FindBlob": {
-                "constraints": ["all",
-                    ["$_mime_type", "==", "application/pdf"],
-                    ["$" + self.done_property, "!=", True]
-                ],
-                "results": {
-                    "count": True
-                }
-            }
-        }]
+        query = [{'FindBlob': {'constraints': ['all',
+                                               ['$_mime_type',
+                                                '==',
+                                                'application/pdf'],
+                                               ['$' + self.done_property,
+                                                '!=',
+                                                True]],
+                               'results': {'list': ['_uniqueid']},
+                               'uniqueids': True}}]
 
         status, response, _ = self.pool.execute_query(query)
         if status != 0:
             raise RuntimeError(f"FindBlob count query failed: {response}")
 
         try:
-            total_pdfs = response[0]["FindBlob"]["count"]
+            selection = response[0]["FindBlob"]
+            if "entities" not in selection and selection.get("returned") != 0:
+                raise RuntimeError(f"Invalid selection response: {response}")
+            self._selected_ids = tuple(e["_uniqueid"] for e in selection.get("entities", []))
+            total_pdfs = len(self._selected_ids)
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(
                 f"Invalid FindBlob count response: {response}") from exc
 
         if total_pdfs == 0:
             logger.warning("No PDFs to be processed. Continuing!")
-
 
         logger.info(f"Total PDFs to process: {total_pdfs}")
 
@@ -87,22 +89,13 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
         if idx < 0 or self.len <= idx:
             return None
 
-        query = [{
-            "FindBlob": {
-                "blobs": True,
-                "constraints": ["all",
-                    ["$_mime_type", "==", "application/pdf"],
-                    ["$" + self.done_property, "!=", True]
-                ],
-                "batch": {
-                    "batch_size": self.batch_size,
-                    "batch_id": idx
-                },
-                "results": {
-                    "list": ["_uniqueid", "url"]
-                }
-            }
-        }]
+        query = [{'FindBlob': {'blobs': True,
+                               'constraints': predicate('_uniqueid',
+                                                        'in',
+                                                        self._selected_ids[idx * self.batch_size:(idx + 1) * self.batch_size]),
+                               'results': {'list': ['_uniqueid',
+                                                    'url']},
+                               'uniqueids': True}}]
 
         return query, []
 
@@ -157,7 +150,7 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                          for i in response[0]["FindBlob"]["entities"]]
             urls = [i["url"] if "url" in i else None
                     for i in response[0]["FindBlob"]["entities"]]
-        except:
+        except BaseException:
             logger.exception(f"error: {response}")
             return 0
 
@@ -168,14 +161,8 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
             for segment_batch in batch(segments_and_embeddings, 100):
                 query = []
                 vectors = []
-                query.append({
-                    "FindBlob": {
-                        "_ref": 1,
-                        "constraints": {
-                            "_uniqueid": ["==", uniqueid]
-                        },
-                    }
-                })
+                query.append(
+                    {'FindBlob': {'_ref': 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
 
                 for segment, embedding, number in segment_batch:
                     blob_segments += 1
@@ -198,29 +185,16 @@ class FindPDFQueryGenerator(QueryGenerator.QueryGenerator):
                         segment_url = segment.url(url)
                         properties["url"] = segment_url
 
-                    query.append({
-                        "AddDescriptor": {
-                            "set": self.embedder.descriptor_set,
-                            "connect": {
-                                "ref": 1
-                            },
-                            "properties": properties,
-                        }
-                    })
+                    query.append({'AddDescriptor': {'class': self.embedder.descriptor_set, 'connect': {
+                                 'ref': 1, 'class': 'HasDescriptor'}, 'properties': properties}})
                     vectors.append(embedding)
 
                 _, r, _ = self.pool.execute_query(query, vectors)
 
             # Finally mark the blob as processed
             query = []
-            query.append({
-                "FindBlob": {
-                    "_ref": 1,
-                    "constraints": {
-                        "_uniqueid": ["==", uniqueid]
-                    },
-                }
-            })
+            query.append(
+                {'FindBlob': {'_ref': 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}})
             query.append({
                 "UpdateBlob": {
                     "ref": 1,
