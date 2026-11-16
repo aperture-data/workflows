@@ -46,10 +46,9 @@ This will allow you to do various things that you can't do via the UI:
 
 ## Docker
 
-Use workflow images `v1.0.1` or newer with ApertureDB 0.20.0. These images include
-Python SDK 0.5.3 or newer, which can sign in again after a security change revokes
-a session, provided the configured credentials remain valid. Updated permissions
-apply to subsequent operations.
+Workflow images `v1.0.4` and newer target ApertureDB 1.0 and include
+Python SDK 1.0 or later. Updated permissions apply to subsequent operations
+after a security change revokes a session and the client signs in again.
 
 This is the general pattern for running a workflow.
 Every workflow requires the host, user name, and password for your ApertureDB instance.
