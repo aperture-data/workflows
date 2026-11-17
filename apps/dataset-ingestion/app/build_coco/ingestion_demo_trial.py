@@ -1,13 +1,15 @@
 import argparse
-from status_tools import StatusUpdater
-from log_processor import LogProcessor
 import os
-from aperturedb.Utils import Utils
-from aperturedb.CommonLibrary import create_connector
+from pathlib import Path
 import sys
 import subprocess
 
-sys.path.append("/app")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from status_tools import StatusUpdater
+from log_processor import LogProcessor
+from aperturedb.Utils import Utils
+from aperturedb.CommonLibrary import create_connector
 
 
 def ingest_coco(cli_args):
