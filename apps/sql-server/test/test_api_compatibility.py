@@ -115,6 +115,24 @@ def test_typed_media_tables_and_entity_tables_do_not_collide(fdw):
     assert rewrite is None
 
 
+@pytest.mark.parametrize('qualifications, expected_rows', [
+    ([], 10000),
+    ([('name', '=', '$literal')], 1000),
+    ([('_uniqueid', '=', '1.2.3')], 10),
+    ([('_uniqueid', 'IN', ['1.2.3', '2.3.4'])], 20),
+    ([('_uniqueid', ('=', True), ['1.2.3', '2.3.4'])], 20),
+    ([('name', '=', 'example'), ('name', '>', 'a')], 500),
+])
+def test_relation_size_estimation_accepts_native_predicates(fdw, qualifications, expected_rows):
+    package, multicorn = fdw
+    setup_snapshot(package)
+    table = package.FDW.import_schema('entity', {}, {}, None, [])[0]
+    wrapper = make_wrapper(package, table)
+    wrapper._options.count = 1000
+    quals = [multicorn.Qual(*qual) for qual in qualifications]
+    assert wrapper.get_rel_size(quals, {'name', '_uniqueid'}) == (expected_rows, 56)
+
+
 def test_endpoint_quals_use_typed_object_references_and_keep_other_filters(fdw):
     package, multicorn = fdw
     setup_snapshot(package)

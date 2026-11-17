@@ -571,8 +571,13 @@ class FDW(ForeignDataWrapper):
         blobs = command_body.get("blobs", False)
 
         n_rows = self._options.count
-        for col, constraints in command_body.get("constraints", {}).items():
-            if col not in self._columns:
+        # Estimate normalized comparisons before wire expression encoding.
+        for qual in quals:
+            col = qual.field_name
+            if col not in columns or col not in self._columns or not self._columns[col].listable:
+                continue
+            constraints = self._qual_to_constraint(qual)
+            if constraints is None:
                 continue
             col_type = self._columns[col].type
             if col == "_uniqueid":
