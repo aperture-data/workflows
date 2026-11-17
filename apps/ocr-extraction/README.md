@@ -11,7 +11,7 @@ The workflow will run on an infinite loop.
 from aperturedb.Utils import Utils
 
 utils = Utils(client)
-for descriptor_class in ("wf_embeddings_clip", "wf_embeddings_clip_text", "wf_embeddings_clip_video"):
+for descriptor_class in ("wf_ocr_images", "wf_ocr_pdfs"):
     assert utils.remove_descriptorset(descriptor_class)
 ```
 

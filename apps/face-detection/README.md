@@ -11,8 +11,7 @@ The workflow will run on a infinite loop.
 from aperturedb.Utils import Utils
 
 utils = Utils(client)
-for descriptor_class in ("wf_embeddings_clip", "wf_embeddings_clip_text", "wf_embeddings_clip_video"):
-    assert utils.remove_descriptorset(descriptor_class)
+assert utils.remove_descriptorset("wf_facenet_processed")
 ```
 
 Use the workflow's `CLEAN` option to reset its completion markers and owned media as well.
