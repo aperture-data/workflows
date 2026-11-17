@@ -61,4 +61,4 @@ services:
       - ./ca:/ca
       - ./apps/ocr-extraction/test-results:/test-results
     working_dir: /app
-    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG", "--junitxml=/test-results/junit.xml"]
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG", "--junitxml=/test-results/junit.xml", "-o", "junit_logging=no", "-o", "junit_log_passing_tests=false"]

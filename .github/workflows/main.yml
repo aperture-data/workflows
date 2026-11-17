@@ -171,12 +171,12 @@ jobs:
             bash ../build.sh
           fi
 
-      - name: Upload OCR test results
-        if: always() && matrix.app == 'ocr-extraction'
+      - name: Upload workflow test results
+        if: always() && (matrix.app == 'ocr-extraction' || matrix.app == 'embeddings-extraction')
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-ocr-extraction
-          path: apps/ocr-extraction/test-results/*.xml
+          name: test-results-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/test-results/*.xml
           if-no-files-found: ignore
 
       - name: Push to docker (on main)

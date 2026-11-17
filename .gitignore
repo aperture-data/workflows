@@ -46,6 +46,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 apps/ocr-extraction/test-results/
+apps/embeddings-extraction/test-results/
 *.cover
 *.py,cover
 .hypothesis/

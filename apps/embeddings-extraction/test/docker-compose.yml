@@ -61,7 +61,8 @@ services:
     working_dir: /app
     volumes:
       - ./ca:/ca
-    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
+      - ./apps/embeddings-extraction/test-results:/test-results
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG", "--junitxml=/test-results/junit.xml", "-o", "junit_logging=no", "-o", "junit_log_passing_tests=false"]
   unit-tests:
     image: aperturedata/workflows-base:${VERSION:-latest}
     network_mode: none
