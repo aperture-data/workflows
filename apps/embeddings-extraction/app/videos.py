@@ -27,6 +27,7 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
         self.done_property = done_property
         self.sample_rate_fps = sample_rate_fps
         self.embedder_batch_size = embedder_batch_size
+        self.strict_response_validation = True
 
         query = [{'FindVideo': {'constraints': predicate(self.done_property, '!=', True), 'results': {
             'list': ['_uniqueid']}, 'uniqueids': True}}]
@@ -68,6 +69,17 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
 
         return query, []
 
+    def _execute_fresh(self, query, blobs=None):
+        """Open a fresh transport for each I/O phase around long model work."""
+        from aperturedb.CommonLibrary import execute_query
+
+        with self.pool.get_connection() as template:
+            client = template.clone()
+            try:
+                return execute_query(client, query, blobs or [])
+            finally:
+                client.close()
+
     def frames_to_embeddings(self, frames: list) -> list:
         """
         Convert frames to embeddings using the embedder.
@@ -104,15 +116,14 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
 
         except Exception as e:
             logger.exception(f"Error generating embeddings from frames: {e}")
-            return []
+            raise RuntimeError("Video frame embedding failed") from e
 
     def response_handler(self, query, blobs, response, r_blobs):
 
         try:
             entities = response[0]["FindVideo"]["entities"]
-        except BaseException:
-            logger.exception(f"error: {response}")
-            return 0
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"Invalid video response: {response}") from exc
 
         for i, entity in enumerate(entities):
             uniqueid = entity["_uniqueid"]
@@ -136,42 +147,49 @@ class FindVideoQueryGenerator(QueryGenerator.QueryGenerator):
                     ]
                 }
             })
-            with self.pool.get_connection() as client:
-                from aperturedb.CommonLibrary import execute_query
-                status, response, blobs = execute_query(client, query)
-                embeddings = self.frames_to_embeddings(blobs)
+            status, frame_response, frame_blobs = self._execute_fresh(query)
+            if status != 0:
+                raise RuntimeError(f"Frame extraction failed: {frame_response}")
+            if len(frame_blobs) != len(frame_spec):
+                raise RuntimeError(
+                    f"Expected {len(frame_spec)} frames, got {len(frame_blobs)}")
+            embeddings = self.frames_to_embeddings(frame_blobs)
+            if len(embeddings) != len(frame_spec):
+                raise RuntimeError(
+                    f"Expected {len(frame_spec)} frame embeddings, got {len(embeddings)}")
 
-                query2 = [
-                    {'FindVideo': {'_ref': 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}}]
-                for i, b in enumerate(embeddings):
-                    ind = i * 2 + 2
-                    query2.append({'AddClip': {'class': 'Clips', 'video_ref': 1, '_ref': ind, 'frame_number_range': {
-                                  'start': i * frames_per_sample, 'stop': min((i + 1) * frames_per_sample, frame_count)}}})
-                    query2.append({'AddDescriptor': {'_ref': ind + 1,
-                                                     'class': self.embedder.descriptor_set,
-                                                     'connect': {'ref': ind,
-                                                                 'class': 'ClipHasDescriptor'}}})
-                    query2.append({
-                        "AddConnection": {
-                            "class": "VideoHasDescriptor",
-                            "src": 1,
-                            "dst": ind + 1,
-                            "properties": {
-                                "start": i * frames_per_sample,
-                                "stop": min((i + 1) * frames_per_sample, frame_count)
-                            }
-                        }
-                    })
+            query2 = [
+                {'FindVideo': {'_ref': 1, 'constraints': predicate('_uniqueid', '==', uniqueid)}}]
+            for i, b in enumerate(embeddings):
+                ind = i * 2 + 2
+                query2.append({'AddClip': {'class': 'Clips', 'video_ref': 1, '_ref': ind, 'frame_number_range': {
+                              'start': i * frames_per_sample, 'stop': min((i + 1) * frames_per_sample, frame_count)}}})
+                query2.append({'AddDescriptor': {'_ref': ind + 1,
+                                                 'class': self.embedder.descriptor_set,
+                                                 'connect': {'ref': ind,
+                                                             'class': 'ClipHasDescriptor'}}})
                 query2.append({
-                    "UpdateVideo": {
-                        "ref": 1,
+                    "AddConnection": {
+                        "class": "VideoHasDescriptor",
+                        "src": 1,
+                        "dst": ind + 1,
                         "properties": {
-                            self.done_property: True,
-                        },
+                            "start": i * frames_per_sample,
+                            "stop": min((i + 1) * frames_per_sample, frame_count)
+                        }
                     }
                 })
+            query2.append({
+                "UpdateVideo": {
+                    "ref": 1,
+                    "properties": {
+                        self.done_property: True,
+                    },
+                }
+            })
 
-                status, r, _ = self.pool.execute_query(query2, embeddings)
-                assert status == 0, f"Query failed: {r=}"
+            status, write_response, _ = self._execute_fresh(query2, embeddings)
+            if status != 0:
+                raise RuntimeError(f"Video embedding write failed: {write_response}")
 
-                logger.info(f"Total frames processed: {len(blobs)}")
+            logger.info(f"Total frames processed: {len(frame_blobs)}")

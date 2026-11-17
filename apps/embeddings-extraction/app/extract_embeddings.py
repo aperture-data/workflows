@@ -124,6 +124,9 @@ def main(params):
             querier.query(generator, batchsize=1,
                         numthreads=params.numthreads,
                         stats=True)
+            if querier.error_counter:
+                raise RuntimeError(
+                    f"Video embedding extraction failed in {querier.error_counter} batches")
 
             print("Done with Video Extraction.")
 
