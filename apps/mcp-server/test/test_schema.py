@@ -108,7 +108,7 @@ class TestSchemaTools:
     @pytest.mark.parametrize("tool,class_name,expected", [
         ("describe_entity_class", "Empty", {"matched": 1, "properties": {}}),
         ("describe_connection_class", "Propertyless", {"items": [{
-            "matched": 1, "src": "Empty", "dst": "Empty", "properties": {},
+            "matched": 1, "src": "entity:Empty", "dst": "entity:Empty", "properties": {},
         }]}),
     ])
     async def test_classes_without_properties(self, mcp_url, mcp_auth, tool, class_name, expected):
