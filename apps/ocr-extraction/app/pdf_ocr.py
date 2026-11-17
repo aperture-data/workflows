@@ -54,6 +54,7 @@ class FindPDFOCRQueryGenerator(QueryGenerator.QueryGenerator):
         self.done_property = done_property
         self.ocr = ocr
         self.generate_embeddings = generate_embeddings
+        self.strict_response_validation = True
         max_tokens = self.embedder.context_length
         overlap_tokens = min(max_tokens // 10, 10)
         self.segmenter = TextSegmenter(max_tokens=max_tokens,

@@ -1,4 +1,16 @@
 services:
+  unit-tests:
+    image: aperturedata/workflows-base:${VERSION:-latest}
+    network_mode: none
+    profiles: [unit]
+    environment:
+      WORKFLOW_APP: /workflow-app
+      PYTHONPATH: /workflow-app:/app
+    volumes:
+      - ./apps/ocr-extraction/app:/workflow-app:ro
+      - ./apps/ocr-extraction/test/unit:/tests:ro
+    command: ["python", "-B", "-m", "unittest", "discover", "-s", "/tests", "-v"]
+
   # One image for both seed and tests (Python + aperturedb + pytest + CLIP)
   # Use the same image; just change the command.
   test-base:

@@ -6,7 +6,7 @@ import logging
 from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
 from embeddings import Embedder
-from connection_pool import ConnectionPool
+from fresh_connection_pool import FreshConnectionPool as ConnectionPool
 from ocr import OCR
 from wf_argparse import ArgumentParser
 
@@ -74,6 +74,9 @@ def main(params):
         querier.query(generator, batchsize=1,
                       numthreads=params.numthreads,
                       stats=True)
+        if querier.error_counter:
+            raise RuntimeError(
+                f"Image OCR extraction failed in {querier.error_counter} batches")
 
         print("Done with Image Text Extraction.")
 
@@ -94,6 +97,9 @@ def main(params):
         querier.query(generator, batchsize=1,
                       numthreads=params.numthreads,
                       stats=True)
+        if querier.error_counter:
+            raise RuntimeError(
+                f"PDF OCR extraction failed in {querier.error_counter} batches")
 
         print("Done with PDF OCR Extraction.")
 
