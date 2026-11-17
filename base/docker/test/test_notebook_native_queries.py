@@ -1,13 +1,14 @@
 """Notebook native query contracts and general graph QA without LLM/model calls."""
 import ast
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[3] / 'apps' / 'jupyterlab' / 'app' / 'notebooks'
+ROOT = Path(os.getenv('WORKFLOWS_SOURCE', '/workflows')) / 'apps' / 'jupyterlab' / 'app' / 'notebooks'
 
 
 def notebook_sources():

@@ -61,12 +61,11 @@ def ingest_coco(cli_args):
                 "POLYGON": "Polygons"}.get(
                 args[obj])
             class_argument = f"--class-name {media_class}" if media_class else ""
-            common_command = f"adb ingest from-csv {
-                cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv --ingest-type {
-                args[obj]} --batchsize {
-                cli_args.batch_size} --num-workers {
-                cli_args.num_workers} --no-use-dask --sample-count {
-                    cli_args.sample_count} --stats {class_argument}"
+            common_command = (
+                f"adb ingest from-csv {cli_args.root_dir}/{stage}/{stage}_{obj}.adb.csv "
+                f"--ingest-type {args[obj]} --batchsize {cli_args.batch_size} "
+                f"--num-workers {cli_args.num_workers} --no-use-dask "
+                f"--sample-count {cli_args.sample_count} --stats {class_argument}")
             transformers = "--transformer common_properties --transformer image_properties" if obj == "images" else ""
             command = f"{common_command} {transformers}"
             print(command, flush=True)

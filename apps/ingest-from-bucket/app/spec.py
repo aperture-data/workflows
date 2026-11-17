@@ -52,8 +52,8 @@ class WorkflowSpec:
             ent = response[0]["FindEntity"]["entities"][0]
             if not clean:
                 raise Exception(
-                    f"Unable to initialize WorkflowSpec; existing spec (created at {
-                        ent['workflow_create_date']})")
+                    "Unable to initialize WorkflowSpec; existing spec (created at "
+                    f"{ent['workflow_create_date']})")
             else:
                 self.clean()
         response, _ = self.execute_query([

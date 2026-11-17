@@ -116,9 +116,8 @@ class FindImageQueryGenerator(QueryGenerator.QueryGenerator):
 
         if len(uniqueids) != len(r_blobs):
             logger.error(
-                f"Mismatch in response: {
-                    len(uniqueids)} uniqueids vs {
-                    len(r_blobs)} blobs")
+                f"Mismatch in response: {len(uniqueids)} uniqueids vs "
+                f"{len(r_blobs)} blobs")
             query_fail = []
             ref_idx = 1
             for uid in uniqueids:

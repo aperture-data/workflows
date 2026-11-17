@@ -316,8 +316,8 @@ class AperturedbIO:
                 content_type = result["content_type"]
 
                 blob_entities = blob_results[1]["FindBlob"]["entities"][document_id]
-                assert len(blob_entities) == 1, f"Expected 1 blob for document {document_id}, found {
-                    len(blob_entities)}"
+                assert len(blob_entities) == 1, (
+                    f"Expected 1 blob for document {document_id}, found {len(blob_entities)}")
                 blob = blobs[blob_entities[0]["_blob_index"]]
                 yield CrawlDocument(
                     document_id=document_id,

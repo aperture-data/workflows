@@ -100,9 +100,8 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
         if not uniqueids:
             return 0
 
-        assert len(uniqueids) == len(r_blobs), f"Mismatch: {
-            len(uniqueids)} images vs {
-            len(r_blobs)} blobs."
+        assert len(uniqueids) == len(r_blobs), (
+            f"Mismatch: {len(uniqueids)} images vs {len(r_blobs)} blobs.")
 
         desc_blobs = []
         desc_query = []
@@ -144,9 +143,8 @@ class FindImageOCRQueryGenerator(QueryGenerator.QueryGenerator):
                     embeddings = list(self.segments_to_embeddings(segments))
                     if len(embeddings) != len(segments):
                         logger.warning(
-                            f"Number of embeddings ({
-                                len(embeddings)}) does not match number of segments ({
-                                len(segments)}) for text: {text}")
+                            f"Number of embeddings ({len(embeddings)}) does not match "
+                            f"number of segments ({len(segments)}) for text: {text}")
                         continue
 
                     for segment, embedding in zip(segments, embeddings):

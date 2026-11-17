@@ -19,7 +19,7 @@ COMPOSE_MAIN="$ROOT_DIR/docker-compose.yml"
 COMPOSE_SCRIPT="$ROOT_DIR/compose.sh"
 
 
-COMMAND="$COMPOSE_SCRIPT -v -p $SANDBOXED_COMPOSE_PROJECT_NAME -f $COMPOSE_MAIN"
+COMMAND="$COMPOSE_SCRIPT -p $SANDBOXED_COMPOSE_PROJECT_NAME -f $COMPOSE_MAIN"
 # Check if test directory exists
 if [ -d "$BIN_DIR/test" ]; then
   COMPOSE_TEST="$BIN_DIR/test/docker-compose.yml"
