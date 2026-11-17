@@ -4,7 +4,7 @@ FROM aperturedata/workflows-base:${VERSION}
 
 ENV APP_NAME=workflows-sql-server
 ENV POSTGRES_VERSION=17
-ARG MULTICORN_VERSION=3.0
+ARG MULTICORN_VERSION=3.2
 
 # Add PGDG repository and install PostgreSQL 
 RUN apt-get update && apt-get install -y wget gnupg lsb-release \
@@ -18,7 +18,7 @@ RUN apt-get install -y \
     postgresql-${POSTGRES_VERSION} \
     postgresql-contrib-${POSTGRES_VERSION} \
     postgresql-server-dev-${POSTGRES_VERSION} \
-    python3 python3-dev python3-pip build-essential git
+    python3 python3-dev python3-pip build-essential git rpm2cpio cpio
 
 RUN echo "listen_addresses = '*'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf
 RUN echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/17/main/pg_hba.conf
@@ -34,14 +34,21 @@ ENV VIRTUAL_ENV=
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV PYTHONPATH=""
 
-# Install multicorn2 Python module into system Python
-RUN /usr/bin/python3 -m pip install --compile --no-cache-dir "git+https://github.com/pgsql-io/multicorn2.git"
-
-# Build and install multicorn2 Postgres extension 
-RUN git clone --single-branch --branch main https://github.com/pgsql-io/multicorn2.git /multicorn2 \
- && cd /multicorn2 \
- && make PYTHON=/usr/bin/python3 \
- && make install
+# PGDG preserves the upstream release after its GitHub repository disappeared.
+# Verify both the official source RPM and its unchanged upstream source archive.
+RUN wget --quiet -O /tmp/multicorn2.src.rpm \
+      "https://dnf-srpms.postgresql.org/srpms/17/redhat/rhel-9-x86_64/multicorn2_17-${MULTICORN_VERSION}-1PGDG.rhel9.src.rpm" \
+ && echo "588387b47ce8ea6211530bdb0a28618463317e5213c8de8b13dea92559d47f75  /tmp/multicorn2.src.rpm" | sha256sum --check \
+ && mkdir /multicorn2-source \
+ && cd /multicorn2-source \
+ && rpm2cpio /tmp/multicorn2.src.rpm | cpio -id --quiet "v${MULTICORN_VERSION}.tar.gz" \
+ && echo "e31e8f6e25acafd0dc8a2faf90a8c1e29e114abe8383e5c1041f54ab0f9bb44f  v${MULTICORN_VERSION}.tar.gz" | sha256sum --check \
+ && tar -xzf "v${MULTICORN_VERSION}.tar.gz" \
+ && cd "multicorn2-${MULTICORN_VERSION}" \
+ && /usr/bin/python3 -m pip install --compile --no-cache-dir . \
+ && make PG_CONFIG="/usr/lib/postgresql/${POSTGRES_VERSION}/bin/pg_config" PYTHON_OVERRIDE=/usr/bin/python3 \
+ && make install PG_CONFIG="/usr/lib/postgresql/${POSTGRES_VERSION}/bin/pg_config" PYTHON_OVERRIDE=/usr/bin/python3 \
+ && rm -rf /tmp/multicorn2.src.rpm /multicorn2-source
 
 RUN pip install --no-cache-dir numpy pydantic dotenv typer
 
