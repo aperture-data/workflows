@@ -167,6 +167,7 @@ jobs:
           cd apps/${{ matrix.app }}
           if [ "${{ matrix.app }}" = "embeddings-extraction" ]; then
             export TEST_METADATA_DIR="$PWD/test-results"
+            mkdir -p "$TEST_METADATA_DIR"
           fi
           if [ -f "test.sh" ]; then
             bash test.sh
