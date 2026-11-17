@@ -4,6 +4,7 @@ import time
 import argparse
 import threading
 import json
+import queue
 
 import numpy as np
 
@@ -20,7 +21,6 @@ from connection_pool import ConnectionPool
 from infer import BboxDetector as BboxDetector
 
 resize_scale = 0.5
-stop = False
 
 
 def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_threshold):
@@ -57,7 +57,9 @@ def push_to_aperturedb(pool, img_id, detections, classes, source, confidence_thr
 
         q.append(abb)
 
-    pool.execute_query(q)
+    status, _, _ = pool.execute_query(q)
+    if status != 0:
+        raise RuntimeError("Failed to save object detections to ApertureDB")
 
 
 def cleanup_bboxes_from_aperturedb(pool, source):
@@ -76,23 +78,31 @@ def cleanup_bboxes_from_aperturedb(pool, source):
     print(f"Done cleaning up.")
 
 
-def push_to_aperturedb_queue(pool, queue, classes, params):
+def push_to_aperturedb_queue(pool, pending, errors, classes, params):
 
     model_name = params.model_name
 
-    global stop
-
     while True:
-        if stop and len(queue) == 0:
-            return
+        item = pending.get()
+        try:
+            if item is None:
+                return
+            img_id, detections = item
+            try:
+                push_to_aperturedb(pool, img_id, detections, classes,
+                                   model_name, params.confidence_threshold)
+            except Exception as error:
+                errors.put(error)
+        finally:
+            pending.task_done()
 
-        if len(queue) > 0:
-            img_id, detections = queue.pop(0)
-            push_to_aperturedb(pool, img_id, detections, classes,
-                               model_name, params.confidence_threshold)
-        else:
-            time.sleep(1)
-            continue
+
+def raise_push_error(errors):
+    try:
+        error = errors.get_nowait()
+    except queue.Empty:
+        return
+    raise RuntimeError("Failed to push object detections") from error
 
 
 def main(params):
@@ -107,23 +117,32 @@ def main(params):
     if params.clean:
         cleanup_bboxes_from_aperturedb(pool, params.model_name)
 
+    # Native datasets page with offsets. Freeze the candidate IDs before push
+    # workers update wf_od_model, so those writes cannot shrink the selection.
     q = [{'FindImage': {'constraints': predicate(
-        'wf_od_model', '!=', params.model_name), 'results': {'count': True}}}]
+        'wf_od_model', '!=', params.model_name), 'blobs': False,
+        'results': {'list': ['_uniqueid']}, 'uniqueids': True}}]
+    if params.max_retrieved > 0:
+        q[0]['FindImage']['limit'] = params.max_retrieved
 
     with pool.get_connection() as db:
         res, _ = db.query(q)
         try:
-            total = res[0]["FindImage"]["count"]
+            response = res[0]["FindImage"]
+            if response.get('status', 0) != 0:
+                raise RuntimeError("Failed to select images for object detection")
+            image_ids = [image['_uniqueid']
+                         for image in response.get('entities', [])]
         except BaseException:
             print("Error getting total images:")
             db.print_last_response()
             raise
 
-    if total == 0:
+    if not image_ids:
         print("No images to process.")
         return
 
-    q = [{'FindImage': {'constraints': predicate('wf_od_model', '!=', params.model_name), 'operations': [
+    q = [{'FindImage': {'constraints': predicate('_uniqueid', 'in', image_ids), 'operations': [
         {'type': 'resize', 'scale': resize_scale}], 'results': {'list': ['_uniqueid']}, 'uniqueids': True}}]
 
     if params.max_retrieved > 0:
@@ -161,58 +180,59 @@ def main(params):
         prefetch_factor=4,
     )
 
-    queue = []  # detection queue
+    pending = queue.Queue()
+    errors = queue.Queue()
     thds_push = []
-    for i in range(4):
-        # These threads will push detections as BoundingBoxes on ApertureDB
-        x = threading.Thread(target=push_to_aperturedb_queue,
-                             args=(pool, queue, detector.classes, params))
-        x.start()
-        thds_push.append(x)
-
     start = time.time()
     imgs = 0
 
-    print(
-        f"Starting object detection on {len(data_loader)} images...", flush=True)
-    for img, img_id in data_loader:
-        start_infer = time.time()
+    try:
+        for i in range(4):
+            # These threads push detections as BoundingBoxes on ApertureDB.
+            worker = threading.Thread(target=push_to_aperturedb_queue,
+                                      args=(pool, pending, errors, detector.classes, params))
+            worker.start()
+            thds_push.append(worker)
 
-        # https://numpy.org/devdocs/numpy_2_0_migration_guide.html#adapting-to-changes-in-the-copy-keyword
-        detections = detector.infer(
-            np.array(img[0].squeeze(), dtype=None, copy=None))
+        print(
+            f"Starting object detection on {len(data_loader)} images...", flush=True)
+        for img, img_id in data_loader:
+            raise_push_error(errors)
 
-        # Add detections to the queue
-        queue.append((img_id[0], detections))
+            # https://numpy.org/devdocs/numpy_2_0_migration_guide.html#adapting-to-changes-in-the-copy-keyword
+            detections = detector.infer(
+                np.array(img[0].squeeze(), dtype=None, copy=None))
 
-        imgs += 1
-        if imgs % 10 == 0:
-            completion = int(imgs / total * 100)
-            imgs_per_sec = imgs / (time.time() - start)
-            print(
-                f"\r  {completion}% completed @ {imgs_per_sec:.2f} imgs/s \t", end="", flush=True)
+            pending.put((img_id[0], detections))
 
-            import gc
-            gc.collect()
+            imgs += 1
+            if imgs % 10 == 0:
+                completion = int(imgs / total * 100)
+                imgs_per_sec = imgs / (time.time() - start)
+                print(
+                    f"\r  {completion}% completed @ {imgs_per_sec:.2f} imgs/s \t", end="", flush=True)
 
-        if params.max_retrieved > 0 and imgs > params.max_retrieved:
-            break
+                import gc
+                gc.collect()
 
-    imgs_per_sec = imgs / (time.time() - start)
+            if params.max_retrieved > 0 and imgs > params.max_retrieved:
+                break
+
+        inference_seconds = time.time() - start
+    finally:
+        waiting = time.time()
+        print("Waiting for push to finish...", flush=True)
+        for _ in thds_push:
+            pending.put(None)
+        for worker in thds_push:
+            worker.join()
+        print(
+            f"Waiting for push to finish took: {time.time() - waiting:.2f}s", flush=True)
+
+    raise_push_error(errors)
+    imgs_per_sec = imgs / inference_seconds
     print(f"\r 100% complete @ {imgs_per_sec:.2f} imgs/s \t", flush=True)
-    print(f"Detection Took {time.time() - start:.2f}s", flush=True)
-
-    start = time.time()
-    print("Waiting for push to finish...", flush=True)
-
-    global stop
-    stop = True
-
-    for x in thds_push:
-        x.join()
-
-    print(
-        f"Waiting for push to finish took: {time.time() - start:.2f}s", flush=True)
+    print(f"Detection Took {inference_seconds:.2f}s", flush=True)
 
 
 def get_args():
@@ -261,7 +281,6 @@ if __name__ == "__main__":
         print("Something went wrong, exiting...")
         raise
     except KeyboardInterrupt:
-        stop = True
         print("Keyboard interrupt, exiting...")
     finally:
         dist.destroy_process_group()
