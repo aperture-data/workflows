@@ -3,6 +3,7 @@ from typing import List
 from aperturedb.Query import QueryBuilder
 from aperturedb.Utils import Utils
 import requests
+import time
 
 import os
 
@@ -31,6 +32,17 @@ HAS_SPOKEN_LANGUAGE_CONNECTION_LABEL = "HasSpokenLanguage"
 HAS_POSTER_CONNECTION_LABEL = "HasPoster"
 HAS_TAGLINE_EMBEDDING_CONNECTION_LABEL = "HasTaglineEmbedding"
 HAS_POSTER_EMBEDDING_CONNECTION_LABEL = "HasPosterEmbedding"
+
+
+def fetch_poster(url):
+    """Bound transient public-poster failures without dropping media silently."""
+    for attempt in range(3):
+        try:
+            return requests.get(url, timeout=(10, 30))
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
+            if attempt == 2:
+                raise RuntimeError("Movie poster request failed after 3 attempts") from error
+            time.sleep(2 ** attempt)
 
 
 def make_movie_with_all_connections(
@@ -273,7 +285,7 @@ def make_movie_with_all_connections(
 
     if ingest_posters:
         bucket_prefix = "https://storage.googleapis.com/ad-demos-datasets/tmdb/posters"
-        request = requests.get(f"{bucket_prefix}/{movie_parameters['properties']['id']}.jpg")
+        request = fetch_poster(f"{bucket_prefix}/{movie_parameters['properties']['id']}.jpg")
         if request.status_code == 200:
             image_data = request.content
             image_command = QueryBuilder.add_command(

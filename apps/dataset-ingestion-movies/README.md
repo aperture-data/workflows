@@ -91,9 +91,23 @@ docker run \
 ```
 
 Parameters:
-* **`INGEST_POSTERS`**: Add poster images and their embeddings to database.
+* **`INGEST_POSTERS`**: Add poster images and their embeddings to database. Public poster requests use finite connect/read timeouts and at most three attempts for transient timeout/connection errors. Exhaustion fails the workflow; missing posters retain the existing optional behavior.
 * **`EMBED_TAGLINE`**: Add embeddings for the tagline text to the database.
 * **`SAMPLE_COUNT`**: Number of movies to ingest. Defaults to -1 (all).
+* **`CROISSANT_METADATA_FILE`**: Optional readable JSON-LD file inside the
+  container (CLI: `--metadata-file`). When absent, fetch the original public
+  Kaggle Croissant metadata.
+* **`CROISSANT_ARCHIVE_FILE`**: Optional readable original TMDB ZIP archive
+  inside the container (CLI: `--archive-file`). Croissant maps it to
+  `archive.zip`, retaining the metadata's CSV records and validation.
+
+Mount explicit inputs read-only when public downloads are unavailable. Use both
+local files to avoid both metadata and archive downloads; local metadata alone
+still uses its declared archive URL. These options do not disable poster
+retrieval, embedding generation, or database checks. See the
+[fixture provenance](test/fixtures/README.md) before obtaining or redistributing
+the data.
+
 
 How dataset ingestion (movies) works:
 

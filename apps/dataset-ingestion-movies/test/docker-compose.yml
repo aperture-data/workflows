@@ -1,4 +1,11 @@
 services:
+  dataset-ingestion-movies:
+    environment:
+      CROISSANT_METADATA_FILE: /movie-inputs/metadata.json
+      CROISSANT_ARCHIVE_FILE: /movie-inputs/archive.zip
+    volumes:
+      - ${MOVIES_FIXTURE_DIR:-./apps/dataset-ingestion-movies/test/fixtures/cache}:/movie-inputs:ro
+
   test-base:
     build:
       context: apps/dataset-ingestion-movies/test
@@ -20,8 +27,11 @@ services:
       CA_CERT: /ca/ca.crt
       SAMPLE_COUNT: "10"
       DATASET_NAME: "tmdb_5000_sample"
+      CROISSANT_METADATA_FILE: /movie-inputs/metadata.json
+      CROISSANT_ARCHIVE_FILE: /movie-inputs/archive.zip
     volumes:
       - ./ca:/ca
+      - ${MOVIES_FIXTURE_DIR:-./apps/dataset-ingestion-movies/test/fixtures/cache}:/movie-inputs:ro
 
   tests:
     image: aperturedata/workflows-dataset-ingestion-movies-tests:${VERSION:-latest}

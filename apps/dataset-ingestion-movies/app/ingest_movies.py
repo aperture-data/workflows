@@ -1,12 +1,15 @@
 from aperturedb.Constraints import predicate
-import mlcroissant as mlc
-from typer import Typer
+from pathlib import Path
+from typing import Optional
+
+from typer import Typer, Option
 import json
 import pandas as pd
 from tqdm import tqdm
 
 from movie_record import make_movie_with_all_connections, create_indexes, DATASET_NAME
 from movie_parser import MovieParser
+from movie_dataset import load_movie_dataset
 
 from aperturedb.ParallelLoader import ParallelLoader
 from aperturedb.CommonLibrary import (
@@ -16,9 +19,6 @@ from aperturedb.CommonLibrary import (
 from aperturedb.Utils import Utils
 
 from embeddings import Embedder, DEFAULT_MODEL
-
-# constants
-CROISSANT_URL = "https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata/croissant/download"
 
 app = Typer()
 
@@ -44,12 +44,21 @@ def cleanup_movies(db):
 
 
 @app.command()
-def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sample_count: int = -1):
+def ingest_movies(
+        ingest_posters: bool = False,
+        embed_tagline: bool = False,
+        sample_count: int = -1,
+        metadata_file: Optional[Path] = Option(
+            None, "--metadata-file", envvar="CROISSANT_METADATA_FILE",
+            exists=True, dir_okay=False, readable=True),
+        archive_file: Optional[Path] = Option(
+            None, "--archive-file", envvar="CROISSANT_ARCHIVE_FILE",
+            exists=True, dir_okay=False, readable=True)):
     """
     Ingest the movies dataset into ApertureDB.
     """
-    # Fetch the Croissant JSON-LD
-    croissant_dataset = mlc.Dataset(CROISSANT_URL)
+    # Local inputs retain the original Croissant record and validation path.
+    croissant_dataset = load_movie_dataset(metadata_file, archive_file)
 
     # Get record sets in the dataset
     record_sets = croissant_dataset.metadata.record_sets
@@ -73,14 +82,17 @@ def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sam
 
     collection = []
     db = create_connector()
-    cleanup_movies(db)
+    try:
+        cleanup_movies(db)
 
-    descriptor_set = "wf_embeddings_clip"
-    embedder = Embedder.from_new_descriptor_set(
-        db, descriptor_set,
-        provider="clip",
-        model_name="ViT-B/16",
-        properties={"type": "text", "source_type": "movie", "dataset_name": DATASET_NAME})
+        descriptor_set = "wf_embeddings_clip"
+        embedder = Embedder.from_new_descriptor_set(
+            db, descriptor_set,
+            provider="clip",
+            model_name="ViT-B/16",
+            properties={"type": "text", "source_type": "movie", "dataset_name": DATASET_NAME})
+    finally:
+        db.close()
     for record in tqdm(records.iterrows()):
         columns = records.columns
         count = 0
@@ -93,11 +105,18 @@ def ingest_movies(ingest_posters: bool = False, embed_tagline: bool = False, sam
 
     parser = MovieParser(collection)
 
-    utils = Utils(db)
-    create_indexes(utils)
-    loader = ParallelLoader(db)
-    ParallelLoader.setSuccessStatus([0, 2])
-    loader.ingest(parser, batchsize=10, numthreads=8, stats=True)
+    db = create_connector()
+    try:
+        utils = Utils(db)
+        create_indexes(utils)
+        loader = ParallelLoader(db)
+        ParallelLoader.setSuccessStatus([0, 2])
+        loader.ingest(parser, batchsize=10, numthreads=8, stats=True)
+        if loader.error_counter:
+            raise RuntimeError(
+                f"Movie ingestion failed in {loader.error_counter} batches")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
