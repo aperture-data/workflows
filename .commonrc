@@ -34,9 +34,15 @@ export DB_PASS="admin"
 
 cleanup() {
   if [ -n "${TEST_METADATA_DIR:-}" ]; then
+    local metadata_log
+    metadata_log=$(mktemp)
+    # Snapshot synchronously: the background follower may not have started yet.
+    # This private temporary log is never an uploaded artifact.
+    $COMMAND logs > "$metadata_log" 2>&1 || true
     bash "$ROOT_DIR/tests/capture_test_state.sh" "$SANDBOXED_COMPOSE_PROJECT_NAME" \
-      "${TEST_PHASE:-setup}" "${ret:-0}" "$TEST_LOG" "$TEST_METADATA_DIR/test-state.json" || \
+      "${TEST_PHASE:-setup}" "${ret:-0}" "$metadata_log" "$TEST_METADATA_DIR/test-state.json" || \
       echo "Test state metadata collection failed."
+    rm -f "$metadata_log"
   fi
   $COMMAND logs | tee -a $TEST_LOG
   $COMMAND down --remove-orphans || true

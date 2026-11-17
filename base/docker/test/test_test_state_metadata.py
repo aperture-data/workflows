@@ -49,3 +49,58 @@ else:
     assert set(result['containers'][0]) == {
         'service', 'state', 'exit_code', 'oom_killed', 'image_id', 'started_at',
         'finished_at', 'health', 'health_checks'}
+
+
+def test_ci_owns_metadata_directory_before_compose_can_create_bind_mount(tmp_path):
+    import yaml
+    workflow = yaml.safe_load((ROOT / '.github/workflows/main.yml').read_text())
+    step = next(step for step in workflow['jobs']['build-test-apps-small']['steps']
+                if step.get('name') == 'Test app')
+    app = tmp_path / 'apps/embeddings-extraction'
+    app.mkdir(parents=True)
+    (app / 'test.sh').write_text('''#!/usr/bin/env bash
+set -eu
+test -d "$TEST_METADATA_DIR"
+test "$(stat -c %u "$TEST_METADATA_DIR")" = "$(id -u)"
+printf owned > "$TEST_METADATA_DIR/runner-write-check"
+''')
+    script = step['run'].replace('${{ matrix.app }}', 'embeddings-extraction')
+    subprocess.run(['bash', '-e', '-c', script], cwd=tmp_path, check=True,
+                   capture_output=True, text=True, timeout=10)
+    assert (app / 'test-results/runner-write-check').read_text() == 'owned'
+
+
+def test_cleanup_classifies_immediate_failure_and_removes_private_snapshot(tmp_path):
+    tools = tmp_path / 'tools'
+    tools.mkdir()
+    # No containers need to exist for this early-failure control.
+    docker = tools / 'docker'
+    docker.write_text('#!/usr/bin/env bash\nexit 0\n')
+    docker.chmod(0o755)
+    compose = tools / 'compose'
+    compose.write_text('#!/usr/bin/env bash\nprintf "RuntimeError: DO_NOT_EXPORT_PAYLOAD\\n"\n')
+    compose.chmod(0o755)
+    private = tmp_path / 'private'
+    private.mkdir()
+    output = tmp_path / 'results'
+    output.mkdir()
+    environment = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'],
+                       CLEANUP_ON_EXIT='0', TMPDIR=str(private))
+    script = '''source "$1/.commonrc"
+trap - EXIT
+ROOT_DIR=$1
+COMMAND=$2
+TEST_METADATA_DIR=$3
+TEST_LOG=$4
+TEST_PHASE=integration
+ret=1
+cleanup
+'''
+    subprocess.run(['bash', '-e', '-c', script, 'test', str(ROOT), str(compose),
+                    str(output), str(tmp_path / 'follower-not-started.log')],
+                   cwd=tmp_path, env=environment, check=True,
+                   capture_output=True, text=True, timeout=10)
+    artifact = (output / 'test-state.json').read_text()
+    assert json.loads(artifact)['exception_types'] == ['RuntimeError']
+    assert 'DO_NOT_EXPORT_PAYLOAD' not in artifact
+    assert list(private.iterdir()) == []
