@@ -59,5 +59,6 @@ services:
       CA_CERT: /ca/ca.crt
     volumes:
       - ./ca:/ca
+      - ./apps/ocr-extraction/test-results:/test-results
     working_dir: /app
-    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG"]
+    command: ["pytest",  "-vv", "-s", "-rA", "--log-cli-level=DEBUG", "--junitxml=/test-results/junit.xml"]

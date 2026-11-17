@@ -171,6 +171,14 @@ jobs:
             bash ../build.sh
           fi
 
+      - name: Upload OCR test results
+        if: always() && matrix.app == 'ocr-extraction'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-ocr-extraction
+          path: apps/ocr-extraction/test-results/*.xml
+          if-no-files-found: ignore
+
       - name: Push to docker (on main)
         # Only push to docker when merged to main
         # Pushing base to docker should be no-op after the first time
