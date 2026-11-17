@@ -1,276 +1,98 @@
-name: CI-build-apps
+name: Embedding phase diagnostic
 
 on:
-  pull_request:
-    branches:
-      - main
-
-  # Weekly build (Wednesdays at 02:00 UTC)
-  schedule:
-    - cron: "0 2 * * 3"
-
-  push:
-    branches:
-      - main
-
   workflow_dispatch:
 
-env:
-  APERTUREDB_VERSION: 1.0.0-rc.1
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  get-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set-version.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set version
-        id: set-version
-        run: |
-          echo "GitHub event: ${{ github.event_name }}"
-          echo "GitHub ref: ${{ github.ref }}"
-
-          VERSION=$(cat VERSION)
-          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Invalid VERSION: expected MAJOR.MINOR.PATCH (no leading zeros)" >&2
-            exit 1
-          fi
-
-          VERSION="v${VERSION}"
-
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
-            VERSION="pr-${{ github.event.number }}-${SHORT_SHA}"
-          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
-            VERSION="adhoc-${SHORT_SHA}"
-          fi
-          echo "version=$VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-  build-base:
-    needs: get-version
+  embedding-phase:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ needs.get-version.outputs.version }}
+      VERSION: pr-263-a854413
+      APERTUREDB_VERSION: 1.0.0-rc.1
+      DB_HOST: lenz
+      DB_PORT: "55551"
+      DB_PASS: admin
+      DIAGNOSTIC_PROJECT: diagnostic-embedding-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: c15fb48871c090f356c0591cbd452f22f5839aa9
+          persist-credentials: false
 
-      - name: Build base
-        run: |
-          cd base/docker
-          WORKFLOW_VERSION=$VERSION bash build.sh
-
-      - name: Build and export
-        run: |
-          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:$VERSION
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: workflows-base
-          path: ${{ runner.temp }}/workflows-base.tar
+          run-id: 44043174610
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/qualified-base
 
-  test-base:
-    needs: [build-base, get-version]
-    runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.get-version.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Initialize diagnostic clock
+        run: date -u +%s > "$RUNNER_TEMP/embedding-start-time"
 
-      - name: Download base image
-        uses: actions/download-artifact@v4
-        with:
-          name: workflows-base
-          path: ${{ runner.temp }}
+      - name: Load exact qualified base
+        run: docker load --input "${{ runner.temp }}/qualified-base/workflows-base.tar"
 
-      - name: Load base image
-        run: |
-          docker load --input=${{ runner.temp }}/workflows-base.tar
-
-      - name: Test base modules
-        run: |
-          cd base/docker
-          CI_RUN=1 bash test.sh
-
-  build-test-apps-small:
-    needs: [test-base, get-version]
-
-    strategy:
-      fail-fast: false
-      matrix:
-        app:
-          [
-            object-detection,
-            embeddings-extraction,
-            face-detection,
-            jupyterlab,
-            mcp-server,
-            crawl-website,
-            text-extraction,
-            text-embeddings,
-            ingest-croissant,
-            ingest-from-bucket,
-            ingest-from-sql,
-            sql-server,
-            label-studio,
-            ocr-extraction,
-            caption-image,
-            dataset-ingestion-movies,
-          ]
-    runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.get-version.outputs.version }}
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: workflows-base
-          path: ${{ runner.temp }}
-
-      - name: Load image
-        run: |
-          docker load --input ${{ runner.temp }}/workflows-base.tar
-          docker image ls -a
-
-      - name: Log in to Docker Hub
+      - name: Log in for ordinary dependency pulls
         env:
           DOCKERHUB_USERNAME: ${{ fromJson(secrets.DOCKERHUB).username }}
           DOCKERHUB_PASSWORD: ${{ fromJson(secrets.DOCKERHUB).password }}
-        run: |
-          printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+        run: printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
 
-      - uses: actions/checkout@v3
-
-      - name: Set up Docker Compose
-        # docker-compose.yml includes the ApertureDB Compose package (oci://).
-        uses: docker/setup-compose-action@v1
+      - uses: docker/setup-compose-action@v1
         with:
           version: v2.40.3
 
-      - name: Test app
-        env:
-          CLEANUP: "true"
-          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-          WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
-          RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION: $VERSION
-          CI_RUN: 1
+      - name: Original network-none unit precheck
         run: |
-          cd apps/${{ matrix.app }}
-          if [ -f "test.sh" ]; then
-            bash test.sh
-          else
-            bash ../build.sh
-          fi
+          set +e
+          "$GITHUB_WORKSPACE/compose.sh" -p "$DIAGNOSTIC_PROJECT" -f "$GITHUB_WORKSPACE/docker-compose.yml" -f "$GITHUB_WORKSPACE/apps/embeddings-extraction/test/docker-compose.yml" run --rm --no-deps unit-tests
+          result=$?
+          printf '%s\n' "$result" > "$RUNNER_TEMP/embedding-unit-exit"
+          exit "$result"
 
-      - name: Upload workflow test results
-        if: always() && (matrix.app == 'ocr-extraction' || matrix.app == 'embeddings-extraction')
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.app }}
-          path: apps/${{ matrix.app }}/test-results/*.xml
-          if-no-files-found: ignore
-
-      - name: Push to docker (on main)
-        # Only push to docker when merged to main
-        # Pushing base to docker should be no-op after the first time
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Original test and application build
         run: |
-          docker push aperturedata/workflows-base:$VERSION
-          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
+          set +e
+          "$GITHUB_WORKSPACE/compose.sh" -p "$DIAGNOSTIC_PROJECT" -f "$GITHUB_WORKSPACE/docker-compose.yml" -f "$GITHUB_WORKSPACE/apps/embeddings-extraction/test/docker-compose.yml" build test-base embeddings-extraction
+          result=$?
+          printf '%s\n' "$result" > "$RUNNER_TEMP/embedding-build-exit"
+          exit "$result"
 
-  build-test-apps-large:
-    needs: [test-base, get-version]
-
-    strategy:
-      matrix:
-        app: [rag, crawl-to-rag, dataset-ingestion]
-
-    runs-on: [self-hosted, X64]
-    env:
-      VERSION: ${{ needs.get-version.outputs.version }}
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: workflows-base
-          path: ${{ runner.temp }}
-
-      - name: Load image
+      - name: Original seed and database startup only
         run: |
-          docker load --input ${{ runner.temp }}/workflows-base.tar
-          docker image ls -a
+          set +e
+          "$GITHUB_WORKSPACE/compose.sh" -p "$DIAGNOSTIC_PROJECT" -f "$GITHUB_WORKSPACE/docker-compose.yml" -f "$GITHUB_WORKSPACE/apps/embeddings-extraction/test/docker-compose.yml" up --no-build --exit-code-from seed seed
+          result=$?
+          printf '%s\n' "$result" > "$RUNNER_TEMP/embedding-seed-exit"
+          exit "$result"
 
-      - name: Log in to Docker Hub
-        env:
-          DOCKERHUB_USERNAME: ${{ fromJson(secrets.DOCKERHUB).username }}
-          DOCKERHUB_PASSWORD: ${{ fromJson(secrets.DOCKERHUB).password }}
-        run: |
-          printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-
-      - uses: actions/checkout@v3
-
-      - name: Set up Docker Compose
-        # docker-compose.yml includes the ApertureDB Compose package (oci://).
-        uses: docker/setup-compose-action@v1
-        with:
-          version: v2.40.3
-
-      - name: Test app
-        env:
-          CLEANUP: "true"
-          WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
-          WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
-          RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION: $VERSION
-          CI_RUN: 1
-        run: |
-          cd apps/${{ matrix.app }}
-          if [ -f "test.sh" ]; then
-            bash test.sh
-          else
-            bash ../build.sh
-          fi
-
-      # ⬇️ Upload logs even if the tests fail
-      - name: Upload test logs
+      - name: Capture phase and selected container state only
         if: always()
-        uses: actions/upload-artifact@v4
+        run: |
+          mkdir -p "$RUNNER_TEMP/embedding-phase-state"
+          docker ps -aq --filter "label=com.docker.compose.project=$DIAGNOSTIC_PROJECT" |
+          while IFS= read -r container_id; do
+            docker inspect --format '{"service":{{json (index .Config.Labels "com.docker.compose.service")}},"state":{{json .State.Status}},"exit_code":{{.State.ExitCode}},"oom_killed":{{.State.OOMKilled}},"image_id":{{json .Image}},"started_at":{{json .State.StartedAt}},"finished_at":{{json .State.FinishedAt}}}' "$container_id"
+          done | jq -s . > "$RUNNER_TEMP/embedding-phase-state/containers.json"
+          start=$(cat "$RUNNER_TEMP/embedding-start-time")
+          docker events --since "$start" --until "$(date -u +%s)" --filter type=container --filter event=oom --format '{"action":{{json .Action}},"container_id":{{json .Actor.ID}},"time":{{.Time}}}' | jq -s . > "$RUNNER_TEMP/embedding-phase-state/oom-events.json"
+          unit=$(cat "$RUNNER_TEMP/embedding-unit-exit" 2>/dev/null || printf not_run)
+          build=$(cat "$RUNNER_TEMP/embedding-build-exit" 2>/dev/null || printf not_run)
+          seed=$(cat "$RUNNER_TEMP/embedding-seed-exit" 2>/dev/null || printf not_run)
+          jq -n --arg unit "$unit" --arg build "$build" --arg seed "$seed" --slurpfile containers "$RUNNER_TEMP/embedding-phase-state/containers.json" --slurpfile oom "$RUNNER_TEMP/embedding-phase-state/oom-events.json" '{phases:{unit:$unit,build:$build,seed:$seed},containers:$containers[0],oom_events:$oom[0],model_application_started:false}' > "$RUNNER_TEMP/embedding-phase-state/phase-state.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: test-logs-${{ matrix.app }}
-          path: |
-            apps/${{ matrix.app }}/test.log
-          if-no-files-found: ignore
+          name: embedding-phase-state-${{ github.run_id }}
+          path: ${{ runner.temp }}/embedding-phase-state/phase-state.json
+          if-no-files-found: error
 
-      - name: Push to docker (on main)
-        # Only push to docker when merged to main
-        # Pushing base to docker should be no-op after the first time
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Clean only this disposable diagnostic project
+        if: always()
         run: |
-          docker push aperturedata/workflows-base:$VERSION
-          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
-
-  update-version:
-    needs: [build-test-apps-small, build-test-apps-large, get-version]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
-    env:
-      VERSION: ${{ needs.get-version.outputs.version }}
-
-    steps:
-      - name: Update version on infra develop
-        run: |
-          curl -f -s -X POST \
-          -H "Authorization: Bearer ${{ secrets.PAT_INFRA }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/aperture-data/infra/dispatches \
-          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"component\": \"workflows-public\", \"tag\": \"${VERSION}\"}}"
+          "$GITHUB_WORKSPACE/compose.sh" -p "$DIAGNOSTIC_PROJECT" -f "$GITHUB_WORKSPACE/docker-compose.yml" -f "$GITHUB_WORKSPACE/apps/embeddings-extraction/test/docker-compose.yml" down --volumes --remove-orphans
