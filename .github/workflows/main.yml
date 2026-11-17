@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  APERTUREDB_VERSION: 1.0.0-rc.1
+  APERTUREDB_VERSION: 1.0.1
 
 jobs:
   get-version:
@@ -165,6 +165,9 @@ jobs:
           CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
+          if [ "${{ matrix.app }}" = "embeddings-extraction" ]; then
+            export TEST_METADATA_DIR="$PWD/test-results"
+          fi
           if [ -f "test.sh" ]; then
             bash test.sh
           else
@@ -178,6 +181,19 @@ jobs:
           name: test-results-${{ matrix.app }}
           path: apps/${{ matrix.app }}/test-results/*.xml
           if-no-files-found: ignore
+
+      - name: Verify embedding phase metadata
+        if: always() && matrix.app == 'embeddings-extraction'
+        run: |
+          jq -e '.phase and (.exit_code | type == "number") and (.containers | type == "array")' apps/embeddings-extraction/test-results/test-state.json
+
+      - name: Upload embedding phase metadata
+        if: always() && matrix.app == 'embeddings-extraction'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-state-embeddings-extraction
+          path: apps/embeddings-extraction/test-results/test-state.json
+          if-no-files-found: error
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main

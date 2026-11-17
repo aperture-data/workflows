@@ -1,4 +1,18 @@
 services:
+  tokenizer-contract:
+    image: aperturedata/workflows-embeddings-extraction:${VERSION:-latest}
+    network_mode: none
+    user: "65534:65534"
+    read_only: true
+    environment:
+      PYTHONPATH: /app
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./apps/embeddings-extraction/test/tokenizer_cache_contract.py:/tests/tokenizer_cache_contract.py:ro
+    working_dir: /app
+    entrypoint: ["python", "-B", "/tests/tokenizer_cache_contract.py"]
+
   # One image for both seed and tests (Python + aperturedb + pytest + CLIP)
   # Use the same image; just change the command.
   test-base:
@@ -30,6 +44,8 @@ services:
     image: aperturedata/workflows-embeddings-extraction:${VERSION:-latest}
     depends_on:
       seed:
+        condition: service_completed_successfully
+      tokenizer-contract:
         condition: service_completed_successfully
     environment:
       DB_HOST: lenz

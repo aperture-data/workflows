@@ -33,6 +33,11 @@ export DB_PORT="55551"
 export DB_PASS="admin"
 
 cleanup() {
+  if [ -n "${TEST_METADATA_DIR:-}" ]; then
+    bash "$ROOT_DIR/tests/capture_test_state.sh" "$SANDBOXED_COMPOSE_PROJECT_NAME" \
+      "${TEST_PHASE:-setup}" "${ret:-0}" "$TEST_LOG" "$TEST_METADATA_DIR/test-state.json" || \
+      echo "Test state metadata collection failed."
+  fi
   $COMMAND logs | tee -a $TEST_LOG
   $COMMAND down --remove-orphans || true
 }
@@ -58,12 +63,15 @@ run_pytest() {
 
   # Should the test script be building this workflow?
   if [ $CI_RUN -eq 0 ]; then
+    TEST_PHASE=base_build
     $COMMAND build base
   fi
 
   if [ $BUILD_WORKFLOW -eq 1 ]; then
+    TEST_PHASE=application_build
     $COMMAND build test-base $COMPOSE_PROJECT_NAME
   else
+    TEST_PHASE=test_image_build
     $COMMAND build test-base
   fi
 
@@ -75,6 +83,7 @@ run_pytest() {
   ) &
   LOG_PID=$!
 
+  TEST_PHASE=integration
   $COMMAND up --no-build --exit-code-from tests tests
 
   # Wait for logs to finish
