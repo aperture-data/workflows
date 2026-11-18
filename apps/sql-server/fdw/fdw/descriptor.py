@@ -7,8 +7,6 @@
 # WHERE _find_similar = FIND_SIMILAR(text := 'find entity', k := 10)
 # AND _blobs
 
-from aperturedb.DescriptorEngines import ENGINE_ORDER
-from aperturedb.ServerCompatibility import preferred_vector_index
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import Curry
@@ -25,6 +23,23 @@ import base64
 
 
 logger = logging.getLogger(__name__)
+
+# Use the same default engine order as ApertureDB's Python SDK.
+SEARCH_ENGINES = {"flat": "Flat", "ivf": "IVF", "hnsw": "HNSW", "acorn": "ACORN"}
+
+
+def preferred_vector_index(indexes, engine=None, metric=None):
+    kinds = (engine.lower(),) if engine else SEARCH_ENGINES
+    for kind in kinds:
+        for index in indexes:
+            if index["kind"] != kind:
+                continue
+            metrics = index["params"]["metric"]
+            if isinstance(metrics, str):
+                metrics = [metrics]
+            if metric is None or metric in metrics:
+                return index
+    return None
 
 
 def descriptor_set_supports_find_similar(properties: dict) -> bool:
@@ -238,7 +253,7 @@ def vector_selector(parameters, query, indexes=None):
         index = preferred_vector_index(indexes, body.get("engine"), body.get("metric"))
         if index is None:
             raise ValueError("No descriptor index matches the requested engine and metric")
-        body["engine"] = dict(ENGINE_ORDER)[index["kind"]]
+        body["engine"] = SEARCH_ENGINES[index["kind"]]
         metrics = index["params"]["metric"]
         body.setdefault("metric", metrics[0] if isinstance(metrics, list) else metrics)
     for key, value in parameters.items():
