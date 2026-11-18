@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  APERTUREDB_VERSION: 1.0.1
+  APERTUREDB_VERSION: 1.0.0
 
 jobs:
   get-version:

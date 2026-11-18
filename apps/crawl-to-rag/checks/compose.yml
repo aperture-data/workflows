@@ -2,7 +2,7 @@
 # no-ports.yml keeps it off the host's ports.
 include:
   - path:
-      - oci://aperturedata/aperturedb-compose-single-node:${APERTUREDB_VERSION:-dev}
+      - oci://aperturedata/aperturedb-compose-single-node:${APERTUREDB_VERSION:-1.0.0}
       - no-ports.yml
     project_directory: .
 services:
