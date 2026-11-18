@@ -188,6 +188,7 @@ def test_real_fdw_import_query_paging_vector_metadata_and_typed_endpoint_filters
     try:
         assert Utils(db).create_vector_index(vectors, 2, metric="L2", engines={
             "flat": {}}, metadata={"fingerprint": "preserved"})
+        assert Utils(db).create_vector_index(vectors, 2, metric="CS", engines={"hnsw": {}})
         payload = struct.pack("2f", 1., 0.)
         status, response, _ = query([
             {"AddEntity": {"class": people, "_ref": 1, "properties": {"name": "$literal"}}},
@@ -222,9 +223,10 @@ def test_real_fdw_import_query_paging_vector_metadata_and_typed_endpoint_filters
         table = next(table for table in package.FDW.import_schema(
             "descriptor", {}, {}, None, []) if table.table_name == vectors)
         wrapper = make_wrapper(package, table)
-        rows = list(wrapper.execute([multicorn.Qual("_find_similar", "=", json.dumps(
-            {"vector": [1., 0.], "k_neighbors": 1}))], {"name", "_find_similar"}))
-        assert len(rows) == 1 and rows[0]["name"] == "near"
+        for selection in ({}, {"metric": "CS"}, {"engine": "HNSW"}):
+            rows = list(wrapper.execute([multicorn.Qual("_find_similar", "=", json.dumps(
+                {"vector": [1., 0.], "k_neighbors": 1, **selection}))], {"name", "_find_similar"}))
+            assert len(rows) == 1 and rows[0]["name"] == "near"
         table = next(table for table in package.FDW.import_schema(
             "connection", {}, {}, None, []) if table.table_name == prefix + "HasVector")
         wrapper = make_wrapper(package, table)

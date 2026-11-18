@@ -1,4 +1,4 @@
-aperturedb>=1.0.0
+aperturedb>=1.0.1
 nltk
 pytest
 pandas

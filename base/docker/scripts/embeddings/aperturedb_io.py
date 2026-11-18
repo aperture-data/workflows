@@ -4,7 +4,7 @@ import logging
 
 from aperturedb.CommonLibrary import execute_query
 from aperturedb.Connector import Connector
-from aperturedb.DescriptorEngines import engines_object
+from aperturedb.ServerCompatibility import preferred_vector_index
 from aperturedb.Utils import Utils
 
 logger = logging.getLogger(__name__)
@@ -17,17 +17,18 @@ def _execute(client, query):
     return response
 
 
-def find_descriptor_set(client: Connector, descriptor_set: str) -> Optional[dict]:
-    """Return embedding metadata from a descriptor class's vector index."""
-    response = _execute(client, [{"GetIndexes": {
-        "target": "descriptor", "class": descriptor_set,
-        "property": "_blob", "kind": "vector"}}])
-    indexes = response[0]["GetIndexes"].get("indexes", [])
-    if not indexes:
+def _descriptor_index(client: Connector, descriptor_set: str, engine: Optional[str]):
+    indexes = Utils(client).get_vector_indexes(descriptor_set)
+    return preferred_vector_index(indexes, engine)
+
+
+def find_descriptor_set(client: Connector, descriptor_set: str,
+                        engine: Optional[str] = None) -> Optional[dict]:
+    """Return model metadata from the selected search index."""
+    index = _descriptor_index(client, descriptor_set, engine)
+    if index is None:
         return None
-    if len(indexes) != 1:
-        raise ValueError(f"Expected one vector index for {descriptor_set}: {indexes}")
-    metadata = dict(indexes[0].get("metadata") or {})
+    metadata = dict(index.get("metadata") or {})
     for name in ("embeddings_provider", "embeddings_model", "embeddings_pretrained",
                  "embeddings_fingerprint"):
         metadata.setdefault(name, None)
@@ -40,23 +41,21 @@ def add_descriptor_set(client: Connector, descriptor_set: str, metric: str,
     """Create a vector index, keeping customer model metadata separate."""
     _execute(client, [{"CreateIndex": {
         "target": "descriptor", "class": descriptor_set,
-        "property": "_blob", "kind": "vector",
-        "params": {"dimensions": dimensions, "metric": metric,
-                   "engines": engines_object(engine)},
+        "property": "_blob", "kind": engine.lower(),
+        "params": {"dimensions": dimensions, "metric": metric},
         "metadata": properties or {}}}])
 
 
 def update_descriptor_set(client: Connector, descriptor_set: str,
-                          properties: dict) -> None:
+                          properties: dict, engine: Optional[str] = None) -> None:
     """Merge metadata without dropping fingerprint/model fields."""
-    metadata = find_descriptor_set(client, descriptor_set)
-    if metadata is None:
+    index = _descriptor_index(client, descriptor_set, engine)
+    if index is None:
         raise ValueError(f"No vector index for {descriptor_set}")
-    metadata.update(properties)
-    metadata = {key: value for key, value in metadata.items() if value is not None}
+    metadata = {**index.get("metadata", {}), **properties}
     _execute(client, [{"UpdateIndex": {
         "target": "descriptor", "class": descriptor_set,
-        "property": "_blob", "kind": "vector", "metadata": metadata}}])
+        "property": "_blob", "kind": index["kind"], "metadata": metadata}}])
 
 
 def delete_descriptor_set(client: Connector, descriptor_set: str) -> None:

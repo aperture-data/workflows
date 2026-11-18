@@ -1,5 +1,4 @@
 from aperturedb.Constraints import predicate
-from aperturedb.DescriptorEngines import engines_object
 from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 from itertools import product
@@ -104,8 +103,7 @@ def load_text_descriptors_testdata(client):
     blobs = []
     for i, model in enumerate(TEXT_MODELS):
         set_name = f'TestText_{i}'
-        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'vector', 'params': {'dimensions': model['dimensions'], 'metric': 'CS', 'engines': engines_object(
-            'HNSW')}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
+        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'hnsw', 'params': {'dimensions': model['dimensions'], 'metric': 'CS'}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
         status, _, _ = execute_query(client, query, blobs)
         assert status == 0
         query = []
@@ -127,8 +125,7 @@ def load_images_testdata(client):
     images = random_images(10)
     for i, model in enumerate(IMAGE_MODELS):
         set_name = f'TestImage_{i}'
-        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'vector', 'params': {'dimensions': model['dimensions'], 'metric': 'CS', 'engines': engines_object(
-            'HNSW')}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
+        query.append({'CreateIndex': {'target': 'descriptor', 'class': set_name, 'property': '_blob', 'kind': 'hnsw', 'params': {'dimensions': model['dimensions'], 'metric': 'CS'}, 'metadata': {'description': 'Test set for descriptor suite', 'embeddings_provider': model['provider'], 'embeddings_model': model['model'], 'embeddings_pretrained': model['corpus']}}})
         status, _, _ = execute_query(client, query, blobs)
         assert status == 0
         query = []

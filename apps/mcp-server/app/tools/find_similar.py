@@ -125,12 +125,16 @@ class DescriptorSetsResponse(BaseModel):
 def list_descriptor_sets() -> DescriptorSetsResponse:
     """List populated descriptor classes whose index metadata identifies an embedder."""
     with connection_pool.get_utils() as utils:
-        indexes = utils.get_indexes(target="descriptor", kind="vector")
+        from aperturedb.ServerCompatibility import preferred_vector_index
+        by_class = {}
+        for index in utils.get_vector_indexes():
+            by_class.setdefault(index["class"], []).append(index)
         sets = []
-        for index in indexes:
+        for name, indexes in by_class.items():
+            index = preferred_vector_index(indexes)
             if not Embedder.check_properties(index.get("metadata", {})):
                 continue
-            count = utils.count_descriptors_in_set(index["class"])
+            count = utils.count_descriptors_in_set(name)
             if count:
-                sets.append(DescriptorSet(name=index["class"], count=count))
+                sets.append(DescriptorSet(name=name, count=count))
     return DescriptorSetsResponse(sets=sets)

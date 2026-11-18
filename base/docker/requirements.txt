@@ -5,4 +5,4 @@ fastapi
 uvicorn
 typer
 prometheus_client
-aperturedb>=1.0.0
+aperturedb>=1.0.1

@@ -1,4 +1,3 @@
-from aperturedb.DescriptorEngines import engines_object
 from aperturedb.Constraints import predicate
 import os
 import argparse
@@ -172,8 +171,8 @@ def add_descriptor_set(db):
         db, [
             {
                 'CreateIndex': {
-                    'target': 'descriptor', 'class': PROCESSED_LABEL_IMAGES, 'property': '_blob', 'kind': 'vector', 'params': {
-                        'dimensions': 512, 'metric': 'CS', 'engines': engines_object('HNSW')}}}], [], success_statuses=[
+                    'target': 'descriptor', 'class': PROCESSED_LABEL_IMAGES, 'property': '_blob', 'kind': 'hnsw', 'params': {
+                        'dimensions': 512, 'metric': 'CS'}}}], [], success_statuses=[
             0, 2])
     print(f"Added Descriptor Set... {response if result != 0 else 'done'}")
 

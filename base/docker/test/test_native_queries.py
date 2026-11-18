@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 import unittest
 from uuid import uuid4
 
@@ -111,15 +112,32 @@ class NativeQueryTests(unittest.TestCase):
                      str(path), "exec"), namespace)
         for count in (0, 2):
             with self.subTest(indexes=count):
-                io = SimpleNamespace(descriptorset_name="MissingOrAmbiguous",
+                io = SimpleNamespace(descriptorset_name="MissingOrAmbiguous", engine="IVF",
                                      execute_query=lambda query: ([{"GetIndexes": {
                                          "status": 0, "indexes": [{}] * count}}], []))
                 with self.assertRaisesRegex(ValueError, f"Expected one vector index.*found {count}"):
                     namespace["connect_descriptor_set"](io)
-        io = SimpleNamespace(descriptorset_name="Ready",
-                             execute_query=lambda query: ([{"GetIndexes": {
-                                 "status": 0, "indexes": [{}]}}], []))
+        io = SimpleNamespace(descriptorset_name="Ready", engine="HNSW",
+                             execute_query=Mock(return_value=([{"GetIndexes": {
+                                 "status": 0, "indexes": [{}]}}], [])))
         namespace["connect_descriptor_set"](io)
+        self.assertEqual(io.execute_query.call_args.args[0][0]["GetIndexes"]["kind"], "hnsw")
+
+    def test_embedding_metadata_updates_only_the_selected_kind(self):
+        path = ROOT / "base/docker/scripts/embeddings/aperturedb_io.py"
+        spec = importlib.util.spec_from_file_location("vector_io", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        client = Mock()
+        indexes = [{"kind": "flat", "params": {"metric": ["IP"]}, "metadata": {"tag": "exact"}},
+                   {"kind": "hnsw", "params": {"metric": ["L2"]}, "metadata": {"tag": "graph"}}]
+        with patch.object(module, "Utils") as utils, patch.object(module, "_execute") as execute:
+            utils.return_value.get_vector_indexes.return_value = indexes
+            self.assertEqual(module.find_descriptor_set(client, "Images")["tag"], "exact")
+            module.update_descriptor_set(client, "Images", {"model": "example"}, engine="HNSW")
+            update = execute.call_args.args[1][0]["UpdateIndex"]
+            self.assertEqual(update["kind"], "hnsw")
+            self.assertEqual(update["metadata"], {"tag": "graph", "model": "example"})
 
     def test_generated_connection_csvs_name_media_and_vector_classes(self):
         import csv
@@ -216,7 +234,7 @@ class NativeQueryTests(unittest.TestCase):
                 [{"FindDescriptor": {"with_class": prefix, "results": {"list": ["dataset_name"]}}}])
             self.assertEqual([entity["dataset_name"] for entity in response[0]
                              ["FindDescriptor"]["entities"]], [prefix + "B"])
-            index = Utils(db).get_indexes(target="descriptor", class_name=prefix, kind="vector")[0]
+            index = Utils(db).get_indexes(target="descriptor", class_name=prefix, kind="flat")[0]
             self.assertEqual(index["metadata"]["fingerprint"], "model")
         finally:
             Utils(db).remove_descriptorset(prefix)

@@ -7,6 +7,8 @@
 # WHERE _find_similar = FIND_SIMILAR(text := 'find entity', k := 10)
 # AND _blobs
 
+from aperturedb.DescriptorEngines import ENGINE_ORDER
+from aperturedb.ServerCompatibility import preferred_vector_index
 from multicorn import TableDefinition, ColumnDefinition
 from typing import List
 from .common import Curry
@@ -95,9 +97,7 @@ def descriptor_schema() -> List[TableDefinition]:
             command="FindDescriptor",
             result_field="entities",
             modify_query=Curry(
-                vector_selector, {"with_class": name, "distances": True,
-                                  "engine": next(engine for key, engine in (("flat", "Flat"), ("ivf", "IVF"), ("hnsw", "HNSW"), ("acorn", "ACORN")) if key in properties["_engines"]),
-                                  "metric": properties["_metrics"][0] if isinstance(properties["_metrics"], list) else properties["_metrics"]}),
+                vector_selector, {"with_class": name, "distances": True}, indexes=properties["_indexes"]),
             path_keys=path_keys,
         )
 
@@ -117,15 +117,23 @@ def descriptor_schema() -> List[TableDefinition]:
 def get_descriptor_sets():
     """Read vector definitions and retain model/fingerprint customer metadata."""
     status, response, _ = execute_query(
-        [{"GetIndexes": {"target": "descriptor", "kind": "vector"}}])
+        [{"GetIndexes": {"target": "descriptor", "property": "_blob"}}])
     if status != 0:
         raise RuntimeError(f"Cannot read descriptor vector definitions: {response}")
     classes = get_classes("entities")
-    return {index["class"]: {**index.get("metadata", {}),
-                             "_dimensions": index["params"]["dimensions"], "_metrics": index["params"]["metric"],
-                             "_engines": index["params"]["engines"],
-                             "_count": classes.get("descriptor:" + index["class"], {}).get("matched", 0)}
-            for index in response[0]["GetIndexes"].get("indexes", [])}
+    by_class = {}
+    for index in response[0]["GetIndexes"].get("indexes", []):
+        by_class.setdefault(index["class"], []).append(index)
+    result = {}
+    for name, indexes in by_class.items():
+        index = preferred_vector_index(indexes)
+        if index is not None:
+            result[name] = {**index.get("metadata", {}),
+                            "_dimensions": index["params"]["dimensions"],
+                            "_indexes": [{"kind": item["kind"], "params": {"metric": item["params"]["metric"]}}
+                                         for item in indexes],
+                            "_count": classes.get("descriptor:" + name, {}).get("matched", 0)}
+    return result
 
 
 def property_columns_for_descriptors_in_set(name):
@@ -224,8 +232,15 @@ def find_similar_query_blobs(
     return [vector]  # Return as a list of one blob
 
 
-def vector_selector(parameters, query):
+def vector_selector(parameters, query, indexes=None):
     body = next(iter(query[0].values()))
+    if indexes is not None and "k_neighbors" in body:
+        index = preferred_vector_index(indexes, body.get("engine"), body.get("metric"))
+        if index is None:
+            raise ValueError("No descriptor index matches the requested engine and metric")
+        body["engine"] = dict(ENGINE_ORDER)[index["kind"]]
+        metrics = index["params"]["metric"]
+        body.setdefault("metric", metrics[0] if isinstance(metrics, list) else metrics)
     for key, value in parameters.items():
         if key == "with_class":
             body[key] = value

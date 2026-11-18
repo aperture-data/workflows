@@ -132,7 +132,7 @@ class AperturedbIO:
         response, _ = self.execute_query([{"GetIndexes": {"target": "descriptor",
                                                           "class": self.descriptorset_name,
                                                           "property": "_blob",
-                                                          "kind": "vector"}}])
+                                                          "kind": self.engine.lower()}}])
         indexes = response[0]["GetIndexes"].get("indexes", [])
         if len(indexes) != 1:
             raise ValueError(

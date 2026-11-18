@@ -19,6 +19,7 @@ def run_text_embeddings(args):
     embedder = Embedder.from_new_descriptor_set(
         client=client,
         descriptor_set=args.descriptorset,
+        engine=args.engine,
         **Embedder.parse_string(args.model),
         clean=args.clean,
     )

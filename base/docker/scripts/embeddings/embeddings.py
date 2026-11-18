@@ -244,9 +244,13 @@ class Embedder():
 
         if clean:
             delete_descriptor_set(client, descriptor_set)
-        elif existing_properties := find_descriptor_set(
-                client=client,
-                descriptor_set=descriptor_set):
+        else:
+            existing_properties = find_descriptor_set(client, descriptor_set, engine)
+        needs_index = existing_properties is None
+        if needs_index and not clean:
+            # All index kinds on a class search the same stored embeddings.
+            existing_properties = find_descriptor_set(client, descriptor_set)
+        if existing_properties:
             logger.info(
                 f"Found existing descriptor set {descriptor_set}: {existing_properties}")
 
@@ -281,7 +285,7 @@ class Embedder():
                         f"Pretrained corpus mismatch: {pretrained} != {existing_properties['embeddings_pretrained']} in descriptor set {descriptor_set}, properties: {existing_properties}. Allowing re-use of descriptor set and updating the properties.")
                     update_required = True
 
-            if update_required: # We update the descriptor set with the new properties
+            if update_required and not needs_index:
                 properties = {
                     "embeddings_provider": provider,
                     "embeddings_model": model_name,
@@ -291,7 +295,7 @@ class Embedder():
                 update_descriptor_set(
                     client=client,
                     descriptor_set=descriptor_set,
-                    properties=properties)
+                    properties=properties, engine=engine)
             else:
                 logger.info(f"Descriptor set {descriptor_set} already exists and is compatible with the requested properties.")
         else:
@@ -303,8 +307,9 @@ class Embedder():
                    pretrained=pretrained,
                    descriptor_set=descriptor_set,
                    device=device)
-        if not existing_properties:
-            properties = properties or {}
+        if needs_index:
+            properties = {**(existing_properties or {}), **(properties or {})}
+            properties = {k: v for k, v in properties.items() if v is not None}
             properties.update(self.get_properties())
             add_descriptor_set(
                 client=client,

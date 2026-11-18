@@ -1,4 +1,3 @@
-from aperturedb.DescriptorEngines import engines_object
 from aperturedb.CommonLibrary import execute_query, create_connector
 from aperturedb.Connector import Connector
 from itertools import product
@@ -122,10 +121,9 @@ def load_text_descriptors_testdata(client):
         query.append({'CreateIndex': {'target': 'descriptor',
                                       'class': set_name,
                                       'property': '_blob',
-                                      'kind': 'vector',
+                                      'kind': 'hnsw',
                                       'params': {'dimensions': model['dimensions'],
-                                                 'metric': 'CS',
-                                                 'engines': engines_object('HNSW')},
+                                                 'metric': 'CS'},
                                       'metadata': {'description': 'Test set for descriptor suite',
                                                    'embeddings_provider': model['provider'],
                                                    'embeddings_model': model['model'],
