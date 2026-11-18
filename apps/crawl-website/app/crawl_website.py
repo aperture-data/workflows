@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import email.utils
 from dataclasses import dataclass
 import json
+import re
 
 import scrapy
 from scrapy.spiders import CrawlSpider, Rule
@@ -327,12 +328,21 @@ def create_run(db, spec_id, run_id, stats):
     """Create a CrawlRun entity with end time, duration, and number of documents"""
     logging.info(f"Ending Crawl {spec_id} {run_id}")
 
-    # Extract properties from stats and convert datetimes to strings
-    properties = {
-        k: {"_date": v.isoformat()} if isinstance(v, datetime) else v
-        for k, v in stats.items()
-        if v is not None
-    } if stats else {}
+    # Scrapy includes hostnames and exception names in some counter keys.
+    properties = {}
+    extra_stats = {}
+    for key, value in (stats or {}).items():
+        if value is None:
+            continue
+        if isinstance(value, datetime):
+            value = {"_date": value.isoformat()}
+        if (re.fullmatch(r"[A-Za-z0-9/-][A-Za-z0-9_/-]{0,63}", key)
+                and key not in {"id", "spec_id", "error_urls", "extra_stats"}):
+            properties[key] = value
+        else:
+            extra_stats[key] = value
+    if extra_stats:
+        properties["extra_stats"] = json.dumps(extra_stats)
 
     global error_urls
     if error_urls:
@@ -341,7 +351,7 @@ def create_run(db, spec_id, run_id, stats):
     properties['id'] = run_id
     properties['spec_id'] = spec_id
 
-    execute_query(db, [{
+    status, _, _ = execute_query(db, [{
         "FindEntity": {
             "with_class": "CrawlSpec",
             "constraints": ["$id", "==", {"json": spec_id}],
@@ -371,6 +381,8 @@ def create_run(db, spec_id, run_id, stats):
             "dst": 3,
         }
     }])
+    if status:
+        raise RuntimeError(f"Could not record CrawlRun {run_id} for crawl {spec_id}")
 
 
 def delete_crawl(db, spec_id):

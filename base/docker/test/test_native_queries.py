@@ -77,6 +77,34 @@ class NativeQueryTests(unittest.TestCase):
         embedder.from_new_descriptor_set.assert_called_once_with(
             client=io.db, descriptor_set="shared", engine="HNSW")
 
+    def test_crawl_run_preserves_scrapy_counters_and_reports_write_failure(self):
+        import json
+        import re
+        from datetime import datetime, timezone
+
+        source = ROOT / "apps/crawl-website/app/crawl_website.py"
+        function = next(n for n in ast.parse(source.read_text()).body
+                        if isinstance(n, ast.FunctionDef) and n.name == "create_run")
+        execute_query = Mock(return_value=(0, [], []))
+        namespace = dict(datetime=datetime, logging=logging, re=re, json=json,
+                         execute_query=execute_query, error_urls=None)
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), namespace)
+        finished = datetime(2026, 1, 2, tzinfo=timezone.utc)
+        dynamic_stats = {"spider/domain/docs.aperturedata.dev": 2,
+                         "spider/domain/" + "a" * 64: 1, "extra_stats": 7}
+        stats = {"itempipeline/item_count": 3, "finish_time": finished, **dynamic_stats}
+        namespace["create_run"](None, "spec", "run", stats)
+        properties = execute_query.call_args.args[1][1]["AddEntity"]["properties"]
+        self.assertEqual(properties["itempipeline/item_count"], 3)
+        self.assertEqual(properties["finish_time"], {"_date": finished.isoformat()})
+        self.assertEqual(json.loads(properties["extra_stats"]), dynamic_stats)
+        self.assertEqual(properties["id"], "run")
+        self.assertEqual(properties["spec_id"], "spec")
+
+        execute_query.return_value = (1, {}, [])
+        with self.assertRaisesRegex(RuntimeError, "Could not record CrawlRun"):
+            namespace["create_run"](None, "spec", "run", {})
+
     def test_mutating_generators_keep_disjoint_id_batches_after_completion_changes(self):
         import inspect
         for app, module, name, command in GENERATORS:
