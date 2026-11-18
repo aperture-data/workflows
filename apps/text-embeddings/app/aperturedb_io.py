@@ -27,14 +27,12 @@ class AperturedbIO:
                  run_id: str,
                  descriptorset_name: str,
                  engine: str,
-                 embedder: "BatchEmbedder",
                  batch_size: int = 100):
         self.input_spec_id = input_spec_id
         self.spec_id = spec_id
         self.run_id = run_id
         self.descriptorset_name = descriptorset_name
         self.engine = engine
-        self.embedder = embedder
         self.batch_size = batch_size
         self.db = create_connector()
         self.start_time = datetime.now(timezone.utc)
@@ -93,7 +91,7 @@ class AperturedbIO:
         """Filter out null properties from a dictionary"""
         return {k: v for k, v in obj.items() if v is not None}
 
-    def create_spec(self) -> None:
+    def create_spec(self, embedder) -> None:
         """Create spec document in ApertureDB"""
         logging.info(f"Starting {SPEC_CLASS} at {self.start_time.isoformat()}")
 
@@ -111,10 +109,10 @@ class AperturedbIO:
                     "properties": {
                         "segmentation_spec_id": self.input_spec_id,
                         "id": self.spec_id,
-                        "model": self.embedder.model_spec,
-                        "model_fingerprint": self.embedder.fingerprint_hash(),
-                        "dimensions": self.embedder.dimensions,
-                        "metric": self.embedder.metric,
+                        "model": embedder.model_spec,
+                        "model_fingerprint": embedder.fingerprint_hash(),
+                        "dimensions": embedder.dimensions,
+                        "metric": embedder.metric,
                         "descriptorset_name": self.descriptorset_name,
                         "engine": self.engine,
                     },
@@ -298,6 +296,13 @@ class AperturedbIO:
             {"DeleteEntity": {"with_class": RUN_CLASS,
                               "constraints": predicate("spec_id", "==", spec_id)}},
             {"DeleteEntity": {"with_class": SPEC_CLASS, "constraints": predicate("id", "==", spec_id)}}])
+        remaining, _ = self.execute_query([{"FindEntity": {
+            "with_class": SPEC_CLASS,
+            "constraints": predicate("descriptorset_name", "==", descriptor_class),
+            "results": {"count": True},
+        }}])
+        if remaining[0]["FindEntity"]["count"]:
+            return
         from aperturedb.Utils import Utils
         utils = Utils(self.db)
         if utils.count_descriptors_in_set(descriptor_class) == 0:

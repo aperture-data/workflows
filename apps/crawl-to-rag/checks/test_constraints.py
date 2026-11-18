@@ -50,7 +50,7 @@ else:
 try:
     for value in ('$literal-id', 'other'):
         query({'AddEntity': {'class': 'PredicateCheck', 'properties': {
-            'id': value, 'spec_id': value, 'run_id': value, 'url': value}}})
+            'id': value, 'spec_id': value, 'run_id': value, 'url': value, 'descriptorset_name': value}}})
     entities = query({'FindEntity': {'with_class': 'PredicateCheck', 'results': {
                      'list': ['id', '_uniqueid']}, 'uniqueids': True}})['entities']
     before = deprecations()

@@ -1,7 +1,6 @@
 from aperturedb_io import AperturedbIO
 from wf_argparse import ArgumentParser
 import logging
-from aperturedb.CommonLibrary import create_connector
 
 from embeddings import Embedder, DEFAULT_MODEL
 from schema import Embedding
@@ -12,18 +11,6 @@ logger = logging.getLogger(__name__)
 
 def run_text_embeddings(args):
     logger.info(f"Starting text embeddings")
-    segmentation_spec_id = args.input
-    embedding_id = args.output
-
-    client = create_connector()
-    embedder = Embedder.from_new_descriptor_set(
-        client=client,
-        descriptor_set=args.descriptorset,
-        engine=args.engine,
-        **Embedder.parse_string(args.model),
-        clean=args.clean,
-    )
-
     input_spec_id = args.input
     spec_id = args.output
     run_id = str(uuid4())
@@ -35,7 +22,6 @@ def run_text_embeddings(args):
         run_id=run_id,
         descriptorset_name=descriptorset_name,
         engine=engine,
-        embedder=embedder,
     ) as io:
         if args.delete_all:
             io.delete_all()
@@ -47,10 +33,15 @@ def run_text_embeddings(args):
         io.ensure_input_exists()
         if args.clean:
             io.delete_spec(spec_id)
-            # continue
         io.ensure_output_does_not_exist()
-        io.create_spec()
+        embedder = Embedder.from_new_descriptor_set(
+            client=io.db,
+            descriptor_set=descriptorset_name,
+            engine=engine,
+            **Embedder.parse_string(args.model),
+        )
         io.connect_descriptor_set()
+        io.create_spec(embedder)
 
         for segment in io.get_segments():
             try:

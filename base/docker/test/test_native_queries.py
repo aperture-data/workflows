@@ -55,6 +55,28 @@ def load_generator(app, module, class_name, pool):
 
 
 class NativeQueryTests(unittest.TestCase):
+    def test_clean_embedding_run_removes_old_spec_before_ensuring_vector_index(self):
+        source = ROOT / "apps/text-embeddings/app/app.py"
+        run = next(node for node in ast.parse(source.read_text()).body
+                   if isinstance(node, ast.FunctionDef) and node.name == "run_text_embeddings")
+        operations = Mock()
+        io = operations.io
+        io.get_segments.return_value = []
+        from contextlib import nullcontext
+        embedder = operations.Embedder
+        embedder.parse_string.return_value = {}
+        namespace = dict(logger=logging.getLogger("embedding-clean"), uuid4=uuid4,
+                         AperturedbIO=lambda **kwargs: nullcontext(io), Embedder=embedder)
+        exec(compile(ast.Module(body=[run], type_ignores=[]), str(source), "exec"), namespace)
+        args = SimpleNamespace(input="source", output="selected", descriptorset="shared",
+                               engine="HNSW", model="model", clean=True, delete=False, delete_all=False)
+        namespace["run_text_embeddings"](args)
+        calls = [step[0] for step in operations.mock_calls]
+        self.assertLess(calls.index("io.delete_spec"), calls.index("Embedder.from_new_descriptor_set"))
+        io.delete_spec.assert_called_once_with("selected")
+        embedder.from_new_descriptor_set.assert_called_once_with(
+            client=io.db, descriptor_set="shared", engine="HNSW")
+
     def test_mutating_generators_keep_disjoint_id_batches_after_completion_changes(self):
         import inspect
         for app, module, name, command in GENERATORS:
@@ -270,7 +292,7 @@ class NativeQueryTests(unittest.TestCase):
         io = object.__new__(namespace["AperturedbIO"])
         io.db, io.input_spec_id, io.spec_id, io.run_id = db, prefix + "input", prefix + "spec", prefix + "run"
         io.descriptorset_name, io.engine = prefix + "Vectors", "Flat"
-        io.embedder = SimpleNamespace(model_spec="test/model", metric="L2",
+        embedder = SimpleNamespace(model_spec="test/model", metric="L2",
                                       dimensions=2, fingerprint_hash=lambda: "test-fingerprint")
         io.start_time, io.batch_size, io.n_embeddings = datetime.now(timezone.utc), 2, 0
         io.batcher = batcher.SymbolicBatcher(
@@ -288,7 +310,7 @@ class NativeQueryTests(unittest.TestCase):
             status, response, _ = execute_query(db, commands)
             self.assertEqual(status, 0, response)
             io.create_indexes()
-            io.create_spec()
+            io.create_spec(embedder)
             io.connect_descriptor_set()
             segments = list(io.get_segments())
             self.assertEqual({segment.id for segment in segments}, set(ids))
@@ -305,7 +327,7 @@ class NativeQueryTests(unittest.TestCase):
             namespace["create_connector"] = lambda: db
             namespace["SymbolicBatcher"] = batcher.SymbolicBatcher
             with namespace["AperturedbIO"](io.input_spec_id, io.spec_id, io.run_id,
-                                           io.descriptorset_name, io.engine, io.embedder) as cleanup:
+                                           io.descriptorset_name, io.engine) as cleanup:
                 cleanup.delete_spec(io.spec_id)
             self.assertEqual(Utils(db).count_entities(run_class), 0)
             self.assertEqual(Utils(db).count_entities(input_class), 1)
