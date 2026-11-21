@@ -66,7 +66,7 @@ def describe_entity_class(class_name: Annotated[str, Field(
 def list_connection_classes() -> ClassList:
     with connection_pool.get_utils() as utils:
         schema = utils.get_schema()
-    return ClassList(classes=sorted({entry["class"] for entry in schema.get("edges", [])}))
+    return ClassList(classes=sorted({entry["class"]["connection"] for entry in schema.get("edges", [])}))
 
 
 @declare_mcp_tool
@@ -74,27 +74,19 @@ def describe_connection_class(class_name: Annotated[str, Field(
         description="Connection class name")]) -> ConnectionClassDescriptions:
     with connection_pool.get_utils() as utils:
         descriptions = [entry for entry in utils.get_schema().get("edges", [])
-                        if entry["class"].casefold() == class_name.casefold()]
+                        if entry["class"]["connection"].casefold() == class_name.casefold()]
         if not descriptions:
             raise ValueError(f"Connection class '{class_name}' not found in schema.")
         items = []
         for description in descriptions:
-            target = {"src_type": description["src_type"], "dst_type": description["dst_type"]}
-            indexed = {
-                index["property"] for index in utils.get_indexes(
-                    target=target,
-                    class_name=class_name,
-                    src_class=description["src_class"],
-                    dst_class=description["dst_class"])}
+            target = description["target"]
+            classes = description["class"]
+            indexed = {index["property"] for index in utils.get_indexes(target=target, class_name=classes)}
             items.append(
                 ConnectionClassDescription(
                     matched=description["matched"],
-                    src=description["src_type"] +
-                    ":" +
-                    description["src_class"],
-                    dst=description["dst_type"] +
-                    ":" +
-                    description["dst_class"],
+                    src=target["src"] + ":" + classes["src"],
+                    dst=target["dst"] + ":" + classes["dst"],
                     properties={
                         name: PropertyDescription(
                             matched=info["count"],

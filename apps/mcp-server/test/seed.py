@@ -193,8 +193,9 @@ if __name__ == "__main__":
     load_connection_testdata(client)
     status, _, _ = execute_query(client, [
         {"CreateIndex": {"target": "entity", "class": "Person", "property": "name", "kind": "ordered"}},
-        {"CreateIndex": {"target": {"src_type": "entity", "dst_type": "entity"}, "class": "WorksAt",
-                         "src_class": "Person", "dst_class": "Company", "property": "since", "kind": "ordered"}},
+        {"CreateIndex": {"target": {"src": "entity", "dst": "entity"},
+                         "class": {"src": "Person", "connection": "WorksAt", "dst": "Company"},
+                         "property": "since", "kind": "ordered"}},
         {"AddEntity": {"class": "Empty", "_ref": 1}},
         {"AddConnection": {"class": "Propertyless", "src": 1, "dst": 1}},
     ])

@@ -1,6 +1,6 @@
 # Server compatibility
 
-These workflow images target ApertureDB server 1.0 and Python SDK 1.0.1 or later.
+These workflow images target ApertureDB server 1.0 and Python SDK 1.0.2 or later.
 Rebuild the shared base image and each application image together when upgrading.
 Media ingestion uses explicit Images, Videos, Blobs, BoundingBoxes and Polygons
 classes. Embedding search spaces are descriptor classes with native vector indexes;
@@ -47,7 +47,7 @@ This will allow you to do various things that you can't do via the UI:
 ## Docker
 
 Workflow images `v1.0.4` and newer target ApertureDB 1.0 and include
-Python SDK 1.0.1 or later. Updated permissions apply to subsequent operations
+Python SDK 1.0.2 or later. Updated permissions apply to subsequent operations
 after a security change revokes a session and the client signs in again.
 
 This is the general pattern for running a workflow.

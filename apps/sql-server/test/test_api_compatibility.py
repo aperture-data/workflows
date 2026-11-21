@@ -69,12 +69,12 @@ def test_typed_schema_index_flags_are_scoped_to_exact_endpoint_categories():
         {"type": "entity", "class": "Same", "matched": 2,
             "properties": {"id": {"count": 2, "type": "String"}}},
         {"type": "image", "class": "Same", "matched": 1, "properties": {"id": {"count": 1, "type": "String"}}}],
-        "edges": [dict(type="connection", **{"class": "Links"}, src_type="entity", src_class="Same",
-                       dst_type=target, dst_class="Same", matched=1,
-                       properties={"rank": {"count": 1, "type": "Number"}}) for target in ("image", "entity")]}
+        "edges": [{"class": {"src": "Same", "connection": "Links", "dst": "Same"},
+                   "target": {"src": "entity", "dst": target}, "matched": 1,
+                   "properties": {"rank": {"count": 1, "type": "Number"}}} for target in ("image", "entity")]}
     indexes = [{"target": "image", "class": "Same", "property": "id"},
-               {"target": {"src_type": "entity", "dst_type": "image"}, "class": "Links",
-                "src_class": "Same", "dst_class": "Same", "property": "rank"}]
+               {"target": {"src": "entity", "dst": "image"},
+                "class": {"src": "Same", "connection": "Links", "dst": "Same"}, "property": "rank"}]
     nodes = schema.native_classes("entities", source, indexes)
     assert set(nodes) == {"entity:Same", "image:Same"}
     assert not nodes["entity:Same"]["properties"]["id"]["indexed"]
@@ -90,8 +90,8 @@ def setup_snapshot(package):
         {"type": "entity", "class": "Shared", "matched": 3,
             "properties": {"name": {"count": 3, "type": "String"}}},
         {"type": "image", "class": "Shared", "matched": 2, "properties": {"name": {"count": 2, "type": "String"}}}],
-        "edges": [{"class": "Owns", "src_type": "entity", "src_class": "Shared",
-                   "dst_type": "image", "dst_class": "Shared", "matched": 2, "properties": {}}]}
+        "edges": [{"class": {"src": "Shared", "connection": "Owns", "dst": "Shared"},
+                   "target": {"src": "entity", "dst": "image"}, "matched": 2, "properties": {}}]}
     api._INDEXES = []
     return api
 
@@ -151,7 +151,7 @@ def test_endpoint_quals_use_typed_object_references_and_keep_other_filters(fdw):
 def test_mixed_endpoint_connection_tables_are_retained_without_guessing_types(fdw):
     package, multicorn = fdw
     api = setup_snapshot(package)
-    api._SCHEMA["edges"].append({**api._SCHEMA["edges"][0], "dst_type": "entity"})
+    api._SCHEMA["edges"].append({**api._SCHEMA["edges"][0], "target": {"src": "entity", "dst": "entity"}})
     table = package.FDW.import_schema("connection", {}, {}, None, [])[0]
     wrapper = make_wrapper(package, table)
     query, _ = wrapper._get_query([multicorn.Qual("_src", "=", "1.2.3")], {"_src", "_dst"})
