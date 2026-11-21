@@ -387,26 +387,20 @@ def create_indexes(utils: Utils):
     utils.create_entity_index(IMAGE_LABEL, "id")
 
     utils.create_connection_index(
-        HAS_CAST_CONNECTION_LABEL,
-        "cast_id",
-        src_type="entity",
-        src_class="Movie",
-        dst_type="entity",
-        dst_class="Professional")
+        class_name={"src": MOVIE_ENTITY_LABEL, "connection": HAS_CAST_CONNECTION_LABEL,
+                    "dst": PROFESSIONAL_ENTITY_LABEL},
+        property_key="cast_id",
+        target={"src": "entity", "dst": "entity"})
     utils.create_connection_index(
-        HAS_CREW_CONNECTION_LABEL,
-        "crew_id",
-        src_type="entity",
-        src_class="Movie",
-        dst_type="entity",
-        dst_class="Professional")
+        class_name={"src": MOVIE_ENTITY_LABEL, "connection": HAS_CREW_CONNECTION_LABEL,
+                    "dst": PROFESSIONAL_ENTITY_LABEL},
+        property_key="crew_id",
+        target={"src": "entity", "dst": "entity"})
     utils.create_connection_index(
-        HAS_GENRE_CONNECTION_LABEL,
-        "id",
-        src_type="entity",
-        src_class="Movie",
-        dst_type="entity",
-        dst_class="Genre")
+        class_name={"src": MOVIE_ENTITY_LABEL, "connection": HAS_GENRE_CONNECTION_LABEL,
+                    "dst": GENRE_ENTITY_LABEL},
+        property_key="id",
+        target={"src": "entity", "dst": "entity"})
     # Demo has embeddings
     utils.create_entity_index("descriptor:wf_embeddings_clip", "_create_txn")
     utils.create_entity_index("descriptor:wf_embeddings_clip", "id")
