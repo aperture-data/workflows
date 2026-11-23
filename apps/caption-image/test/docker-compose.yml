@@ -3,6 +3,8 @@ services:
     build:
       context: apps/caption-image/test
       dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
     image: aperturedata/workflows-caption-image-tests:${VERSION:-latest}
     deploy:
       replicas: 0

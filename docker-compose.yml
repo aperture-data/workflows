@@ -41,6 +41,8 @@ services:
     base:
         build:
             context: ./base/docker
+            additional_contexts:
+                sdk_wheel: ${SDK_WHEEL_DIR:-./.sdk-wheel}
             args:
                 <<: *build-args
             labels:

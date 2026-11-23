@@ -5,7 +5,7 @@ cd $(dirname "$(readlink -f "$0")")
 source ../../.commonrc
 
 if [ $CI_RUN -eq 0 ]; then
-  $COMMAND build base
+  build_base
 fi
 
 # Override the Croissant URL for tests to use the local dummy data

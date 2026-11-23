@@ -44,7 +44,7 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
 
 if [ ${CI_RUN:-0} -eq 0 ]; then
-  $COMMAND build base
+  build_base
 fi
 
 $COMMAND build crawl-website text-extraction text-embeddings

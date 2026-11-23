@@ -5,6 +5,8 @@ services:
     build:
       context: apps/mcp-server/test
       dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
     image: aperturedata/workflows-mcp-server-tests:${VERSION:-latest}
     deploy:
       replicas: 0

@@ -1,6 +1,6 @@
 # Pull base image.
 ARG VERSION=latest
-FROM aperturedata/workflows-base:${VERSION} as common
+FROM aperturedata/workflows-base:${VERSION} AS common
 FROM aperturedata/aperturedb-notebook:cpu
 
 RUN mkdir -p /app
@@ -9,11 +9,12 @@ COPY --from=common /app /app
 
 RUN apt-get -y install lsof
 
-COPY --from=common requirements.txt /
-RUN pip install --no-cache-dir -r /requirements.txt
-
+COPY --from=common /requirements.txt /workflow-requirements.txt
 COPY requirements.txt /
-RUN pip install --no-cache-dir -r /requirements.txt
+RUN --mount=type=bind,from=common,source=/opt/aperturedb-sdk,target=/sdk \
+    pip uninstall -y aperturedb && \
+    pip install --no-cache-dir /sdk/aperturedb-*-py3-none-any.whl \
+        -r /workflow-requirements.txt -r /requirements.txt
 
 COPY app/shell.jupyterlab-settings /root/.jupyter/lab/user-settings/\@jupyterlab/application-extension
 COPY app/manager.jupyterlab-settings /root/.jupyter/lab/user-settings/\@jupyterlab/completer-extension

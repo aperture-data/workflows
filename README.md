@@ -1,6 +1,9 @@
 # Server compatibility
 
-Workflow release `v1.0.9` targets ApertureDB server 1.0.0 and includes Python SDK 1.0.2 or later.
+Workflow release `v1.0.10` targets ApertureDB server 1.0.0 and includes Python SDK 1.0.3.
+The base build script pulls the SDK wheel from the Docker Hub artifact
+`aperturedata/aperturedb-python:latest` using ORAS 1.3 and your Docker
+credentials. Application tests install the same wheel stored in that base.
 Rebuild the shared base image and each application image together when upgrading.
 Media ingestion uses explicit Images, Videos, Blobs, BoundingBoxes and Polygons
 classes. Embedding search spaces are descriptor classes with native vector indexes;

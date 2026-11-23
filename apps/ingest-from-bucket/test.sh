@@ -31,7 +31,7 @@ AWS_SECRET_ACCESS_KEY=$(jq -r .secret_key <<< ${WF_INGEST_BUCKET_AWS_CREDS})
 bash ../build.sh
 
 CHECKER_NAME="aperturedata-internal/workflow-ingest-from-bucket-checker"
-( cd tests/checker && docker build -t "$CHECKER_NAME" . )
+( cd tests/checker && docker build --build-arg "VERSION=${VERSION:-latest}" -t "$CHECKER_NAME" . )
 
 export WORKFLOW_NAME="ingest-from-bucket"
 RUNNER_NAME="$(whoami)"

@@ -17,6 +17,8 @@ services:
     build:
       context: apps/ocr-extraction/test
       dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
     image: aperturedata/workflows-ocr-extraction-tests:${VERSION:-latest}
     deploy:
       replicas: 0

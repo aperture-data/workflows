@@ -25,7 +25,7 @@ jobs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set version
         id: set-version
@@ -58,8 +58,15 @@ jobs:
       VERSION: ${{ needs.get-version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
+      - uses: oras-project/setup-oras@v1
+        with:
+          version: 1.3.0
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          password: ${{ fromJson(secrets.DOCKERHUB).password }}
       - name: Build base
         run: |
           cd base/docker
@@ -82,7 +89,7 @@ jobs:
       VERSION: ${{ needs.get-version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download base image
         uses: actions/download-artifact@v4
@@ -147,7 +154,7 @@ jobs:
         run: |
           printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Compose
         # docker-compose.yml includes the ApertureDB Compose package (oci://).
@@ -234,7 +241,7 @@ jobs:
         run: |
           printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Compose
         # docker-compose.yml includes the ApertureDB Compose package (oci://).

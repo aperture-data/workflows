@@ -19,6 +19,8 @@ services:
     build:
       context: apps/embeddings-extraction/test
       dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
     image: aperturedata/workflows-embeddings-extraction-tests:${VERSION:-latest}
     deploy:
       replicas: 0

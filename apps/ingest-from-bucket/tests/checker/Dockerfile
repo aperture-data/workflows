@@ -1,3 +1,6 @@
+ARG VERSION=latest
+FROM aperturedata/workflows-base:${VERSION} AS workflow_base
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -9,8 +12,9 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
-RUN pip3 install --upgrade pip && \
-    pip3 install aperturedb
+RUN --mount=type=bind,from=workflow_base,source=/opt/aperturedb-sdk,target=/sdk \
+    pip3 install --upgrade pip && \
+    pip3 install /sdk/aperturedb-*-py3-none-any.whl
 
 
 

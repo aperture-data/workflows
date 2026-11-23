@@ -61,6 +61,15 @@ final_banner() {
 trap 'echo "ERROR on line $LINENO: $BASH_COMMAND"' ERR
 trap 'ret=$?; if [ $CLEANUP_ON_EXIT -eq 1 ]; then cleanup; fi; final_banner $ret ; sleep 10; exit $ret' EXIT
 
+build_base() (
+  set -e
+  SDK_WHEEL_DIR=$(mktemp -d)
+  export SDK_WHEEL_DIR
+  trap 'rm -rf "$SDK_WHEEL_DIR"' EXIT
+  oras pull registry-1.docker.io/aperturedata/aperturedb-python:latest --output "$SDK_WHEEL_DIR"
+  $COMMAND build base
+)
+
 run_pytest() {
   BUILD_WORKFLOW=${BUILD_WORKFLOW:-1}
   # ---- run tests ----
@@ -70,7 +79,7 @@ run_pytest() {
   # Should the test script be building this workflow?
   if [ $CI_RUN -eq 0 ]; then
     TEST_PHASE=base_build
-    $COMMAND build base
+    build_base
   fi
 
   if [ $BUILD_WORKFLOW -eq 1 ]; then

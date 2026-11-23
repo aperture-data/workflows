@@ -17,8 +17,7 @@ ROOT = Path(os.getenv('WORKFLOWS_SOURCE', '/workflows'))
 @pytest.mark.parametrize('app', ['ocr-extraction', 'embeddings-extraction'])
 @pytest.mark.parametrize('ci_run', [0, 1])
 def test_unit_precheck_has_a_base_on_fresh_local_and_preloaded_ci(tmp_path, app, ci_run):
-    # Execute the real scripts/commonrc; only Compose's external build/run effects
-    # are simulated. A unit launch fails if its base has not been made available.
+    # Simulate the SDK registry and Compose. A unit launch still requires its base.
     app_dir = tmp_path / 'apps' / app
     app_dir.mkdir(parents=True)
     shutil.copyfile(ROOT / '.commonrc', tmp_path / '.commonrc')
@@ -36,6 +35,7 @@ with open(os.environ['BOOTSTRAP_EVENTS'], 'a') as stream:
     stream.write(json.dumps({'operation': operation, 'args': args}) + '\\n')
 ready = pathlib.Path(os.environ['BOOTSTRAP_BASE'])
 if operation == 'build' and args[-1] == 'base':
+    assert list(pathlib.Path(os.environ['SDK_WHEEL_DIR']).glob('*.whl'))
     ready.touch()
 if operation == 'run' and 'unit-tests' in args and not ready.exists():
     print('The unit precheck has no locally built or preloaded base.', file=sys.stderr)
@@ -44,6 +44,11 @@ if operation == 'run' and 'unit-tests' in args and not ready.exists():
     compose.chmod(0o755)
     tools = tmp_path / 'tools'
     tools.mkdir()
+    oras = tools / 'oras'
+    oras.write_text('#!/bin/sh\n'
+                    'test "$1 $2 $3" = "pull registry-1.docker.io/aperturedata/aperturedb-python:latest --output" || exit 1\n'
+                    'touch "$4/aperturedb-1.0.3-py3-none-any.whl"\n')
+    oras.chmod(0o755)
     pause = tools / 'sleep'
     pause.write_text('#!/bin/sh\nexit 0\n')
     pause.chmod(0o755)

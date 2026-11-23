@@ -29,10 +29,10 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /
+# Keep the release wheel for the separate test images built against this base.
+COPY --from=sdk_wheel /aperturedb-*-py3-none-any.whl /opt/aperturedb-sdk/
 RUN pip3 install --upgrade pip && \
-    APERTUREDB_VERSION="$(python3 -c "import json, urllib.request; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/aperturedb/json'))['info']['version'])")" && \
-    echo "Latest aperturedb version: ${APERTUREDB_VERSION}" && \
-    pip3 install --no-cache-dir -r /requirements.txt
+    pip3 install --no-cache-dir /opt/aperturedb-sdk/aperturedb-*-py3-none-any.whl -r /requirements.txt
 
 
 RUN rm /usr/lib/python3.10/sitecustomize.py

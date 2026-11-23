@@ -1,3 +1,2 @@
-aperturedb>=1.0.2
 pytest
 Pillow

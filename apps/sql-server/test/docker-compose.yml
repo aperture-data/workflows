@@ -5,6 +5,8 @@ services:
     build:
       context: apps/sql-server/test
       dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
     image: aperturedata/workflows-sql-server-tests:${VERSION:-latest}
     deploy:
       replicas: 0
