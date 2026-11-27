@@ -73,6 +73,13 @@ jobs:
         with:
           version: 1.3.0
 
+      - name: Log in to Docker Hub to read published app images
+        if: (github.event_name == 'push' || github.event_name == 'repository_dispatch') && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ fromJson(secrets.DOCKERHUB).username }}
+          password: ${{ fromJson(secrets.DOCKERHUB).password }}
+
       # jupyterlab builds on the CPU notebook, the other apps on the wheels.
       - name: Resolve the SDK wheels and the CPU notebook
         id: sdk
