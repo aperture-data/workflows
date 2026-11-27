@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Connect · Aperture Nexus{% endblock %}
+{% block content %}
+<h1>Connect an agent</h1>
+<p class="lead">Agents connect to Nexus over MCP with their own token. Add the agent on the
+  <a href="{{ admin_path }}/">Agents</a> page to get one.</p>
+
+<h2>Server</h2>
+<div class="copyable">
+  <code id="mcp-url">{{ mcp_url }}</code>
+  <button type="button" data-copy="mcp-url">Copy</button>
+</div>
+<p>Transport: streamable HTTP. Send the token as <code>Authorization: Bearer &lt;agent token&gt;</code>.</p>
+
+<h2>Claude Code</h2>
+<pre>claude mcp add --transport http nexus {{ mcp_url }} --header "Authorization: Bearer &lt;agent token&gt;"</pre>
+
+<h2>Claude Desktop</h2>
+<p>Save <a href="{{ bridge_url }}">stdio-bridge.py</a>, then add this to
+  <code>claude_desktop_config.json</code>:</p>
+<pre>{
+  "mcpServers": {
+    "nexus": {
+      "command": "python3",
+      "args": ["/path/to/stdio-bridge.py", "{{ mcp_url }}", "&lt;agent token&gt;"]
+    }
+  }
+}</pre>
+
+<h2>Tools</h2>
+<dl class="tools">
+  <dt><code>remember</code></dt><dd>Store a memory under a session, with an optional purpose and metadata.</dd>
+  <dt><code>recall</code></dt><dd>Search memories from the agent's organization by meaning or by filters.</dd>
+  <dt><code>find_sessions</code></dt><dd>Find earlier sessions by the purpose of their work.</dd>
+  <dt><code>get_context</code></dt><dd>Read everything stored under one context.</dd>
+  <dt><code>link</code></dt><dd>Record how one of the agent's contexts relates to another.</dd>
+  <dt><code>forget</code></dt><dd>Delete a commit, context or session the agent stored.</dd>
+</dl>
+{% endblock %}

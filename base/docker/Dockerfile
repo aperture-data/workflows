@@ -1,5 +1,4 @@
 FROM ubuntu:22.04
-ARG WORKFLOW_VERSION="UNDEFINED"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -28,30 +27,19 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 # git is required for CLIP
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /
-# Keep the release wheel for the separate test images built against this base.
-COPY --from=sdk_wheel /aperturedb-*-py3-none-any.whl /opt/aperturedb-sdk/
+# The sdk_wheel context holds the SDK and aperturedb-workflows wheels. Keep
+# them for the separate test images built against this base.
+COPY --from=sdk_wheel /*.whl /opt/aperturedb-sdk/
 RUN pip3 install --upgrade pip && \
-    pip3 install --no-cache-dir /opt/aperturedb-sdk/aperturedb-*-py3-none-any.whl -r /requirements.txt
+    pip3 install --no-cache-dir /opt/aperturedb-sdk/*.whl
 
-
+# The aperturedb-workflows sitecustomize replaces Ubuntu's.
 RUN rm /usr/lib/python3.10/sitecustomize.py
 
-COPY scripts/app.sh app/
-COPY scripts/userlog.py app/
-COPY scripts/slack-alert.py app/
-COPY scripts/batcher.py app/
-COPY scripts/wf_argparse.py app/
-COPY scripts/connection_pool.py app/
-COPY scripts/status_server.py app/
-COPY scripts/status.py app/
-COPY scripts/status_tools.py app/
-COPY scripts/log_processor.py app/
-COPY scripts/text_extraction app/text_extraction/
-COPY scripts/embeddings app/embeddings/
-COPY scripts/sitecustomize.py app/
+# Applications copy their code, including app.sh, into /app.
+RUN mkdir /app
 
-COPY scripts/start.sh /
-RUN echo "${WORKFLOW_VERSION}" > /app/workflow_version
+ARG WORKFLOW_VERSION="UNDEFINED"
+ENV WORKFLOW_VERSION=${WORKFLOW_VERSION}
 
-CMD ["/start.sh"]
+CMD ["wf-start"]

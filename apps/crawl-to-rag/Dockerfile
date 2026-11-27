@@ -10,8 +10,9 @@ FROM aperturedata/workflows-base:${VERSION}
 ENV APP_NAME=workflows-crawl-to-rag
 
 # Install dependencies for embeddings
-RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
-RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+# Install CPU torch first so the embeddings extra does not pull the CUDA build.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.0" torchvision
+RUN pip install --no-cache-dir "aperturedb-workflows[embeddings]"
 
 # copy in the app directories
 COPY --from=crawl-website   /app /workflows/crawl-website
@@ -22,9 +23,7 @@ COPY --from=rag     /app /workflows/rag
 # copy in the requirements; hope they're compatible
 COPY --from=crawl-website   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
-COPY --from=text-extraction /requirements.txt /requirements.txt
-RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
-RUN pip install --no-cache-dir -r /requirements.txt
+RUN pip install --no-cache-dir "aperturedb-workflows[text]"
 COPY --from=text-embeddings   /requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 COPY --from=rag     /requirements.txt /requirements.txt

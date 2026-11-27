@@ -8,15 +8,15 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import json
 import base64
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 from typing import List, Optional
-from embeddings import Embedder
+from aperturedb_workflows.embeddings import Embedder
 from pydantic import BaseModel, Field, model_validator, ValidationError
 import logging
 import os
 import traceback
 import sys
-from wf_argparse import validate
+from aperturedb_workflows.wf_argparse import validate
 
 log_level = validate("log_level", envar="WF_LOG_LEVEL", default="INFO")
 logging.basicConfig(level=log_level)

@@ -6,8 +6,8 @@ import logging
 import clip
 
 from aperturedb import ParallelQuery
-from embeddings import Embedder
-from connection_pool import ConnectionPool
+from aperturedb_workflows.embeddings import Embedder
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 from images import FindImageQueryGenerator
 from pdfs import FindPDFQueryGenerator

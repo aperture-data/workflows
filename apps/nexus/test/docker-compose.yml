@@ -1,0 +1,44 @@
+services:
+  # Test runner image (Python + aperturedb + pytest + fastmcp + httpx)
+  test-base:
+    build:
+      context: apps/nexus/test
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+    image: aperturedata/workflows-nexus-tests:${VERSION:-latest}
+    deploy:
+      replicas: 0
+
+  nexus:
+    depends_on:
+      lenz:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/nexus/health"]
+      interval: 3s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
+    environment:
+      DB_HOST: lenz
+      DB_PORT: 55551
+      DB_USER: admin
+      DB_PASS: admin
+      CA_CERT: /ca/ca.crt
+      APERTUREDB_KEY: ""
+      WF_ADMIN_TOKEN: test-admin-token
+      WF_LOG_LEVEL: DEBUG
+    volumes:
+      - ./ca:/ca
+
+  tests:
+    image: aperturedata/workflows-nexus-tests:${VERSION:-latest}
+    depends_on:
+      nexus:
+        condition: service_healthy
+    environment:
+      NEXUS_URL: http://nexus:8000
+      ADMIN_TOKEN: test-admin-token
+    working_dir: /app
+    command: ["pytest", "-vv", "-rA"]

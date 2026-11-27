@@ -1,0 +1,12 @@
+{
+    "models": {
+        "text_embedding": "BAAI/bge-small-en-v1.5"
+    },
+    "admin": {
+        "default_organization": "default",
+        "default_department": "general"
+    },
+    "logging": {
+        "level": "WARNING"
+    }
+}

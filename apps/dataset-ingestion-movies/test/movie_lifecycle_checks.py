@@ -124,7 +124,7 @@ class MovieLifecycleTests(unittest.TestCase):
             'aperturedb.ParallelLoader': SimpleNamespace(ParallelLoader=Loader),
             'aperturedb.CommonLibrary': SimpleNamespace(create_connector=connect, execute_query=Mock()),
             'aperturedb.Utils': SimpleNamespace(Utils=utils),
-            'embeddings': SimpleNamespace(Embedder=SimpleNamespace(from_new_descriptor_set=model),
+            'aperturedb_workflows.embeddings': SimpleNamespace(Embedder=SimpleNamespace(from_new_descriptor_set=model),
                                           DEFAULT_MODEL='unchanged'),
             'movie_record': SimpleNamespace(make_movie_with_all_connections=prepare,
                                             create_indexes=indexes, DATASET_NAME='fixture'),

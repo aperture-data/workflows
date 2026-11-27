@@ -10,7 +10,7 @@ import resources
 from shared import logger
 from shared import args
 
-from status_tools import StatusUpdater, WorkflowStatus
+from aperturedb_workflows.status_tools import StatusUpdater, WorkflowStatus
 
 
 def test_connection():

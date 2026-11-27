@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Context · Aperture Nexus{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ admin_path }}/memories">Memories</a> /
+  <a href="{{ admin_path }}/session?id={{ ctx.session_id | urlencode }}">{{ ctx.session or ctx.session_id }}</a> /</p>
+<h1>{{ ctx.purpose or "Context" }}</h1>
+<dl class="facts">
+  <dt>Agent</dt><dd><a href="{{ admin_path }}/memories?agent={{ ctx.agent | urlencode }}"><code>{{ ctx.agent }}</code></a></dd>
+  <dt>Session</dt><dd><a href="{{ admin_path }}/session?id={{ ctx.session_id | urlencode }}">{{ ctx.session or ctx.session_id }}</a></dd>
+  <dt>Organization</dt><dd>{{ ctx.organization or "" }}</dd>
+  <dt>Department</dt><dd>{{ ctx.department or "" }}</dd>
+  <dt>Created</dt><dd>{{ ctx.created_at | when }}</dd>
+  <dt>Context ID</dt><dd><code>{{ ctx.context_id }}</code></dd>
+</dl>
+
+{% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
+
+<section aria-labelledby="entries-title">
+  <h2 id="entries-title">Stored</h2>
+  {% if ctx.entries %}
+  <ol class="memories">
+    {% for e in ctx.entries %}
+    <li>
+      <p class="memory-text">{{ e.text or "" }}</p>
+      <p class="meta">{{ e.created_at | when }}{% for key, value in e.properties | dictsort %}{% if key not in ("purpose", "session_name", "department") %} · {{ key }}: {{ value }}{% endif %}{% endfor %}</p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">Nothing is stored under this context any more.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="links-title">
+  <h2 id="links-title">Links</h2>
+  {% if ctx.links_out or ctx.links_in %}
+  <ul class="links">
+    {% for l in ctx.links_out %}
+    <li>This context <strong>{{ l.relationship }}</strong>
+      <a href="{{ admin_path }}/context?id={{ l.context_id | urlencode }}">{{ l.purpose or l.context_id }}</a>
+      <span class="meta">by <code>{{ l.agent }}</code></span></li>
+    {% endfor %}
+    {% for l in ctx.links_in %}
+    <li><a href="{{ admin_path }}/context?id={{ l.context_id | urlencode }}">{{ l.purpose or l.context_id }}</a>
+      <span class="meta">by <code>{{ l.agent }}</code></span>
+      <strong>{{ l.relationship }}</strong> this context</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No links to or from this context.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="commits-title">
+  <h2 id="commits-title">Commits</h2>
+  {% if ctx.commits %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Commit</th><th scope="col">Stored</th>
+        <th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+        {% for c in ctx.commits %}
+        <tr>
+          <td><code>{{ c.commit_id }}</code></td>
+          <td>{{ c.created_at | when }}</td>
+          <td class="actions">
+            <form method="post" action="{{ admin_path }}/memories/delete"
+                  data-confirm="Delete everything stored by this commit?">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="kind" value="commit">
+              <input type="hidden" name="id" value="{{ c.commit_id }}">
+              <input type="hidden" name="context_id" value="{{ ctx.context_id }}">
+              <button type="submit" class="danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No commits.</p>
+  {% endif %}
+  <form method="post" action="{{ admin_path }}/memories/delete" class="spaced"
+        data-confirm="Delete this context, its commits and everything stored under it?">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="kind" value="context">
+    <input type="hidden" name="id" value="{{ ctx.context_id }}">
+    <input type="hidden" name="session_id" value="{{ ctx.session_id }}">
+    <button type="submit" class="danger">Delete context</button>
+  </form>
+</section>
+{% endblock %}

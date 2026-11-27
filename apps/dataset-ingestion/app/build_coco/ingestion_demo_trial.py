@@ -6,8 +6,8 @@ import subprocess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from status_tools import StatusUpdater
-from log_processor import LogProcessor
+from aperturedb_workflows.status_tools import StatusUpdater
+from aperturedb_workflows.log_processor import LogProcessor
 from aperturedb.Utils import Utils
 from aperturedb.CommonLibrary import create_connector
 

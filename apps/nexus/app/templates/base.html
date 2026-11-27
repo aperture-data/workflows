@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Aperture Nexus{% endblock %}</title>
+  <link rel="stylesheet" href="{{ admin_path }}/static/portal.css">
+  <script src="{{ admin_path }}/static/portal.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <span class="brand">Aperture Nexus</span>
+    {% if csrf %}
+    <nav aria-label="Portal">
+      <a href="{{ admin_path }}/"{% if page == "agents" %} aria-current="page"{% endif %}>Agents</a>
+      <a href="{{ admin_path }}/memories"{% if page == "memories" %} aria-current="page"{% endif %}>Memories</a>
+      <a href="{{ admin_path }}/usage"{% if page == "usage" %} aria-current="page"{% endif %}>Usage</a>
+      <a href="{{ admin_path }}/connect"{% if page == "connect" %} aria-current="page"{% endif %}>Connect</a>
+      <form method="post" action="{{ admin_path }}/logout">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="link">Sign out</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -9,6 +9,8 @@ if [ $CI_RUN -eq 0 ]; then
   build_base
 fi
 
+$COMMAND build "$COMPOSE_PROJECT_NAME"
+
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log
 echo "Writing logs to $TEST_LOG"

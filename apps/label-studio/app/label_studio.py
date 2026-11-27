@@ -6,9 +6,9 @@ from uuid import uuid4
 
 
 from aperturedb.CommonLibrary import create_connector 
-from wf_argparse import ArgumentParser
-from status import Status
-from status_tools import WorkFlowError,StatusUpdater,WorkflowStatus
+from aperturedb_workflows.wf_argparse import ArgumentParser
+from aperturedb_workflows.status import Status
+from aperturedb_workflows.status_tools import WorkFlowError,StatusUpdater,WorkflowStatus
 from enum import Enum as PyEnum
 from prometheus_client import Enum
 
@@ -82,7 +82,7 @@ def main(args):
         env["LABEL_STUDIO_LOG_CONFIG_YAML"]="/app/workflows_logging.yaml"
         full_path = None
         if "DB_HOST_PUBLIC" in os.environ:
-            from wf_argparse import validate
+            from aperturedb_workflows.wf_argparse import validate
             db_host_public = validate("hostname", envar="DB_HOST_PUBLIC")
             # generate path for cloud
             full_path = "https://{}/labelstudio".format(db_host_public)

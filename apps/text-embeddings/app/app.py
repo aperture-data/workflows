@@ -1,8 +1,8 @@
 from aperturedb_io import AperturedbIO
-from wf_argparse import ArgumentParser
+from aperturedb_workflows.wf_argparse import ArgumentParser
 import logging
 
-from embeddings import Embedder, DEFAULT_MODEL
+from aperturedb_workflows.embeddings import Embedder, DEFAULT_MODEL
 from schema import Embedding
 from uuid import uuid4
 

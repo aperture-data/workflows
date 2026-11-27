@@ -1,4 +1,4 @@
-from status import Status
+from aperturedb_workflows.status import Status
 import time
 
 def module_work():

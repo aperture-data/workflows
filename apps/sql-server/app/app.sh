@@ -6,16 +6,16 @@ set -o errexit -o nounset -o pipefail
 trap 'echo "An error occurred. Check the logs for details."; cat /tmp/fdw.log' ERR
 
 # Validate and sanitize all external inputs
-WF_LOG_LEVEL=$(/app/wf_argparse.py --type log_level --envar WF_LOG_LEVEL --default WARNING)
+WF_LOG_LEVEL=$(wf-argparse --type log_level --envar WF_LOG_LEVEL --default WARNING)
 echo "WF_LOG_LEVEL=$WF_LOG_LEVEL" >>/app/aperturedb.env
 
-WF_AUTH_TOKEN=$(/app/wf_argparse.py --type auth_token --envar WF_AUTH_TOKEN --hidden)
-SQL_NAME=$(/app/wf_argparse.py --type sql_identifier --envar SQL_NAME --default aperturedb)
-SQL_USER=$(/app/wf_argparse.py --type sql_identifier --envar SQL_USER --default aperturedb)
-SQL_PORT=$(/app/wf_argparse.py --type port --envar SQL_PORT --default 5432)
+WF_AUTH_TOKEN=$(wf-argparse --type auth_token --envar WF_AUTH_TOKEN --hidden)
+SQL_NAME=$(wf-argparse --type sql_identifier --envar SQL_NAME --default aperturedb)
+SQL_USER=$(wf-argparse --type sql_identifier --envar SQL_USER --default aperturedb)
+SQL_PORT=$(wf-argparse --type port --envar SQL_PORT --default 5432)
 SQL_PASS="${WF_AUTH_TOKEN}"
-POSTGRES_VERSION=$(/app/wf_argparse.py --type positive_int --envar POSTGRES_VERSION --default 17)
-UVICORN_WORKERS=$(/app/wf_argparse.py --type positive_int --envar UVICORN_WORKERS --default 1)
+POSTGRES_VERSION=$(wf-argparse --type positive_int --envar POSTGRES_VERSION --default 17)
+UVICORN_WORKERS=$(wf-argparse --type positive_int --envar UVICORN_WORKERS --default 1)
 
 # Start proxy server
 echo "Starting ApertureDB proxy server..."

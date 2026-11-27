@@ -20,7 +20,7 @@ if [ "${ret_val}" -ne 0 ]; then
 fi
 export WF_CROISSANT_URL
 export COMMAND_ARGS
-python log_processor.py "/opt/venv/bin/adb ingest from-croissant $WF_CROISSANT_URL $COMMAND_ARGS"
+wf-log-processor "/opt/venv/bin/adb ingest from-croissant $WF_CROISSANT_URL $COMMAND_ARGS"
 ret_val=$?
 if [ "${ret_val}" -ne 0 ]; then
     echo "Failed to execute adb"

@@ -1,4 +1,4 @@
-from wf_argparse import ArgumentParser, SEP_WHITESPACE
+from aperturedb_workflows.wf_argparse import ArgumentParser, SEP_WHITESPACE
 import os
 import logging
 from typing import List, Optional, Generator

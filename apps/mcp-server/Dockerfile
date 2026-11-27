@@ -5,8 +5,9 @@ FROM aperturedata/workflows-base:${VERSION}
 ENV APP_NAME=workflows-mcp-server
 
 # Install dependencies for embeddings
-RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
-RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+# Install CPU torch first so the embeddings extra does not pull the CUDA build.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.0" torchvision
+RUN pip install --no-cache-dir "aperturedb-workflows[embeddings]"
 
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt

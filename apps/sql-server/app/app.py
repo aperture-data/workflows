@@ -8,8 +8,8 @@ import asyncpg
 import os
 import logging
 import json
-from status_tools import StatusUpdater, WorkflowStatus
-from wf_argparse import validate
+from aperturedb_workflows.status_tools import StatusUpdater, WorkflowStatus
+from aperturedb_workflows.wf_argparse import validate
 
 
 app = FastAPI(

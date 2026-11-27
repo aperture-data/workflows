@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from aperturedb.CommonLibrary import create_connector, execute_query
 
-from wf_argparse import ArgumentParser
+from aperturedb_workflows.wf_argparse import ArgumentParser
 
 from provider import AWSProvider,GCSProvider
 from ingester import ImageIngester, VideoIngester, DocumentIngester, EntityIngester, MergeData

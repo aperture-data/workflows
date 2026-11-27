@@ -13,13 +13,13 @@ APP = Path(os.getenv('WORKFLOW_APP', '/app'))
 DEPENDENCIES = {
     'aperturedb': SimpleNamespace(QueryGenerator=SimpleNamespace(QueryGenerator=object)),
     'aperturedb.Constraints': SimpleNamespace(predicate=predicate),
-    'connection_pool': Mock(),
+    'aperturedb_workflows.connection_pool': Mock(),
     'cv2': Mock(),
     'numpy': Mock(),
     'PIL': Mock(),
-    'text_extraction.text_extractor': Mock(),
-    'text_extraction.segmentation': Mock(),
-    'text_extraction.schema': SimpleNamespace(TextBlock=object, Segment=object),
+    'aperturedb_workflows.text_extraction.text_extractor': Mock(),
+    'aperturedb_workflows.text_extraction.segmentation': Mock(),
+    'aperturedb_workflows.text_extraction.schema': SimpleNamespace(TextBlock=object, Segment=object),
 }
 
 

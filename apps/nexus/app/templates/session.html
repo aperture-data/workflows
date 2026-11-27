@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ session.session or "Session" }} · Aperture Nexus{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ admin_path }}/memories">Memories</a> /</p>
+<h1>{{ session.session or session.session_id }}</h1>
+<dl class="facts">
+  <dt>Agent</dt><dd><a href="{{ admin_path }}/memories?agent={{ session.agent | urlencode }}"><code>{{ session.agent }}</code></a></dd>
+  <dt>Organization</dt><dd>{{ session.organization or "" }}</dd>
+  <dt>Department</dt><dd>{{ session.department or "" }}</dd>
+  <dt>Started</dt><dd>{{ session.created_at | when }}</dd>
+  <dt>Session ID</dt><dd><code>{{ session.session_id }}</code></dd>
+</dl>
+
+{% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
+
+<section aria-labelledby="contexts-title">
+  <h2 id="contexts-title">Contexts</h2>
+  {% if session.contexts %}
+  <ol class="memories">
+    {% for c in session.contexts %}
+    <li>
+      <p class="memory-text">{{ c.preview or "" }}</p>
+      <p class="meta">
+        {% if c.purpose %}{{ c.purpose }} · {% endif %}{{ c.created_at | when }}
+        · <a href="{{ admin_path }}/context?id={{ c.context_id | urlencode }}">Context</a>
+      </p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">This session has no contexts left.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="danger-title">
+  <h2 id="danger-title">Delete</h2>
+  <form method="post" action="{{ admin_path }}/memories/delete"
+        data-confirm="Delete the whole session {{ session.session or session.session_id }} and everything stored in it?">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="kind" value="session">
+    <input type="hidden" name="id" value="{{ session.session_id }}">
+    <button type="submit" class="danger">Delete session</button>
+  </form>
+</section>
+{% endblock %}

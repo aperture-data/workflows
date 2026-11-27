@@ -35,7 +35,9 @@ with open(os.environ['BOOTSTRAP_EVENTS'], 'a') as stream:
     stream.write(json.dumps({'operation': operation, 'args': args}) + '\\n')
 ready = pathlib.Path(os.environ['BOOTSTRAP_BASE'])
 if operation == 'build' and args[-1] == 'base':
-    assert list(pathlib.Path(os.environ['SDK_WHEEL_DIR']).glob('*.whl'))
+    wheels = sorted(path.name for path in pathlib.Path(os.environ['SDK_WHEEL_DIR']).glob('*.whl'))
+    assert wheels == ['aperturedb-1.0.3-py3-none-any.whl',
+                      'aperturedb_workflows-1.0.3-py3-none-any.whl'], wheels
     ready.touch()
 if operation == 'run' and 'unit-tests' in args and not ready.exists():
     print('The unit precheck has no locally built or preloaded base.', file=sys.stderr)
@@ -46,8 +48,14 @@ if operation == 'run' and 'unit-tests' in args and not ready.exists():
     tools.mkdir()
     oras = tools / 'oras'
     oras.write_text('#!/bin/sh\n'
-                    'test "$1 $2 $3" = "pull registry-1.docker.io/aperturedata/aperturedb-python:latest --output" || exit 1\n'
-                    'touch "$4/aperturedb-1.0.3-py3-none-any.whl"\n')
+                    'test "$1 $3" = "pull --output" || exit 1\n'
+                    'case "$2" in\n'
+                    '  registry-1.docker.io/aperturedata/aperturedb-python:dev) '
+                    'touch "$4/aperturedb-1.0.3-py3-none-any.whl" ;;\n'
+                    '  registry-1.docker.io/aperturedata/aperturedb-workflows:dev) '
+                    'touch "$4/aperturedb_workflows-1.0.3-py3-none-any.whl" ;;\n'
+                    '  *) exit 1 ;;\n'
+                    'esac\n')
     oras.chmod(0o755)
     pause = tools / 'sleep'
     pause.write_text('#!/bin/sh\nexit 0\n')

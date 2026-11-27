@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Not found · Aperture Nexus{% endblock %}
+{% block content %}
+<h1>No such {{ what }}</h1>
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+<p>It may have been deleted. Go back to <a href="{{ admin_path }}/memories">Memories</a>.</p>
+{% endblock %}

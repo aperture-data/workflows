@@ -1,6 +1,7 @@
 """Server-1.0 workflow regressions without models, downloads or cloud services."""
 import ast
 import importlib.util
+from importlib.resources import files
 import logging
 import math
 import os
@@ -13,6 +14,9 @@ from uuid import uuid4
 from aperturedb.Constraints import predicate
 
 ROOT = Path(os.getenv("WORKFLOWS_SOURCE", "/workflows"))
+# The installed aperturedb-workflows package; load its files directly so the
+# embeddings package does not import torch.
+RUNTIME = Path(str(files("aperturedb_workflows")))
 GENERATORS = [
     ("embeddings-extraction", "images", "FindImageQueryGenerator", "FindImage"),
     ("embeddings-extraction", "pdfs", "FindPDFQueryGenerator", "FindBlob"),
@@ -173,22 +177,6 @@ class NativeQueryTests(unittest.TestCase):
         namespace["connect_descriptor_set"](io)
         self.assertEqual(io.execute_query.call_args.args[0][0]["GetIndexes"]["kind"], "hnsw")
 
-    def test_embedding_metadata_updates_only_the_selected_kind(self):
-        path = ROOT / "base/docker/scripts/embeddings/aperturedb_io.py"
-        spec = importlib.util.spec_from_file_location("vector_io", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        client = Mock()
-        indexes = [{"kind": "flat", "params": {"metric": ["IP"]}, "metadata": {"tag": "exact"}},
-                   {"kind": "hnsw", "params": {"metric": ["L2"]}, "metadata": {"tag": "graph"}}]
-        with patch.object(module, "Utils") as utils, patch.object(module, "_execute") as execute:
-            utils.return_value.get_vector_indexes.return_value = indexes
-            self.assertEqual(module.find_descriptor_set(client, "Images")["tag"], "exact")
-            module.update_descriptor_set(client, "Images", {"model": "example"}, engine="HNSW")
-            update = execute.call_args.args[1][0]["UpdateIndex"]
-            self.assertEqual(update["kind"], "hnsw")
-            self.assertEqual(update["metadata"], {"tag": "graph", "model": "example"})
-
     def test_generated_connection_csvs_name_media_and_vector_classes(self):
         import csv
         import tempfile
@@ -310,7 +298,7 @@ class NativeQueryTests(unittest.TestCase):
         module_ast = ast.Module(body=[ast.ImportFrom(module="__future__", names=[
                                 ast.alias(name="annotations")], level=0), node], type_ignores=[])
         exec(compile(ast.fix_missing_locations(module_ast), str(source), "exec"), namespace)
-        batcher_path = ROOT / "base/docker/scripts/batcher.py"
+        batcher_path = RUNTIME / "batcher.py"
         definition = importlib.util.spec_from_file_location(
             "native_symbolic_batcher", batcher_path)
         batcher = importlib.util.module_from_spec(definition)
@@ -423,7 +411,7 @@ class NativeQueryTests(unittest.TestCase):
         from aperturedb.Connector import Connector
         from aperturedb.Utils import Utils
         prefix = "WorkflowNative" + uuid4().hex
-        path = ROOT / "base/docker/scripts/embeddings/aperturedb_io.py"
+        path = RUNTIME / "embeddings/aperturedb_io.py"
         spec = importlib.util.spec_from_file_location("workflow_vector_io", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

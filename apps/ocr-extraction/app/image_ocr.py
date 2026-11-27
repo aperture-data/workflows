@@ -4,13 +4,13 @@ import math
 from PIL import Image
 
 from aperturedb import QueryGenerator
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 import pytesseract
 from io import BytesIO
 import logging
-from embeddings import Embedder
-from text_extraction.segmentation import TextSegmenter
-from text_extraction.schema import TextBlock, Segment
+from aperturedb_workflows.embeddings import Embedder
+from aperturedb_workflows.text_extraction.segmentation import TextSegmenter
+from aperturedb_workflows.text_extraction.schema import TextBlock, Segment
 from typing import Iterable, List
 
 logger = logging.getLogger(__name__)

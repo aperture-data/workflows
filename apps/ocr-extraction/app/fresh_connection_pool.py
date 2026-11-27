@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 
 class FreshConnectionPool(ConnectionPool):

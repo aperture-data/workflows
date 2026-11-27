@@ -1,10 +1,20 @@
 # Server compatibility
 
-Workflow release `v1.0.10` targets ApertureDB server 1.0.0 and includes Python SDK 1.0.3.
-The base build script pulls the SDK wheel from the Docker Hub artifact
-`aperturedata/aperturedb-python:latest` using ORAS 1.3 and your Docker
-credentials. Application tests install the same wheel stored in that base.
-Rebuild the shared base image and each application image together when upgrading.
+Workflow release `1.0.11` targets ApertureDB server 1.0.0 and uses the Python SDK and workflows runtime from SDK release 1.0.3.
+The base build script pulls the SDK and workflows runtime wheels from the Docker
+Hub artifacts `aperturedata/aperturedb-python:dev` and
+`aperturedata/aperturedb-workflows:dev` using ORAS 1.3. The aperturedb-python
+repository releases both under the SDK version. The runtime provides `wf-start`,
+the status server and the shared modules that applications import from
+`aperturedb_workflows`. CI resolves both tags and the CPU notebook
+`aperturedata/aperturedb-notebook-cpu:dev`, which jupyterlab builds on, once per
+run, and also runs when infra moves the SDK. Each app has its own input hash,
+over the SDK and runtime wheels, the CPU notebook, the files outside `apps/`,
+its own folder and the folders of the apps it builds `FROM`. A run builds,
+tests and pushes only the apps whose published image lacks that hash. The tests
+run the ApertureDB Compose package at `dev`, the newest athena main release; it
+is not part of any image, so the hash leaves it out. Application tests install
+the same wheels stored in the base.
 Media ingestion uses explicit Images, Videos, Blobs, BoundingBoxes and Polygons
 classes. Embedding search spaces are descriptor classes with native vector indexes;
 model identity and fingerprints are stored in index metadata.
@@ -42,6 +52,7 @@ This will allow you to do various things that you can't do via the UI:
 * [Ingest From SQL](apps/ingest-from-sql/): Ingests data from a PostgreSQL server.
 * [Label Studio](apps/ingest-croissant/): Hosts a Label Studio instance with automatic configuration for ApertureDB.
 * [MCP Server](apps/ingest-croissant/): Hosts a MCP server which exposes ApertureDB as a resource for LLMs.
+* [Aperture Nexus](apps/nexus/): Hosts shared long-term memory for AI agents, with an MCP endpoint and an admin portal for managing agents.
 * [RAG](apps/ingest-croissant/): Host a Chatbot using pre-embedded text documents in ApertureDB.
 * [SQL Server](apps/sql-server/): Host a SQL server which retreives information from ApertureDB.
 * [Text Embeddings](apps/text-embedding/): Creates text embeddings from text segments.
@@ -80,8 +91,9 @@ Certain parameters are supported by all workflow images:
 ### Building Docker images
 
 The root [`VERSION`](VERSION) file specifies the release version in `MAJOR.MINOR.PATCH` format (for example, `1.0.0`), with no prefix or leading zeros.
-Update and commit this file for each release. CI prefixes it with `v` for image tags (for example, `v1.0.0`) on pushes to `main` and scheduled builds; successful pushes to `main` publish the images.
-Pushing to `main` without changing `VERSION` reuses the same image tag. Pull requests and manual CI runs keep their temporary `pr-...` and `adhoc-...` tags.
+Update and commit this file for each release. A push to `main` publishes application images using that exact tag, for example `aperturedata/workflows-rag:1.0.11`. An SDK update from infra can rebuild affected images under the current release tag. Once the build and test jobs succeed, CI reports the version to infra.
+
+Pull requests and manual CI runs build and test local images with temporary `pr-...` and `adhoc-...` tags. CI passes the shared base image to the app jobs as a workflow artifact. To build the base locally, run `bash base/docker/build.sh`.
 
 There is a `build.sh` script in the `/apps` directory that can be used to build any of the workflow images. Either invoke it with a workflow name as a parameter:
 ```

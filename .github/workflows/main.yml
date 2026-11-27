@@ -5,24 +5,44 @@ on:
     branches:
       - main
 
-  # Weekly build (Wednesdays at 02:00 UTC)
-  schedule:
-    - cron: "0 2 * * 3"
-
   push:
     branches:
       - main
 
   workflow_dispatch:
 
+  # Infra sends aperturedb-python when it moves the SDK wheels and notebook
+  # images, which the apps build on, to a new dev release. The build resolves
+  # them and skips the apps whose published images already match.
+  repository_dispatch:
+    types: [aperturedb-python]
+
 env:
-  APERTUREDB_VERSION: 1.0.0
+  # The tests run the ApertureDB Compose package at dev, the newest athena main
+  # release. It is not part of any image, so the input hashes leave it out.
+  APERTUREDB_VERSION: dev
 
 jobs:
   get-version:
     runs-on: ubuntu-latest
+    env:
+      # The apps of build-test-apps-small and build-test-apps-large. Each run
+      # builds, tests and pushes only the apps whose inputs changed.
+      SMALL_APPS: >-
+        object-detection embeddings-extraction face-detection jupyterlab
+        mcp-server nexus crawl-website text-extraction text-embeddings
+        ingest-croissant ingest-from-bucket ingest-from-sql sql-server
+        label-studio ocr-extraction caption-image dataset-ingestion-movies
+      LARGE_APPS: rag crawl-to-rag dataset-ingestion
     outputs:
       version: ${{ steps.set-version.outputs.version }}
+      sdk-ref: ${{ steps.sdk.outputs.ref }}
+      workflows-ref: ${{ steps.sdk.outputs.workflows-ref }}
+      notebook-cpu-image: ${{ steps.sdk.outputs.notebook-cpu-image }}
+      input-hashes: ${{ steps.inputs.outputs.input-hashes }}
+      build: ${{ steps.inputs.outputs.build }}
+      small: ${{ steps.matrix.outputs.small }}
+      large: ${{ steps.matrix.outputs.large }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,8 +59,6 @@ jobs:
             exit 1
           fi
 
-          VERSION="v${VERSION}"
-
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
             VERSION="pr-${{ github.event.number }}-${SHORT_SHA}"
@@ -49,13 +67,57 @@ jobs:
             VERSION="adhoc-${SHORT_SHA}"
           fi
           echo "version=$VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: oras-project/setup-oras@v1
+        with:
+          version: 1.3.0
+
+      # jupyterlab builds on the CPU notebook, the other apps on the wheels.
+      - name: Resolve the SDK wheels and the CPU notebook
+        id: sdk
+        run: |
+          ref=$(oras resolve --full-reference registry-1.docker.io/aperturedata/aperturedb-python:dev)
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          ref=$(oras resolve --full-reference registry-1.docker.io/aperturedata/aperturedb-workflows:dev)
+          echo "workflows-ref=$ref" >> "$GITHUB_OUTPUT"
+          digest=$(oras resolve registry-1.docker.io/aperturedata/aperturedb-notebook-cpu:dev)
+          [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Unexpected digest '$digest'" >&2; exit 1; }
+          echo "notebook-cpu-image=aperturedata/aperturedb-notebook-cpu@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Check published inputs
+        id: inputs
+        env:
+          # Pull requests and manual runs always build; they publish nothing.
+          FORCE_BUILD: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+          SDK_REF: ${{ steps.sdk.outputs.ref }}
+          WORKFLOWS_REF: ${{ steps.sdk.outputs.workflows-ref }}
+          NOTEBOOK_CPU_IMAGE: ${{ steps.sdk.outputs.notebook-cpu-image }}
+        run: |
+          # shellcheck disable=SC2086 # the app lists are space-separated
+          bash scripts/check-published-inputs.sh "$(cat VERSION)" aperturedata/workflows- $SMALL_APPS $LARGE_APPS \
+            -- "$SDK_REF" "$WORKFLOWS_REF" "$NOTEBOOK_CPU_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Split the builds by job
+        id: matrix
+        env:
+          BUILDS: ${{ steps.inputs.outputs.builds }}
+        run: |
+          pick() { jq -cn --argjson builds "$BUILDS" '$ARGS.positional | map(select(IN($builds[])))' --args "$@"; }
+          # shellcheck disable=SC2086 # the app lists are space-separated
+          {
+            echo "small=$(pick $SMALL_APPS)"
+            echo "large=$(pick $LARGE_APPS)"
+          } >> "$GITHUB_OUTPUT"
 
   build-base:
     needs: get-version
-    runs-on: ubuntu-latest
+    if: needs.get-version.outputs.build == 'true'
+    runs-on: [self-hosted, X64]
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
+      SDK_REF: ${{ needs.get-version.outputs.sdk-ref }}
+      WORKFLOWS_REF: ${{ needs.get-version.outputs.workflows-ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,10 +125,6 @@ jobs:
       - uses: oras-project/setup-oras@v1
         with:
           version: 1.3.0
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ fromJson(secrets.DOCKERHUB).username }}
-          password: ${{ fromJson(secrets.DOCKERHUB).password }}
       - name: Build base
         run: |
           cd base/docker
@@ -74,7 +132,7 @@ jobs:
 
       - name: Build and export
         run: |
-          docker save --output=${{ runner.temp }}/workflows-base.tar aperturedata/workflows-base:$VERSION
+          docker save --output="${{ runner.temp }}/workflows-base.tar" "aperturedata/workflows-base:$VERSION"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -84,7 +142,7 @@ jobs:
 
   test-base:
     needs: [build-base, get-version]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, X64]
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
     steps:
@@ -108,32 +166,19 @@ jobs:
 
   build-test-apps-small:
     needs: [test-base, get-version]
+    if: needs.get-version.outputs.small != '[]'
 
     strategy:
       fail-fast: false
       matrix:
-        app:
-          [
-            object-detection,
-            embeddings-extraction,
-            face-detection,
-            jupyterlab,
-            mcp-server,
-            crawl-website,
-            text-extraction,
-            text-embeddings,
-            ingest-croissant,
-            ingest-from-bucket,
-            ingest-from-sql,
-            sql-server,
-            label-studio,
-            ocr-extraction,
-            caption-image,
-            dataset-ingestion-movies,
-          ]
-    runs-on: ubuntu-latest
+        # SMALL_APPS in get-version, less the apps whose inputs are unchanged.
+        app: ${{ fromJson(needs.get-version.outputs.small) }}
+    runs-on: [self-hosted, X64]
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
+      INPUT_HASH: ${{ fromJson(needs.get-version.outputs.input-hashes)[matrix.app] }}
+      # The CPU notebook digest in the input hash; jupyterlab builds on it.
+      NOTEBOOK_CPU_IMAGE: ${{ needs.get-version.outputs.notebook-cpu-image }}
 
     steps:
       - name: Download artifact
@@ -168,7 +213,7 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
           RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION: $VERSION
+          WORKFLOW_VERSION: ${{ needs.get-version.outputs.version }}
           CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
@@ -205,22 +250,25 @@ jobs:
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main
-        # Pushing base to docker should be no-op after the first time
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' || github.event_name == 'repository_dispatch') && github.ref == 'refs/heads/main'
         run: |
-          docker push aperturedata/workflows-base:$VERSION
-          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
+          bash scripts/push-app.sh "${{ matrix.app }}"
 
   build-test-apps-large:
     needs: [test-base, get-version]
+    if: needs.get-version.outputs.large != '[]'
 
     strategy:
       matrix:
-        app: [rag, crawl-to-rag, dataset-ingestion]
+        # LARGE_APPS in get-version, less the apps whose inputs are unchanged.
+        app: ${{ fromJson(needs.get-version.outputs.large) }}
 
     runs-on: [self-hosted, X64]
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
+      INPUT_HASH: ${{ fromJson(needs.get-version.outputs.input-hashes)[matrix.app] }}
+      # The CPU notebook digest in the input hash; jupyterlab builds on it.
+      NOTEBOOK_CPU_IMAGE: ${{ needs.get-version.outputs.notebook-cpu-image }}
 
     steps:
       - name: Download artifact
@@ -255,7 +303,7 @@ jobs:
           WF_LOGS_AWS_CREDENTIALS: ${{ secrets.WF_LOGS_AWS_CREDENTIALS }}
           WF_DATA_SOURCE_GCP_BUCKET: ${{ secrets.WF_DATA_SOURCE_GCP_BUCKET }}
           RUNNER_NAME: ${{ runner.name }}
-          WORKFLOW_VERSION: $VERSION
+          WORKFLOW_VERSION: ${{ needs.get-version.outputs.version }}
           CI_RUN: 1
         run: |
           cd apps/${{ matrix.app }}
@@ -277,16 +325,18 @@ jobs:
 
       - name: Push to docker (on main)
         # Only push to docker when merged to main
-        # Pushing base to docker should be no-op after the first time
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' || github.event_name == 'repository_dispatch') && github.ref == 'refs/heads/main'
         run: |
-          docker push aperturedata/workflows-base:$VERSION
-          docker push aperturedata/workflows-${{ matrix.app }}:$VERSION
+          bash scripts/push-app.sh "${{ matrix.app }}"
 
   update-version:
-    needs: [build-test-apps-small, build-test-apps-large, get-version]
+    needs: [get-version, build-base, test-base, build-test-apps-small, build-test-apps-large]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+    # Jobs with nothing to build are skipped; any failure stops the report.
+    if: >-
+      ${{ !cancelled() && !contains(needs.*.result, 'failure')
+      && (github.event_name == 'push' || github.event_name == 'repository_dispatch')
+      && github.ref == 'refs/heads/main' }}
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
 
@@ -297,4 +347,4 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.PAT_INFRA }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/aperture-data/infra/dispatches \
-          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"component\": \"workflows-public\", \"tag\": \"${VERSION}\"}}"
+          -d "{\"event_type\": \"update-tag\", \"client_payload\": {\"component\": \"workflows\", \"tag\": \"${VERSION}\"}}"

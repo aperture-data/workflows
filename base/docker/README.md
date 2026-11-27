@@ -1,8 +1,12 @@
-    Dockerfile
+# Workflows base
 
-This Dockerfile will build the benchmarks:base image,
-that will be used by each benchmark
+`Dockerfile` builds `aperturedata/workflows-base`, the image the applications in
+this repository build on. It adds the system tools to Ubuntu and installs the
+SDK and `aperturedb-workflows` wheels, which the aperturedb-python repository
+publishes as `aperturedata/aperturedb-python` and
+`aperturedata/aperturedb-workflows`. The image runs `wf-start`.
 
     bash build.sh
 
-This script will build the image and push it to the dockerhub registry.
+`build.sh` pulls both wheels with ORAS 1.3 and builds the image. `test.sh`
+runs the checks in `test` against it.

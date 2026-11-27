@@ -17,11 +17,10 @@ export INCLUDE_TRAIN
 LOAD_CELEBAHQ=${LOAD_CELEBAHQ:false}
 export LOAD_CELEBAHQ
 
-STATUS_SCRIPT="/app/status_tools.py"
 
 if [ -z "${WF_DATA_SOURCE_GCP_BUCKET}" ]; then
     echo "Please set the WF_DATA_SOURCE_GCP_BUCKET environment variable"
-    python3 $STATUS_SCRIPT --completed 0 \
+    wf-status --completed 0 \
       --error-message "WF_DATA_SOURCE_GCP_BUCKET is not set" \
       --error-code "workflow_error" --status "failed"
     exit 1
@@ -51,7 +50,7 @@ update_phases() {
         args+=("--phases" "train_ingesting_descriptors")
         args+=("--phases" "train_ingesting_connections")
     fi
-    python3 $STATUS_SCRIPT --completed 0 "${args[@]}"
+    wf-status --completed 0 "${args[@]}"
 }
 
 build_coco() {
@@ -62,16 +61,16 @@ build_coco() {
 
     date
     echo "Downloading val data..."
-    python3 $STATUS_SCRIPT --phase val_downloading --completed 0
+    wf-status --phase val_downloading --completed 0
     bash download_coco.sh val
-    python3 $STATUS_SCRIPT --completed 100
+    wf-status --completed 100
 
 
     if [[ $INCLUDE_TRAIN == true ]]; then
-        python3 $STATUS_SCRIPT --phase train_downloading --completed 0
+        wf-status --phase train_downloading --completed 0
         echo "Downloading train data..."
         bash download_coco.sh train
-        python3 $STATUS_SCRIPT --completed 100
+        wf-status --completed 100
     fi
 
 
@@ -95,7 +94,7 @@ build_coco() {
 build_faces() {
     APP="Dataset ingest (faces)"
     DIR="/app/input/faces"
-    python3 $STATUS_SCRIPT --completed 0 \
+    wf-status --completed 0 \
       --phases downloading \
       --phases ingesting_images \
       --phases ingesting_descriptors \
@@ -136,10 +135,10 @@ build_faces() {
 
 
     cd /app/build_faces
-    python3 $STATUS_SCRIPT --completed 100
+    wf-status --completed 100
     # Ingest the CSV files
     adb utils log --level INFO "${APP}: Loading faces dataset"
-    python3 ../log_processor.py 'bash load.sh'
+    wf-log-processor 'bash load.sh'
     adb utils log --level INFO "${APP}: Successful completion"
 }
 

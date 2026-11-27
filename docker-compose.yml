@@ -21,15 +21,17 @@ x-definitions:
         org.opencontainers.image.created: "${BUILD_DATE}"
         org.opencontainers.image.description: "${DESCRIPTION}"
         org.opencontainers.image.source: "${SOURCE_URL}"
+        # scripts/check-published-inputs.sh compares this with the next build's inputs.
+        com.aperturedata.input-hash: "${INPUT_HASH:-}"
 
 # The database stack (aperturedb, lenz, http-proxy, webui, and the ca service
 # that generates their certificate) comes from the published ApertureDB Docker
-# Compose package. APERTUREDB_VERSION selects a release; the default is the
-# qualified stable release. aperturedb.compose.yml adds
+# Compose package. APERTUREDB_VERSION selects a release; the default is dev,
+# the newest athena main release. aperturedb.compose.yml adds
 # what workflows need on top of it.
 include:
     - path:
-          - oci://aperturedata/aperturedb-compose-single-node:${APERTUREDB_VERSION:-1.0.0}
+          - oci://aperturedata/aperturedb-compose-single-node:${APERTUREDB_VERSION:-dev}
           - aperturedb.compose.yml
       # Resolve aperturedb.compose.yml's relative paths from this directory.
       project_directory: .
@@ -133,6 +135,7 @@ services:
             context: ./apps/jupyterlab
             args:
                 <<: *build-args
+                NOTEBOOK_CPU_IMAGE: ${NOTEBOOK_CPU_IMAGE:-aperturedata/aperturedb-notebook-cpu:dev}
             labels:
                 <<: *build-labels
                 org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-jupyterlab:${VERSION}"
@@ -200,6 +203,24 @@ services:
             WF_AUTH_TOKEN: "${WF_AUTH_TOKEN:-test}"
             WF_INPUT: "${WF_INPUT:-crawl-to-rag}"
             WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+
+    nexus:
+        build:
+            context: ./apps/nexus
+            args:
+                <<: *build-args
+            labels:
+                <<: *build-labels
+                org.opencontainers.image.ref.name: "docker.io/aperturedata/workflows-nexus:${VERSION}"
+        image: aperturedata/workflows-nexus:${VERSION}
+        ports:
+            - "8007:8000"
+        environment:
+            <<: *common-env
+            WF_ADMIN_TOKEN: "${WF_ADMIN_TOKEN:-}"
+            WF_LOG_LEVEL: "${WF_LOG_LEVEL:-DEBUG}"
+        volumes:
+            - ./ca:/ca
 
     rag:
         build:

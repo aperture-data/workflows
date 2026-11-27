@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from aperturedb import QueryGenerator
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from aperturedb.CommonLibrary import (
 )
 from aperturedb.Utils import Utils
 
-from embeddings import Embedder, DEFAULT_MODEL
+from aperturedb_workflows.embeddings import Embedder, DEFAULT_MODEL
 
 app = Typer()
 

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Usage · Aperture Nexus{% endblock %}
+{% block content %}
+<h1>Usage</h1>
+<p class="lead">A memory is one <code>remember</code> call. Removed agents keep their memories
+  but are not listed here.</p>
+
+<dl class="stats">
+  <div><dt>Agents</dt><dd>{{ usage.totals.agents }}</dd></div>
+  <div><dt>Sessions</dt><dd>{{ usage.totals.sessions }}</dd></div>
+  <div><dt>Contexts</dt><dd>{{ usage.totals.contexts }}</dd></div>
+  <div><dt>Memories</dt><dd>{{ usage.totals.memories }}</dd></div>
+  <div><dt>Links</dt><dd>{{ usage.totals.links }}</dd></div>
+</dl>
+
+<section aria-labelledby="by-agent-title">
+  <h2 id="by-agent-title">By agent</h2>
+  {% if usage.agents %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th scope="col">Agent</th><th scope="col">Organization</th>
+          <th scope="col" class="num">Sessions</th><th scope="col" class="num">Contexts</th>
+          <th scope="col" class="num">Memories</th><th scope="col">Last active</th></tr>
+      </thead>
+      <tbody>
+        {% for a in usage.agents %}
+        <tr data-agent="{{ a.agent_id }}">
+          <td><a href="{{ admin_path }}/memories?agent={{ a.agent_id | urlencode }}"><code>{{ a.agent_id }}</code></a></td>
+          <td>{{ a.organization or "" }}</td>
+          <td class="num" data-sessions>{{ a.sessions }}</td>
+          <td class="num" data-contexts>{{ a.contexts }}</td>
+          <td class="num" data-memories>{{ a.memories }}</td>
+          <td>{{ a.last_active | when if a.last_active else "Never" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No agents yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -7,7 +7,7 @@ from aperturedb.Descriptors import Descriptors
 
 from shared import logger, args, connection_pool
 from decorators import declare_mcp_tool
-from embeddings import Embedder
+from aperturedb_workflows.embeddings import Embedder
 
 
 class Document(BaseModel):

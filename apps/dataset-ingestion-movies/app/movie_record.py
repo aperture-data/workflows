@@ -7,7 +7,7 @@ import time
 
 import os
 
-from embeddings import Embedder
+from aperturedb_workflows.embeddings import Embedder
 
 DATASET_NAME = os.getenv("DATASET_NAME", "tmdb_5000")
 

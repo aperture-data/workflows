@@ -1,7 +1,7 @@
 from aperturedb.Constraints import predicate
-from text_extraction.text_extractor import TextExtractor
-from text_extraction.segmentation import TextSegmenter
-from text_extraction.schema import TextBlock, Segment
+from aperturedb_workflows.text_extraction.text_extractor import TextExtractor
+from aperturedb_workflows.text_extraction.segmentation import TextSegmenter
+from aperturedb_workflows.text_extraction.schema import TextBlock, Segment
 
 import math
 import logging
@@ -10,7 +10,7 @@ from itertools import islice
 from typing import Iterable, Tuple, List
 
 from aperturedb import QueryGenerator
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 logger = logging.getLogger(__name__)
 

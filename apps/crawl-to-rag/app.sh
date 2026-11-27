@@ -5,9 +5,8 @@ set -u # exit on unset variable
 set -o pipefail # exit on pipe failure
 
 NOT_READY_FILE=/workflows/rag/not-ready.txt
-STATUS_SCRIPT="/app/status_tools.py"
 
-python $STATUS_SCRIPT --completed 0 \
+wf-status --completed 0 \
       --phases rag \
       --phases preprocessing \
       --phase preprocessing
@@ -24,11 +23,11 @@ function uuid() {
 
 # We expect WF_OUTPUT (or generate a consistent uuid)
 # WF_INPUT gets pinned to WF_OUTPUT
-WF_OUTPUT=$(/app/wf_argparse.py --type string --envar WF_OUTPUT --default $(uuid))
+WF_OUTPUT=$(wf-argparse --type string --envar WF_OUTPUT --default $(uuid))
 echo "WF_OUTPUT: $WF_OUTPUT"
 WF_INPUT=$WF_OUTPUT
 
-WF_TOKEN=$(/app/wf_argparse.py --type string --envar WF_TOKEN)
+WF_TOKEN=$(wf-argparse --type string --envar WF_TOKEN)
 
 # Check that WF_DESCRIPTOR_SET is *not* set
 if [ -n "${WF_DESCRIPTOR_SET:-}" ]; then

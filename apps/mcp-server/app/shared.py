@@ -1,7 +1,7 @@
 import logging
 import os
 
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 
 def configure_logging(log_level):
@@ -21,7 +21,7 @@ def configure_logging(log_level):
 
 
 def get_args():
-    from wf_argparse import ArgumentParser
+    from aperturedb_workflows.wf_argparse import ArgumentParser
     parser = ArgumentParser(
         description="ApertureDB MCP server")
     parser.add_argument("--input", required=False, type='string',

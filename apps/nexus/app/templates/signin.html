@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Aperture Nexus{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Sign in</h1>
+  <p>Open this portal with the <strong>Connect</strong> button of the Aperture Nexus
+    workflow in ApertureDB Cloud.</p>
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  <details>
+    <summary>Sign in with the admin token</summary>
+    <form method="post" action="{{ admin_path }}/login" class="stack">
+      <label for="token">Admin token (<code>WF_ADMIN_TOKEN</code>)</label>
+      <input id="token" name="token" type="password" autocomplete="off" required>
+      <button type="submit">Sign in</button>
+    </form>
+  </details>
+</section>
+{% endblock %}

@@ -12,11 +12,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies for embeddings
-RUN pip install --no-cache-dir -r /app/embeddings/requirements_cpu.txt
-RUN pip install --no-cache-dir -r /app/embeddings/requirements.txt
+# Install CPU torch first so the embeddings extra does not pull the CUDA build.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.0" torchvision
+RUN pip install --no-cache-dir "aperturedb-workflows[embeddings]"
 
 # Install dependencies for text extraction
-RUN pip install --no-cache-dir -r /app/text_extraction/requirements.txt
+RUN pip install --no-cache-dir "aperturedb-workflows[text]"
 
 # Install dependencies for the app
 COPY requirements.txt /app/requirements.txt

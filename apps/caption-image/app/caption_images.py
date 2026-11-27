@@ -4,7 +4,7 @@ import typer
 
 from images import FindImageQueryGenerator
 from aperturedb import ParallelQuery
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 CAPTION_IMAGE_PROPERTY = 'wf_caption_image'
 

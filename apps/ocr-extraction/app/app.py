@@ -5,10 +5,10 @@ import logging
 
 from aperturedb import CommonLibrary
 from aperturedb import ParallelQuery
-from embeddings import Embedder
+from aperturedb_workflows.embeddings import Embedder
 from fresh_connection_pool import FreshConnectionPool as ConnectionPool
 from ocr import OCR
-from wf_argparse import ArgumentParser
+from aperturedb_workflows.wf_argparse import ArgumentParser
 
 from image_ocr import FindImageOCRQueryGenerator
 from pdf_ocr import FindPDFOCRQueryGenerator

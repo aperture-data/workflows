@@ -2,8 +2,8 @@ import os
 import argparse
 from prometheus_client import start_http_server
 import time
-from status import Status
-from status_tools import WorkFlowError
+from aperturedb_workflows.status import Status
+from aperturedb_workflows.status_tools import WorkFlowError
 
 
 workflow_status = Status(phases = ["phase1", "module"])

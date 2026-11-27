@@ -8,7 +8,7 @@ from PIL import Image
 from aperturedb.CommonLibrary import create_connector, execute_query
 from aperturedb import QueryGenerator
 from aperturedb import ParallelQuery
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import torch
 

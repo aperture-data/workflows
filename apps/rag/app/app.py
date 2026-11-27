@@ -4,7 +4,7 @@ from typing import Optional
 from rag import QAChain
 from llm import load_llm
 from fastapi.staticfiles import StaticFiles
-from wf_argparse import ArgumentParser, validate
+from aperturedb_workflows.wf_argparse import ArgumentParser, validate
 import logging
 import time
 import json
@@ -12,13 +12,13 @@ import os
 from aperturedb.CommonLibrary import create_connector
 import asyncio
 
-from embeddings import Embedder
+from aperturedb_workflows.embeddings import Embedder
 from rag import QAChain
 from context_builder import ContextBuilder
 from retriever import Retriever
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from status_tools import StatusUpdater
+from aperturedb_workflows.status_tools import StatusUpdater
 
 
 logger = logging.getLogger(__name__)

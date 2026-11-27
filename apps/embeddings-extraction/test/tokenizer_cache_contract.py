@@ -29,8 +29,8 @@ def main():
     # Fail even if the external container network isolation was omitted.
     with patch('requests.sessions.Session.request',
                side_effect=AssertionError('Tokenizer contract attempted a network request')):
-        from text_extraction.segmentation import TextSegmenter
-        from text_extraction.schema import TextBlock
+        from aperturedb_workflows.text_extraction.segmentation import TextSegmenter
+        from aperturedb_workflows.text_extraction.schema import TextBlock
         segmenter = TextSegmenter(max_tokens=100, overlap_tokens=10)
         text = 'Generated text verifies offline tokenizer initialization and segmentation. ' * 40
         encoded = segmenter.encoder.encode(text)

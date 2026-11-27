@@ -11,10 +11,10 @@ from io import BytesIO
 import fitz  # PyMuPDF
 import uuid
 from aperturedb import QueryGenerator
-from connection_pool import ConnectionPool
-from embeddings import Embedder
-from text_extraction.segmentation import TextSegmenter
-from text_extraction.schema import TextBlock, Segment
+from aperturedb_workflows.connection_pool import ConnectionPool
+from aperturedb_workflows.embeddings import Embedder
+from aperturedb_workflows.text_extraction.segmentation import TextSegmenter
+from aperturedb_workflows.text_extraction.schema import TextBlock, Segment
 
 
 logger = logging.getLogger(__name__)

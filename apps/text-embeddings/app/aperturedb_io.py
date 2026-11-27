@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timezone
 from aperturedb.CommonLibrary import create_connector, execute_query
 import logging
-from batcher import SymbolicBatcher
+from aperturedb_workflows.batcher import SymbolicBatcher
 
 logger = logging.getLogger(__name__)
 

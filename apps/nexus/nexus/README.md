@@ -1,0 +1,514 @@
+# aperture-nexus
+
+**The Cognition Engine for Enterprise AI.**
+
+aperture-nexus enables AI workflows, agents, and the humans working
+alongside them to establish context, capture knowledge across text,
+images, audio, video, and more, and commit it to memory for search
+and retrieval, powered by [ApertureDB](https://aperturedata.io)'s
+vector search and knowledge graph.
+
+The three building blocks form a continuous loop: **Knowledge** (the
+shared baseline of facts your systems can rely on), **Memory** (what
+has been captured in each interaction, such as documents, notes,
+images, and facts, accumulated over time from new commits), and
+**Context** (the who / what / when / why / how frame that makes
+retrieval meaningful). New `Information` arrives with `Context`,
+becomes `Memory` when committed, and drives retrieval that reasons
+across Memory and Knowledge together. Results produce new
+Information, and the loop continues. **Cognition** is what this loop
+enables: not just storage and lookup, but the ability to surface
+what an agent is relying on, update or discard beliefs as new
+evidence arrives, and let recent memories harden into shared
+Knowledge over time.
+
+![aperture-nexus hello world](demo/demo.gif)
+
+---
+
+## Why Nexus
+
+Most memory tools treat agent interactions as disconnected text chunks
+in a vector store. Nothing carries over: not the reasoning, not the
+context, not what actually happened last time. Existing knowledge bases
+get missed, and the original source of information gets lost.
+
+Nexus is the memory layer built on ApertureDB, the unified graph,
+vector, and multimodal database already running in production. Here is
+what changes when you use it.
+
+**Continuity across sessions and tools.** One shared memory backbone
+for every session, tool, and teammate on the same principal. Your
+Claude Code session from this morning, your Cursor session at lunch,
+your teammate joining the project tomorrow all see the same
+accumulated Knowledge and Memory.
+
+**Vector search plus knowledge graph, not vectors alone.** Vector
+search returns the top-K semantically similar chunks and stops. Nexus
+adds the knowledge graph on top, in the same store. Context (who,
+what, when, why, and how) is stamped on every commit; existing
+Knowledge lives alongside. Retrieval combines vector similarity with
+graph structure, so what comes back is not just "closest in embedding
+space" but the specific Memory plus the Knowledge and Context that
+together form the cognitive basis for answering the question. This
+mirrors how human memory works: recall is scoped by the situation you
+are in (Context) and connected to what you already know (Knowledge),
+not just what feels similar to whatever you are thinking about.
+
+**Lineage on demand.** Every commit's origin is right there in the same
+graph. Trace a memory back to the interaction that produced it, spot
+duplicates by source, audit what the agent has been relying on.
+Available when you want it, out of the way when you don't.
+
+**Team and department scale.** Adding a user is one call:
+`NexusAdmin.create_principal(user_id=..., organization=...,
+department=...)`. Every memory carries the principal, organization, and
+department that created it, and search scopes by that frame
+automatically. One memory backbone across the company, not a silo per
+tool or per person.
+
+**Security and privacy.** Admin credentials live only where principals
+are created, never in application code. Every operation enforces the
+caller's permissions. Self-host on Docker Compose or Kubernetes, or run
+on a cloud ApertureDB instance under your control. No third-party
+service sees your memories or your queries.
+
+**Ready for whatever your work adds next.** Text today; documents,
+images, video, audio, or structured records whenever your agents need
+them. Same store, same graph, same API. The capability is already there
+because ApertureDB is what backs Nexus. No second stack to bolt on, no
+migration when your work grows past chat logs.
+
+---
+
+## Try It Now: One Command
+
+```bash
+git clone https://github.com/aperture-data/aperture-nexus
+cd aperture-nexus
+./demo/run.sh
+```
+
+Requires [Docker Desktop](https://docs.docker.com/get-started/get-docker/)
+(Mac / Windows) or [Docker Engine](https://docs.docker.com/engine/install/)
+(Linux), and ORAS 1.3 to pull the public SDK image.
+For a local Python installation using the public SDK on PyPI, see
+[Installation](#installation).
+
+The first run downloads Docker images if not already cached, so allow
+**3–5 minutes**. Subsequent runs start in seconds.
+
+The walkthrough pauses at each step so you can read what's happening before
+it proceeds. All services (ApertureDB, the Lenz gateway, and the web UI)
+start automatically. Explore stored data at **https://localhost:8443**
+(ApertureDB web UI; http://localhost:8087 redirects there, and the certificate
+is self-signed) while the demo is running.
+
+When the demo finishes, the stack keeps running so you can explore the web UI.
+Stop it when you're done:
+
+```
+docker compose down      # stop (data is preserved)
+docker compose down -v   # stop and wipe all data
+```
+
+> **Demo vs. dev stack:** The `--profile demo` flag runs a self-contained
+> guided walkthrough that creates and cleans up all demo data automatically.
+> To start a persistent ApertureDB stack for your own development (without
+> the demo), omit the flag: `docker compose up -d`. See the
+> [ApertureDB](#aperturedb) section below.
+
+---
+
+## Quickstart
+
+```bash
+# One-time setup: creates your principal and writes NEXUS_API_KEY to .env
+adb-nexus init
+```
+
+```python
+import os
+from aperture_nexus import Memory, Context, Information
+
+memory = Memory()
+principal = memory.authenticate(
+    user_id="alice",
+    api_key=os.environ["NEXUS_API_KEY"],
+)
+
+ctx = Context(
+    principal=principal,
+    session_name="support-2024-001",
+    purpose="Customer reporting missing order",
+)
+
+info = Information(context_id=ctx.id)
+info.log(text="Customer says order #4821 never arrived")
+info.log(text="Order was marked delivered on April 3rd")
+
+# Store: no model calls required
+memory.commit(ctx, info)
+
+# Search by metadata: works immediately, no embedding model needed
+results = memory.search(filters={"session_name": "support-2024-001"})
+```
+
+For semantic search, generate embeddings at commit time and query by content:
+
+```python
+# Requires an embedding model. See the Models section below.
+memory.process_and_commit(ctx, info)
+results = memory.search(query="missing orders last week")
+```
+
+---
+
+Requires ApertureDB server 1.0 and the Python SDK 1.0.2 or later. Existing
+pre-1.0 databases must be migrated before this version is used. Stored media
+uses the NexusBlob, NexusImage and NexusVideo classes; vectors use a named
+descriptor class and vector index per modality/model.
+
+## Installation
+
+aperture-nexus v0.2.0 is not yet on PyPI. Install directly from the repository:
+
+```bash
+git clone https://github.com/aperture-data/aperture-nexus
+cd aperture-nexus
+python -m pip install .
+```
+
+Requires Python 3.10+, ApertureDB server 1.0+, and `aperturedb` Python SDK
+1.0.2+. pip installs the SDK from PyPI with the other dependencies. See
+[Version compatibility](docs/getting-started.md#version-compatibility) for the
+tested matrix.
+
+Optional features:
+
+```bash
+python -m pip install ".[video]"    # video frame extraction (opencv-python)
+python -m pip install ".[clip]"     # CLIP embeddings for text and images
+python -m pip install ".[tokens]"   # token-based text chunking
+python -m pip install ".[metrics]"  # Prometheus metrics export
+python -m pip install ".[all]"      # everything
+```
+
+> **Video embedding performance:** The built-in video embedder extracts frames
+> with CLIP, which is slow for anything beyond short clips because each frame is
+> embedded individually. For production workloads, pass a pre-computed embedding
+> directly via `info.log(video=..., embedding=my_vector, embedding_model="...")`,
+> or use `memory.commit()` (raw storage, no embedding) and add a dedicated video
+> model later.
+
+---
+
+## Models
+
+Models are only needed for `process_and_commit()`. If you use `commit()` for
+raw storage, or supply pre-computed embeddings, you can skip this section.
+
+### CLIP: One Model for Text, Images, and Video
+
+CLIP is trained on text-image pairs and puts both in a shared embedding
+space, so a text query can find images and an image query can find
+text. It is the simplest configuration and the recommended starting
+point. Video is not native to CLIP; Nexus makes it work by sampling
+frames (requires `opencv-python`), embedding each with the CLIP image
+encoder, and mean-pooling per clip. Retrieval quality on video is a
+function of the image encoder alone.
+
+Install:
+
+```bash
+python -m pip install '.[clip]'
+```
+
+Configure in `aperture_nexus.json`:
+
+```json
+{
+    "models": {
+        "text_embedding": "ViT-B/16",
+        "image_embedding": "ViT-B/16",
+        "video_embedding": "ViT-B/16"
+    }
+}
+```
+
+Two limitations to keep in mind:
+
+- **77-token text limit.** CLIP truncates input at 77 tokens (~300 characters).
+  Longer passages are chunked automatically using `processing.text_chunk_size`.
+  For long-document workloads, a dedicated text model gives better recall.
+- **Trained on image-text pairs.** CLIP retrieval quality for pure-text
+  queries is lower than purpose-built text models such as BGE-M3 or
+  `text-embedding-3-small`.
+
+### Dedicated Text Model + CLIP for Images and Video
+
+For workloads that mix document retrieval with image search, use a dedicated
+text model alongside CLIP for images and video:
+
+```json
+{
+    "models": {
+        "text_embedding": "text-embedding-3-small",
+        "image_embedding": "ViT-B/16",
+        "video_embedding": "ViT-B/16"
+    }
+}
+```
+
+> **Note:** Text and image embeddings are stored in separate ApertureDB
+> descriptor classes. Cross-modal search (text query to image results) requires
+> a shared embedding space; CLIP provides this, but separate models do not.
+
+### Pre-Computed Embeddings
+
+Skip model configuration by supplying embeddings directly at log time:
+
+```python
+info.log(
+    image="photo.jpg",
+    embedding=my_vector,           # numpy array
+    embedding_model="my-model",    # recorded in metadata
+)
+memory.commit(ctx, info)           # no model calls
+```
+
+The same pattern works for text, blob, and video entries.
+
+---
+
+## ApertureDB
+
+aperture-nexus requires a running ApertureDB instance.
+
+**Quickest option, Docker Compose:**
+
+```bash
+docker compose up -d
+```
+
+Starts ApertureDB, the Lenz TCP gateway, and the ApertureDB Web UI from the
+published ApertureDB Docker Compose package
+(`aperturedata/aperturedb-compose-single-node`). `APERTUREDB_VERSION` selects
+a release; the default is 1.0.0. Data persists across restarts. aperture-nexus connects on port `55556`
+by default.
+
+```
+docker compose down      # stop (data preserved)
+docker compose down -v   # stop and wipe all data
+```
+
+**ApertureDB Web UI** is available at `https://localhost:8443` after startup;
+`http://localhost:8087` redirects there. The certificate is self-signed.
+Use it to inspect what is stored in ApertureDB (entities, connections,
+descriptors, images), which is a useful way to verify that memories were
+committed correctly.
+
+> **License note:** See the
+> [ApertureDB Docker image license](https://www.aperturedata.io/docker-license)
+> and [contact ApertureData](https://www.aperturedata.io/contact-us) for
+> production licensing.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `APERTUREDB_KEY` | One of these three | Encoded connection key. Generated by `adb config`. Preferred for production. |
+| `APERTUREDB_JSON` | | JSON connection config: `{"host":"...","port":55556,"username":"...","password":"...","use_ssl":false}`. Used for local dev and the Docker Compose setup. |
+| `APERTUREDB_CONFIG` | | Name of a saved `adb config` configuration to use. |
+| `NEXUS_API_KEY` | Yes (app code) | App-level key for `memory.authenticate()`. Written to `.env` by `adb-nexus init`. |
+| `APERTURE_NEXUS_CONFIG` | No | Path to `aperture_nexus.json`. Overrides automatic discovery. |
+| `APERTURE_NEXUS_LOG_LEVEL` | No | Internal log level: `DEBUG` `INFO` `WARNING` `ERROR`. Default: `ERROR`. |
+| `APERTURE_NEXUS_UI_API_KEY` | When UI is hosted | API key for the web UI. Required when `ui.host` is not `127.0.0.1`. Never put this value in `aperture_nexus.json`. |
+
+ApertureDB credentials are resolved in this priority order:
+
+1. `APERTUREDB_KEY`: a single encoded key (simplest, recommended for production)
+2. `APERTUREDB_JSON`: JSON string with host, port, username, password, use_ssl
+3. Active `adb` configuration set via `adb config`
+
+---
+
+## Setup
+
+```bash
+adb-nexus init      # interactive setup: creates aperture_nexus.json and .env
+adb-nexus validate  # test your connection and config
+```
+
+---
+
+## Documentation
+
+Full documentation is in the [`docs/`](docs/) folder:
+
+| Page | Contents |
+|------|----------|
+| [Concepts](docs/concepts.md) | The KMC model, ApertureDB storage mapping, architecture diagrams |
+| [API Reference](docs/api-reference.md) | `Memory`, `Context`, `Information`, `MemoryTask`, exceptions |
+| [Configuration](docs/configuration.md) | Every field in `aperture_nexus.json` with defaults and env var overrides |
+| [Customer Support Agent](docs/customer-support-agent.md) | Multi-agent multimodal pipeline with CLIP semantic search: a worked example |
+
+### Knowledge Graph at a Glance
+
+Every `commit()` creates a `NexusCommit` entity connected to its `NexusContext`,
+`NexusUser`, and content (blobs, images, videos). The full graph:
+
+![aperture-nexus schema graph](demo/nexus_schema.png)
+
+See [Concepts → ApertureDB Storage Mapping](docs/concepts.md#aperturedb-storage-mapping)
+for the per-connection breakdown.
+
+---
+
+## Related Resources
+
+Longer-form writing on the ideas behind aperture-nexus:
+
+- [Introducing Aperture Nexus: Multimodal Memory](https://www.aperturedata.io/resources/introducing-aperture-nexus-multimodal-memory) — launch post, the KMC model, and the cognition stack.
+- [AI Memory & Cognition: The Architect's Playbook](https://www.aperturedata.io/resources/ai-memory-cognition-the-architects-playbook) — design patterns for enterprise AI memory.
+- [AI Memory & Cognition Landscape Deep Dive](https://www.aperturedata.io/resources/ai-memory-cognition-landscape-deep-dive) — where existing tools sit and what is missing.
+- [The Spectrum of Machine Cognition: Evaluating Frameworks (Part 2A)](https://www.aperturedata.io/resources/the-spectrum-of-machine-cognition-evaluating-frameworks-part2-a) — how to compare cognition frameworks.
+- [Human Memory: The Perfect Template for AI Memory](https://www.aperturedata.io/resources/human-memory-the-perfect-template-for-ai-memory) — the biological analogy that shaped KMC.
+- [Context Graphs: Their Implementation, Human Judgment & Machine Agency](https://www.aperturedata.io/resources/context-graphs-their-implementation-human-judgment-machine-agency) — Context as a first-class citizen.
+
+Podcast — *The Cognitive Layer*:
+
+- [Episode 1: Himanshu (Netflix)](https://www.aperturedata.io/resources/the-cognitive-layer-episode1-himanshu-netflix)
+
+---
+
+## CLI
+
+```bash
+adb-nexus init                             # interactive setup wizard
+adb-nexus init --defaults                  # non-interactive, all defaults
+adb-nexus validate                         # test connection and config
+adb-nexus validate --config path/to/x.json
+```
+
+---
+
+## Security
+
+- No root required; all paths and ports are user-accessible
+- Credentials via environment, never hardcoded in config or source
+- UI binds to `127.0.0.1` by default; network access requires an explicit `api_key`
+- `.env` is automatically added to `.gitignore` by `adb-nexus init`
+
+---
+
+## Enterprise Design
+
+aperture-nexus is designed for deployment at any scale, from a single
+developer's Claude session to a multi-team organization.
+
+### Credential Separation
+
+Admin credentials (ApertureDB `APERTUREDB_KEY`) are isolated to one place:
+`adb-nexus init`. Everything else (application code, AI agent sessions,
+and search queries) uses only:
+
+- **Regular ApertureDB credentials**: connection to the DB
+- **`NEXUS_API_KEY`**: user-level credential written to `.env` by `init`
+
+No application code ever needs admin credentials. A compromised session
+cannot create or delete principals.
+
+### Authentication Flow
+
+```
+┌─────────────────────┐        ┌──────────────────────┐
+│   adb-nexus init    │        │   Application / Agent │
+│  (admin creds only) │        │  (regular creds only) │
+│                     │        │                       │
+│  create_principal() │        │  memory.authenticate()│
+│  → NEXUS_API_KEY    │──.env─▶│  → Principal          │
+│    written to .env  │        │  → Context            │
+└─────────────────────┘        │  → memory.commit()    │
+                                └──────────────────────┘
+```
+
+### Key Rotation
+
+If a principal's key needs to be replaced (new device, suspected exposure),
+an admin rotates it with no DB schema changes and no session disruption:
+
+```python
+from aperture_nexus import NexusAdmin
+
+admin = NexusAdmin()  # requires admin ApertureDB credentials
+new_key = admin.rotate_key(user_id="alice")
+# Deliver new_key to alice; update her .env
+```
+
+The previous key is invalidated immediately. All existing memories are
+retained; rotation affects authentication only, not stored data.
+
+### Multi-User and Multi-Tenant
+
+Each principal has `user_id`, `department`, and `organization` properties
+stamped on every stored object. This is the foundation for the v2
+permissions model (Personal / Project / Team / Company retrieval scoping)
+without requiring any schema migration.
+
+---
+
+## Roadmap
+
+v0.1 ships the core Nexus API (commit, search, connect, and authenticate) that implements the KMC model, validated against live ApertureDB.
+
+**Coming in v2:**
+
+| Feature | What it enables |
+|---------|----------------|
+| MCP server (`adb-nexus mcp`) | Persistent memory in Claude Code, Cursor, Windsurf, and any MCP-compatible client |
+| Working memory | Search, deduplicate, and consolidate staged `Information` before commit: a short-term layer between raw input and durable Memory |
+| Bulk ingest for existing knowledge | Import an organization's existing documents, past tickets, transcripts, and archives into Memory alongside new agent commits |
+| Memory updates with lineage | `Memory.update()`: supersede a memory while retaining full history via `superseded_by` |
+| Time and tag operations on committed Memory | `memory.search(since=..., tag=...)` and `memory.remove(tag=...)` mirroring what the `Information` buffer already supports |
+| Preference profiles | Per-category preferences (`coding`, `writing`, `email`) stored as searchable memories |
+| Visibility model | `private` / `department` / `organization` / `shared`, enforced automatically at search time |
+| Hybrid keyword + vector search | BM25-style keyword scoring blended with vector similarity |
+| GraphRAG neighborhood search | `search(neighborhood=2)`: traverse the knowledge graph from matched results |
+| Multimodal-native descriptor classes | One shared set per CLIP variant with a modality property, so cross-modal KNN works natively |
+| Recency weighting | Configurable decay in search scoring; `search(lookback=30)` |
+| Memory archiving + consolidation | TTL policies and LLM-based consolidation of older memories into Knowledge |
+| Web UI | Browser interface for browsing sessions, contexts, memories, and search |
+| Async commit (validated) | `async_process_and_commit()` re-exposed after live integration testing and persistent task status |
+
+**Shape what gets built:** [Join the v2 discussion →](https://github.com/aperture-data/aperture-nexus/discussions)
+
+Tell us what you're building and what would unblock you. We prioritize based on real use cases.
+
+---
+
+## License
+
+aperture-nexus is released under the [MIT License](LICENSE).
+
+> **Note:** This license covers aperture-nexus only. ApertureDB is licensed separately; see the [community edition license](https://www.aperturedata.io/docker-license) and [contact ApertureData](https://www.aperturedata.io/contact-us) for production use.
+
+---
+
+## Contributing
+
+See [CLAUDE.md](CLAUDE.md) for development guidelines, conventions, and PR workflow.
+
+## Existing data and generated files
+
+These applications target server 1.0. Updating code does not rename stored
+application classes. Inspect `GetSchema` (`nodes` and `edges`) before reusing an
+existing database: converted built-in categories have names such as `Image`,
+`Video` and `Blob`, while these examples use explicit application classes. On a
+dedicated application database, use the native `RenameClass` command to align
+those categories with the configured names, or reingest through the updated
+loaders. Shared databases need an application-specific export/reingestion plan.
+Regenerate connection CSVs and cached identifiers against the native schema;
+old `_Image@...`/`_Descriptor@...` headers do not identify native categories.

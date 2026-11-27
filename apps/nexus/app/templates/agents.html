@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Agents · Aperture Nexus{% endblock %}
+{% block content %}
+<h1>Agents</h1>
+<p class="lead">Each agent has its own token. Memories record which agent stored them,
+  and agents can recall memories from their own organization.</p>
+
+{% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+
+{% if issued %}
+<section class="issued" aria-labelledby="issued-title">
+  <h2 id="issued-title">Token for {{ issued.agent_id }}</h2>
+  <p><strong>Copy it now.</strong> It is shown only once. If it is lost, rotate the token.</p>
+  <div class="copyable">
+    <code id="agent-token" data-agent-token>{{ issued.token }}</code>
+    <button type="button" data-copy="agent-token">Copy</button>
+  </div>
+  <h3>Claude Code</h3>
+  <div class="copyable">
+    <pre id="claude-code">claude mcp add --transport http nexus {{ mcp_url }} --header "Authorization: Bearer {{ issued.token }}"</pre>
+    <button type="button" data-copy="claude-code">Copy</button>
+  </div>
+  <h3>Claude Desktop</h3>
+  <p>Save <a href="{{ bridge_url }}">stdio-bridge.py</a>, then add this to
+    <code>claude_desktop_config.json</code>:</p>
+  <div class="copyable">
+    <pre id="claude-desktop">{
+  "mcpServers": {
+    "nexus": {
+      "command": "python3",
+      "args": ["/path/to/stdio-bridge.py", "{{ mcp_url }}", "{{ issued.token }}"]
+    }
+  }
+}</pre>
+    <button type="button" data-copy="claude-desktop">Copy</button>
+  </div>
+</section>
+{% endif %}
+
+<section aria-labelledby="list-title">
+  <h2 id="list-title">Current agents</h2>
+  {% if agents %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th scope="col">Agent ID</th><th scope="col">Name</th><th scope="col">Department</th>
+          <th scope="col">Organization</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+      </thead>
+      <tbody>
+        {% for agent in agents %}
+        <tr>
+          <td><a href="{{ admin_path }}/memories?agent={{ agent.agent_id | urlencode }}"><code>{{ agent.agent_id }}</code></a></td>
+          <td>{{ agent.name or "" }}</td>
+          <td>{{ agent.department or "" }}</td>
+          <td>{{ agent.organization or "" }}</td>
+          <td class="actions">
+            <form method="post" action="{{ admin_path }}/agents/rotate"
+                  data-confirm="Issue a new token for {{ agent.agent_id }}? The current token stops working.">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="agent_id" value="{{ agent.agent_id }}">
+              <button type="submit" class="secondary">Rotate token</button>
+            </form>
+            <form method="post" action="{{ admin_path }}/agents/delete"
+                  data-confirm="Remove {{ agent.agent_id }}? It can no longer connect. Its memories are kept.">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="agent_id" value="{{ agent.agent_id }}">
+              <button type="submit" class="danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No agents yet. Add one below to get its token.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="add-title">
+  <h2 id="add-title">Add an agent</h2>
+  <form method="post" action="{{ admin_path }}/agents" class="grid">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="agent_id">Agent ID</label>
+    <div>
+      <input id="agent_id" name="agent_id" required maxlength="128"
+             pattern="[A-Za-z0-9][A-Za-z0-9._@\-]*" aria-describedby="agent-id-help">
+      <p id="agent-id-help" class="help">For example <code>alice-claude-code</code> or
+        <code>support-bot</code>. Letters, digits, <code>.</code> <code>_</code>
+        <code>@</code> <code>-</code>.</p>
+    </div>
+    <label for="name">Name</label>
+    <input id="name" name="name" maxlength="256">
+    <label for="department">Department</label>
+    <input id="department" name="department" maxlength="256" placeholder="general">
+    <label for="organization">Organization</label>
+    <div>
+      <input id="organization" name="organization" maxlength="256" placeholder="default"
+             aria-describedby="organization-help">
+      <p id="organization-help" class="help">Agents only recall memories from their own organization.</p>
+    </div>
+    <span></span>
+    <button type="submit">Add agent</button>
+  </form>
+</section>
+{% endblock %}

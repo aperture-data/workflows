@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 from aperturedb.Constraints import predicate
 from aperturedb.Connector import Connector
 from aperturedb.Configuration import Configuration
-import connection_pool as shared_pool
+from aperturedb_workflows import connection_pool as shared_pool
 from fresh_connection_pool import FreshConnectionPool
 
 
@@ -91,11 +91,11 @@ class FreshPoolTests(unittest.TestCase):
 class ErrorPropagationTests(unittest.TestCase):
     def load_generator(self, name, factory):
         dependencies = {
-            'embeddings': SimpleNamespace(Embedder=object),
+            'aperturedb_workflows.embeddings': SimpleNamespace(Embedder=object),
             'pytesseract': Mock(), 'torch': Mock(), 'numpy': Mock(),
             'PIL': SimpleNamespace(Image=Mock()), 'fitz': Mock(),
-            'text_extraction.segmentation': SimpleNamespace(TextSegmenter=Mock()),
-            'text_extraction.schema': SimpleNamespace(TextBlock=object, Segment=object),
+            'aperturedb_workflows.text_extraction.segmentation': SimpleNamespace(TextSegmenter=Mock()),
+            'aperturedb_workflows.text_extraction.schema': SimpleNamespace(TextBlock=object, Segment=object),
         }
         spec = importlib.util.spec_from_file_location('ocr_' + name, APP / (name + '.py'))
         module = importlib.util.module_from_spec(spec)
@@ -137,10 +137,10 @@ class ErrorPropagationTests(unittest.TestCase):
                     'aperturedb': SimpleNamespace(CommonLibrary=Mock(), ParallelQuery=SimpleNamespace(
                         ParallelQuery=lambda client: querier)),
                     'aperturedb.Constraints': SimpleNamespace(predicate=predicate),
-                    'embeddings': SimpleNamespace(Embedder=Mock()),
+                    'aperturedb_workflows.embeddings': SimpleNamespace(Embedder=Mock()),
                     'fresh_connection_pool': SimpleNamespace(FreshConnectionPool=lambda: pool),
                     'ocr': SimpleNamespace(OCR=Mock()),
-                    'wf_argparse': SimpleNamespace(ArgumentParser=object),
+                    'aperturedb_workflows.wf_argparse': SimpleNamespace(ArgumentParser=object),
                     'image_ocr': SimpleNamespace(FindImageOCRQueryGenerator=Mock()),
                     'pdf_ocr': SimpleNamespace(FindPDFOCRQueryGenerator=Mock()),
                 }

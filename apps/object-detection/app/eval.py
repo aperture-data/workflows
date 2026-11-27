@@ -16,7 +16,7 @@ from aperturedb import Utils
 from aperturedb import PyTorchDataset
 from aperturedb import CommonLibrary
 
-from connection_pool import ConnectionPool
+from aperturedb_workflows.connection_pool import ConnectionPool
 
 from infer import BboxDetector as BboxDetector
 

@@ -11,6 +11,8 @@ fi
 # Override the Croissant URL for tests to use the local dummy data
 export WF_CROISSANT_URL="/test_data/croissant.json"
 
+$COMMAND build "$COMPOSE_PROJECT_NAME"
+
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log
 echo "Writing logs to $TEST_LOG"

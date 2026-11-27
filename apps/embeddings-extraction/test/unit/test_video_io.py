@@ -176,8 +176,8 @@ class VideoIOTests(unittest.TestCase):
             'aperturedb': SimpleNamespace(ParallelQuery=SimpleNamespace(
                 ParallelQuery=lambda client: querier)),
             'clip': Mock(),
-            'embeddings': SimpleNamespace(Embedder=embedder_factory),
-            'connection_pool': SimpleNamespace(ConnectionPool=lambda: self.pool),
+            'aperturedb_workflows.embeddings': SimpleNamespace(Embedder=embedder_factory),
+            'aperturedb_workflows.connection_pool': SimpleNamespace(ConnectionPool=lambda: self.pool),
             'images': Mock(),
             'pdfs': Mock(),
             'videos': SimpleNamespace(FindVideoQueryGenerator=lambda *args, **kwargs: self.generator),

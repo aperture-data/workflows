@@ -35,9 +35,7 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
-COPY --from=wf  /app/ /app
-COPY --from=wf  /start.sh /
-RUN chown -R 1001 /app
+RUN mkdir -p /app && chown -R 1001 /app
 USER 1001
 COPY app/extensions.py /label-studio/label_studio/io_storages/aperturedb/
 COPY uwsgi.ini.part /app/
@@ -45,4 +43,6 @@ RUN cat /app/uwsgi.ini.part >> /label-studio/deploy/uwsgi.ini
 
 COPY app /app/
 WORKDIR /
-ENTRYPOINT ["/start.sh"]
+ARG WORKFLOW_VERSION="UNDEFINED"
+ENV WORKFLOW_VERSION=${WORKFLOW_VERSION}
+ENTRYPOINT ["wf-start"]

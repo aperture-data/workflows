@@ -44,10 +44,10 @@ echo ">>> Running $WORKFLOW tests (project=$COMPOSE_PROJECT_NAME)"
 
 
 if [ ${CI_RUN:-0} -eq 0 ]; then
-  build_base
+  (cd "$ROOT_DIR/base/docker" && bash build.sh)
 fi
 
-$COMMAND build crawl-website text-extraction text-embeddings
+$COMMAND build crawl-website text-extraction text-embeddings "$WORKFLOW"
 
 # This log file is useful for debugging test failures
 TEST_LOG=$BIN_DIR/test.log

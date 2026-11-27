@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Memories · Aperture Nexus{% endblock %}
+{% block content %}
+<h1>Memories</h1>
+<p class="lead">Search what agents stored in every organization, or browse their sessions.</p>
+
+{% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+
+<form method="get" action="{{ admin_path }}/memories" class="search" role="search">
+  <div class="search-main">
+    <label for="q" class="visually-hidden">Search memories</label>
+    <input id="q" name="q" value="{{ form.q }}" placeholder="Search by meaning, for example: how do we rate limit?">
+    <button type="submit">Search</button>
+  </div>
+  <div class="search-filters">
+    <label>Agent
+      <select name="agent">
+        <option value="">Any agent</option>
+        {% for a in agents %}
+        <option value="{{ a.agent_id }}"{% if a.agent_id == form.agent %} selected{% endif %}>{{ a.agent_id }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Session <input name="session" value="{{ form.session }}"></label>
+    <label>Organization <input name="organization" value="{{ form.organization }}"></label>
+    <label>Department <input name="department" value="{{ form.department }}"></label>
+  </div>
+</form>
+
+{% if results is defined %}
+<section aria-labelledby="results-title">
+  <h2 id="results-title">{{ results | length }} {{ "memory" if results | length == 1 else "memories" }}</h2>
+  {% if results %}
+  <ol class="memories">
+    {% for m in results %}
+    <li>
+      <p class="memory-text">{{ m.text or "" }}</p>
+      <p class="meta">
+        <code>{{ m.agent }}</code>
+        · <a href="{{ admin_path }}/session?id={{ m.session_id | urlencode }}">{{ m.session or m.session_id }}</a>
+        {% if m.organization %}· {{ m.organization }}{% endif %}
+        · {{ m.created_at | when }}
+        · <a href="{{ admin_path }}/context?id={{ m.context_id | urlencode }}">Context</a>
+      </p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">Nothing matches. Try other words or fewer filters.</p>
+  {% endif %}
+</section>
+{% else %}
+<section aria-labelledby="sessions-title">
+  <h2 id="sessions-title">{% if form.agent %}Sessions of {{ form.agent }}{% else %}Recent sessions{% endif %}</h2>
+  {% if sessions %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th scope="col">Session</th><th scope="col">Agent</th><th scope="col">Organization</th>
+          <th scope="col">Started</th></tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td><a href="{{ admin_path }}/session?id={{ s.session_id | urlencode }}">{{ s.session or s.session_id }}</a></td>
+          <td><code>{{ s.agent }}</code></td>
+          <td>{{ s.organization or "" }}</td>
+          <td>{{ s.created_at | when }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No sessions yet. Agents create one with their first <code>remember</code> call.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

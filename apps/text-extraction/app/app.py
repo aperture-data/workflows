@@ -1,11 +1,11 @@
 from aperturedb_io import AperturedbIO
-from wf_argparse import ArgumentParser
+from aperturedb_workflows.wf_argparse import ArgumentParser
 import logging
 from uuid import uuid4
 
-from text_extraction.text_extractor import TextExtractor
-from text_extraction.segmentation import TextSegmenter
-from text_extraction.schema import TextBlock, ImageBlock, FullTextBlock
+from aperturedb_workflows.text_extraction.text_extractor import TextExtractor
+from aperturedb_workflows.text_extraction.segmentation import TextSegmenter
+from aperturedb_workflows.text_extraction.schema import TextBlock, ImageBlock, FullTextBlock
 
 
 logger = logging.getLogger(__name__)
